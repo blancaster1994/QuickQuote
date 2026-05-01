@@ -1,0 +1,19 @@
+{
+  "_source": "Stage 1 v2 lookups stub. Auto-import from PM Quoting App takes precedence on first run; this file is the fallback for installs where PM Quoting App isn't present.",
+  "legal_entities": ["CES", "FWL", "TZW"],
+  "rate_tables": ["Consulting", "Structural", "Operations"],
+  "project_types": ["FF", "T&M", "NTE"],
+  "markup": [0.10, 0.15, 0.20],
+  "expense_categories": [
+    "Travel",
+    "Lodging",
+    "Meals",
+    "Materials",
+    "Subcontractor"
+  ],
+  "departments": ["Consulting", "Operations", "Structural"],
+  "phases_by_department": {},
+  "tasks_by_dept_phase": {},
+  "employees": [],
+  "rates": []
+}

@@ -3,14 +3,20 @@ import path from 'node:path';
 import fs from 'node:fs';
 import BetterSqlite3 from 'better-sqlite3';
 import { migrate } from './db/schema';
-import { seedIfEmpty, resolveSeedPath } from './db/seed';
+import {
+  seedIfEmpty, resolveSeedPath,
+  seedLookupsIfEmpty, resolveLookupsSeedPath,
+  seedTemplatesIfMissing,
+} from './db/seed';
 import * as Q from './db/queries';
+import * as Lookups from './db/lookups';
+import type { NameTable } from './db/lookups';
 import * as activity from './lifecycle/activity';
 import * as versioning from './lifecycle/versioning';
 import { buildDashboard } from './lifecycle/dashboard';
 import * as identity from './identity/identity';
 import { generateProposal } from './proposal/generate';
-import { importFromQuickProp } from './db/importer';
+import { importFromQuickProp, importFromPMQuoting } from './db/importer';
 import { IPC } from './ipc-channels';
 
 const IS_DEV = process.env.NODE_ENV === 'development';
@@ -28,9 +34,32 @@ function initDb(): void {
   const p = dbPath();
   db = new BetterSqlite3(p);
   migrate(db);
+
+  // V1 seed (allowed_users, employees, category_mapping, rates, expense_lines).
   const seedPath = resolveSeedPath(app.getAppPath());
   const seeded = seedIfEmpty(db, seedPath);
-  console.log(`DB at ${p}; seeded=${seeded}`);
+
+  // V2 lookups seed (legal_entity, department, etc.). Falls back when PM
+  // Quoting App isn't installed; auto-importer below takes precedence.
+  const lookupsPath = resolveLookupsSeedPath(app.getAppPath());
+  const lookupsSeeded = seedLookupsIfEmpty(db, lookupsPath);
+
+  // V2 phase templates. Idempotent — runs every startup, only inserts when
+  // template_phase is empty.
+  const tplCount = seedTemplatesIfMissing(db, app.getAppPath());
+
+  // One-shot import from PM Quoting App's SQLite (lookups, employees,
+  // rates, templates). Skipped silently if PM Quoting App isn't found,
+  // already imported, or its DB is locked.
+  const pmResult = importFromPMQuoting(db);
+
+  console.log(
+    `DB at ${p}; v1seed=${seeded} v2lookups=${lookupsSeeded} templates+=${tplCount} ` +
+    `pmImport=${pmResult.ok ? (pmResult.alreadyImported ? 'already' : 'ok') : 'fail'}`,
+  );
+  if (pmResult.skipped.length) {
+    console.log('  pm import notes:', pmResult.skipped.join('; '));
+  }
 }
 
 function requireDb(): BetterSqlite3.Database {
@@ -78,6 +107,9 @@ function registerIpc(): void {
   });
   ipcMain.handle(IPC.APP_IMPORT_FROM_QUICKPROP, (_e, sourceDir: string | null) =>
     importFromQuickProp(requireDb(), sourceDir ?? undefined),
+  );
+  ipcMain.handle(IPC.APP_IMPORT_FROM_PMQUOTING, (_e, sourceDb: string | null) =>
+    importFromPMQuoting(requireDb(), sourceDb ?? undefined),
   );
 
   // ── identity ─────────────────────────────────────────────────────────────
@@ -226,6 +258,120 @@ function registerIpc(): void {
   ipcMain.handle(IPC.GENERATE_PDF, async (_e, proposal: any, _previewHtml?: string) => {
     return generateProposal(requireDb(), { name: proposal?.name || '', format: 'pdf' });
   });
+
+  // ── PM-mode lookups (Stage 1) ────────────────────────────────────────────
+  // Simple name lists.
+  ipcMain.handle(IPC.LOOKUP_LIST, (_e, table: NameTable) =>
+    Lookups.listNames(requireDb(), table),
+  );
+  ipcMain.handle(IPC.LOOKUP_ADD, (_e, table: NameTable, name: string) =>
+    Lookups.insertName(requireDb(), table, name),
+  );
+  ipcMain.handle(IPC.LOOKUP_UPDATE, (_e, table: NameTable, id: number, name: string) => {
+    Lookups.updateName(requireDb(), table, id, name);
+    return { ok: true as const };
+  });
+  ipcMain.handle(IPC.LOOKUP_DELETE, (_e, table: NameTable, id: number) => {
+    Lookups.deleteName(requireDb(), table, id);
+    return { ok: true as const };
+  });
+
+  // Markup percentages.
+  ipcMain.handle(IPC.MARKUP_LIST, () => Lookups.listMarkup(requireDb()));
+  ipcMain.handle(IPC.MARKUP_ADD, (_e, value: number) => Lookups.insertMarkup(requireDb(), value));
+  ipcMain.handle(IPC.MARKUP_UPDATE, (_e, id: number, value: number) => {
+    Lookups.updateMarkup(requireDb(), id, value);
+    return { ok: true as const };
+  });
+  ipcMain.handle(IPC.MARKUP_DELETE, (_e, id: number) => {
+    Lookups.deleteMarkup(requireDb(), id);
+    return { ok: true as const };
+  });
+
+  // Phase + task taxonomy.
+  ipcMain.handle(IPC.PHASE_DEF_LIST, (_e, department?: string) =>
+    Lookups.listPhases(requireDb(), department),
+  );
+  ipcMain.handle(IPC.PHASE_DEF_SAVE, (_e, row: { id?: number; department: string; name: string; sort_order: number }) =>
+    Lookups.upsertPhase(requireDb(), row),
+  );
+  ipcMain.handle(IPC.PHASE_DEF_DELETE, (_e, id: number) => {
+    Lookups.deletePhase(requireDb(), id);
+    return { ok: true as const };
+  });
+  ipcMain.handle(IPC.TASK_DEF_LIST, (_e, department?: string, phase?: string) =>
+    Lookups.listTasks(requireDb(), department, phase),
+  );
+  ipcMain.handle(IPC.TASK_DEF_SAVE, (_e, row: { id?: number; department: string; phase: string; name: string; sort_order: number }) =>
+    Lookups.upsertTask(requireDb(), row),
+  );
+  ipcMain.handle(IPC.TASK_DEF_DELETE, (_e, id: number) => {
+    Lookups.deleteTask(requireDb(), id);
+    return { ok: true as const };
+  });
+
+  // Phase templates.
+  ipcMain.handle(IPC.TEMPLATE_PHASE_LIST, (_e, filters?: { legal_entity?: string; department?: string; template?: string }) =>
+    Lookups.listTemplatePhases(requireDb(), filters ?? {}),
+  );
+  ipcMain.handle(IPC.TEMPLATE_PHASE_LIST_FOR_CONTEXT, (_e, legalEntity: string, department: string) =>
+    Lookups.listTemplatesForContext(requireDb(), legalEntity, department),
+  );
+  ipcMain.handle(IPC.TEMPLATE_PHASE_SAVE, (_e, row: Omit<Lookups.TemplatePhaseRow, 'id'> & { id?: number }) =>
+    Lookups.upsertTemplatePhase(requireDb(), row),
+  );
+  ipcMain.handle(IPC.TEMPLATE_PHASE_DELETE, (_e, id: number) => {
+    Lookups.deleteTemplatePhase(requireDb(), id);
+    return { ok: true as const };
+  });
+  ipcMain.handle(IPC.TEMPLATE_PHASE_BULK_REPLACE, (_e, rows: Array<Omit<Lookups.TemplatePhaseRow, 'id'>>) => {
+    Lookups.bulkReplaceTemplatePhases(requireDb(), rows);
+    return { ok: true as const, count: rows.length };
+  });
+
+  // Employees (extended).
+  ipcMain.handle(IPC.EMPLOYEE_LIST, (_e, activeOnly?: boolean) =>
+    Lookups.listEmployees(requireDb(), activeOnly !== false),
+  );
+  ipcMain.handle(IPC.EMPLOYEE_SAVE, (_e, row: Lookups.EmployeeRow) =>
+    Lookups.upsertEmployee(requireDb(), row),
+  );
+  ipcMain.handle(IPC.EMPLOYEE_DELETE, (_e, id: number) => {
+    Lookups.deleteEmployee(requireDb(), id);
+    return { ok: true as const };
+  });
+  ipcMain.handle(IPC.EMPLOYEE_IMPORT_BULK, (_e, rows: Array<Omit<Lookups.EmployeeRow, 'id' | 'active'>>) => {
+    Lookups.bulkReplaceEmployees(requireDb(), rows);
+    return { ok: true as const, count: rows.length };
+  });
+  ipcMain.handle(IPC.EMPLOYEE_FIND_BY_EMAIL, (_e, email: string) =>
+    Lookups.findEmployeeByEmail(requireDb(), email) ?? null,
+  );
+
+  // Rates.
+  ipcMain.handle(IPC.RATE_LIST, (_e, filters?: { legal_entity?: string; rate_table?: string }) =>
+    Lookups.listRates(requireDb(), filters ?? {}),
+  );
+  ipcMain.handle(IPC.RATE_SAVE, (_e, row: Lookups.RateRow) =>
+    Lookups.upsertRate(requireDb(), row),
+  );
+  ipcMain.handle(IPC.RATE_DELETE, (_e, id: number) => {
+    Lookups.deleteRate(requireDb(), id);
+    return { ok: true as const };
+  });
+  ipcMain.handle(IPC.RATE_IMPORT_BULK, (_e, rows: Array<Omit<Lookups.RateRow, 'id'>>) => {
+    Lookups.bulkReplaceRates(requireDb(), rows);
+    return { ok: true as const, count: rows.length };
+  });
+  ipcMain.handle(IPC.RATE_LOOKUP, (_e, legalEntity: string, rateTable: string, category: string, resourceId?: string | null) =>
+    Lookups.lookupRate(requireDb(), legalEntity, rateTable, category, resourceId ?? null),
+  );
+  ipcMain.handle(IPC.RATE_CATEGORIES, (_e, legalEntity?: string) =>
+    Lookups.listRateCategories(requireDb(), legalEntity),
+  );
+  ipcMain.handle(IPC.RATE_TABLES_FOR_ENTITY, (_e, legalEntity: string) =>
+    Lookups.listRateTablesForEntity(requireDb(), legalEntity),
+  );
 
   // ── OS integration ───────────────────────────────────────────────────────
   ipcMain.handle(IPC.OS_OPEN_FILE, async (_e, p: string) => {

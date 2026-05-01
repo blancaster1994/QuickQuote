@@ -9,6 +9,7 @@ export const IPC = {
   // ── bootstrap ─────────────────────────────────────────────────────────────
   APP_BOOTSTRAP:           'app:bootstrap',
   APP_IMPORT_FROM_QUICKPROP: 'app:importFromQuickProp',
+  APP_IMPORT_FROM_PMQUOTING: 'app:importFromPMQuoting',
 
   // ── identity ──────────────────────────────────────────────────────────────
   IDENTITY_GET:            'identity:get',
@@ -59,6 +60,46 @@ export const IPC = {
   // ── OS integration ────────────────────────────────────────────────────────
   OS_OPEN_FILE:            'os:openFile',
   OS_REVEAL_IN_EXPLORER:   'os:revealInExplorer',
+
+  // ── PM-mode lookups (Stage 1; UI lands in Stage 2) ───────────────────────
+  // Simple name-list CRUD keyed by table name (legal_entity, department,
+  // rate_table, project_type, expense_category).
+  LOOKUP_LIST:             'lookup:list',
+  LOOKUP_ADD:              'lookup:add',
+  LOOKUP_UPDATE:           'lookup:update',
+  LOOKUP_DELETE:           'lookup:delete',
+  // Markup percentages have a different shape (numeric value).
+  MARKUP_LIST:             'markup:list',
+  MARKUP_ADD:              'markup:add',
+  MARKUP_UPDATE:           'markup:update',
+  MARKUP_DELETE:           'markup:delete',
+  // Phase + task taxonomy (per-department).
+  PHASE_DEF_LIST:          'phaseDef:list',
+  PHASE_DEF_SAVE:          'phaseDef:save',
+  PHASE_DEF_DELETE:        'phaseDef:delete',
+  TASK_DEF_LIST:           'taskDef:list',
+  TASK_DEF_SAVE:           'taskDef:save',
+  TASK_DEF_DELETE:         'taskDef:delete',
+  // Phase templates (legal_entity + department-scoped bundles).
+  TEMPLATE_PHASE_LIST:     'templatePhase:list',
+  TEMPLATE_PHASE_LIST_FOR_CONTEXT: 'templatePhase:listForContext',
+  TEMPLATE_PHASE_SAVE:     'templatePhase:save',
+  TEMPLATE_PHASE_DELETE:   'templatePhase:delete',
+  TEMPLATE_PHASE_BULK_REPLACE: 'templatePhase:bulkReplace',
+  // Employees (extended — used for resource allocation, PM picker, ClickUp).
+  EMPLOYEE_LIST:           'employee:list',
+  EMPLOYEE_SAVE:           'employee:save',
+  EMPLOYEE_DELETE:         'employee:delete',
+  EMPLOYEE_IMPORT_BULK:    'employee:importBulk',
+  EMPLOYEE_FIND_BY_EMAIL:  'employee:findByEmail',
+  // Rates (4-tier lookup).
+  RATE_LIST:               'rate:list',
+  RATE_SAVE:               'rate:save',
+  RATE_DELETE:             'rate:delete',
+  RATE_IMPORT_BULK:        'rate:importBulk',
+  RATE_LOOKUP:             'rate:lookup',
+  RATE_CATEGORIES:         'rate:categories',
+  RATE_TABLES_FOR_ENTITY:  'rate:tablesForEntity',
 } as const;
 
 export type IpcChannel = typeof IPC[keyof typeof IPC];
