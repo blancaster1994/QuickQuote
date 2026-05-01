@@ -26,6 +26,12 @@
       "dist-electron/**/*",
       "package.json"
     ],
+    "extraResources": [
+      {
+        "from": "seed",
+        "to": "seed"
+      }
+    ],
     "asarUnpack": [
       "**/node_modules/better-sqlite3/**"
     ],

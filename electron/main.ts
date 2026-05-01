@@ -1,10 +1,30 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
+import fs from 'node:fs';
+import BetterSqlite3 from 'better-sqlite3';
+import { migrate } from './db/schema';
+import { seedIfEmpty, resolveSeedPath } from './db/seed';
 import { IPC } from './ipc-channels';
 
 const IS_DEV = process.env.NODE_ENV === 'development';
 
 let mainWindow: BrowserWindow | null = null;
+let db: BetterSqlite3.Database | null = null;
+
+function dbPath(): string {
+  const dir = app.getPath('userData');
+  fs.mkdirSync(dir, { recursive: true });
+  return path.join(dir, 'quickquote.db');
+}
+
+function initDb(): void {
+  const p = dbPath();
+  db = new BetterSqlite3(p);
+  migrate(db);
+  const seedPath = resolveSeedPath(app.getAppPath());
+  const seeded = seedIfEmpty(db, seedPath);
+  console.log(`DB at ${p}; seeded=${seeded}`);
+}
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -35,8 +55,7 @@ function createWindow(): void {
 
 // Stub every IPC channel declared in ipc-channels.ts. Each handler throws
 // "not implemented yet" so the renderer gets a clear error if it accidentally
-// invokes a channel before Steps 5–7 land. Tests/typecheck stay clean and
-// we get an end-to-end IPC surface today.
+// invokes a channel before Steps 6–7 land.
 function registerIpc(): void {
   const todo = (channel: string) => async () => {
     throw new Error(`${channel}: not implemented yet (port lands in a later step)`);
@@ -97,6 +116,7 @@ function registerIpc(): void {
 }
 
 void app.whenReady().then(() => {
+  initDb();
   registerIpc();
   createWindow();
 
@@ -106,5 +126,9 @@ void app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
+  if (db) {
+    try { db.close(); } catch { /* best effort */ }
+    db = null;
+  }
   if (process.platform !== 'darwin') app.quit();
 });

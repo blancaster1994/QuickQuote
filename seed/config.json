@@ -1,0 +1,819 @@
+{
+  "_source": "Built from QuickProp v3.1.1 config files via scripts/build-seed.py",
+  "allowed_users": [
+    {
+      "email": "aachildress@cesglobal.com",
+      "name": "Andre Childress",
+      "credentials": "CFA",
+      "title": "VP of Finance",
+      "role": "admin"
+    },
+    {
+      "email": "achildress@cesglobal.com",
+      "name": "Alexis Childress",
+      "credentials": "",
+      "title": "Strategic Project Manager",
+      "role": "pm"
+    },
+    {
+      "email": "aalexander@cesglobal.com",
+      "name": "Amber Alexander",
+      "credentials": "",
+      "title": "Strategic Project Manager",
+      "role": "pm"
+    },
+    {
+      "email": "blancaster@groupstructural.com",
+      "name": "Bryce Lancaster",
+      "credentials": "P.E.",
+      "title": "Professional Engineer",
+      "role": "pm"
+    },
+    {
+      "email": "coatman@cesglobal.com",
+      "name": "Collin Oatman",
+      "credentials": "P.E.",
+      "title": "Professional Engineer",
+      "role": "pm"
+    },
+    {
+      "email": "drasband@cesglobal.com",
+      "name": "Daniel Rasband",
+      "credentials": "P.E.",
+      "title": "VP of Engineering",
+      "role": "pm"
+    },
+    {
+      "email": "ddavison@cesglobal.com",
+      "name": "Dustin Davison",
+      "credentials": "P.E., S.E.",
+      "title": "Professional Engineer",
+      "role": "pm"
+    },
+    {
+      "email": "jdobson@cesglobal.com",
+      "name": "James Dobson",
+      "credentials": "",
+      "title": "Senior Consultant",
+      "role": "pm"
+    },
+    {
+      "email": "jcallahan@cesglobal.com",
+      "name": "Joe Callahan",
+      "credentials": "",
+      "title": "Senior Consultant",
+      "role": "pm"
+    },
+    {
+      "email": "jmurdter@cesglobal.com",
+      "name": "Joe Murdter",
+      "credentials": "",
+      "title": "Senior Consultant",
+      "role": "pm"
+    },
+    {
+      "email": "joriley@cesglobal.com",
+      "name": "Jonathan O'Riley",
+      "credentials": "P.E.",
+      "title": "Professional Engineer",
+      "role": "pm"
+    },
+    {
+      "email": "jtunnell@cesglobal.com",
+      "name": "Jordan Tunnell",
+      "credentials": "P.E.",
+      "title": "Professional Engineer",
+      "role": "pm"
+    },
+    {
+      "email": "kliu@cesglobal.com",
+      "name": "Kevin Liu",
+      "credentials": "P.E.",
+      "title": "Professional Engineer",
+      "role": "pm"
+    },
+    {
+      "email": "lzepeda@cesglobal.com",
+      "name": "Lupe Zepeda",
+      "credentials": "",
+      "title": "Senior Consultant",
+      "role": "pm"
+    },
+    {
+      "email": "msalinas@cesglobal.com",
+      "name": "Mason Salinas",
+      "credentials": "P.E.",
+      "title": "Professional Engineer",
+      "role": "pm"
+    },
+    {
+      "email": "pchildress@cesglobal.com",
+      "name": "Preston Childress",
+      "credentials": "",
+      "title": "Engineer-in-Training",
+      "role": "pm"
+    },
+    {
+      "email": "rchacon@cesglobal.com",
+      "name": "Rene Chacon",
+      "credentials": "P.E.",
+      "title": "Professional Engineer",
+      "role": "pm"
+    },
+    {
+      "email": "tohmann@atdetail.net",
+      "name": "Tom Ohmann",
+      "credentials": "P.E.",
+      "title": "Professional Engineer",
+      "role": "pm"
+    },
+    {
+      "email": "tchildress@cesglobal.com",
+      "name": "Tony Childress",
+      "credentials": "P.E., S.E.",
+      "title": "Owner & President",
+      "role": "pm"
+    }
+  ],
+  "roles": {
+    "admin": [
+      "view",
+      "edit",
+      "mark_sent",
+      "mark_won",
+      "mark_lost",
+      "reopen",
+      "manage"
+    ],
+    "pm": [
+      "view",
+      "edit",
+      "mark_sent",
+      "mark_won",
+      "mark_lost"
+    ],
+    "accounting": [
+      "view",
+      "mark_won",
+      "mark_lost"
+    ],
+    "viewer": [
+      "view"
+    ]
+  },
+  "employees": [
+    {
+      "name": "MAURICIO AGUILAR",
+      "category": "Inspector III"
+    },
+    {
+      "name": "CLIFF ALSHARA",
+      "category": "EIT II"
+    },
+    {
+      "name": "SAHAR AMANI",
+      "category": "CAD Tech III"
+    },
+    {
+      "name": "JAMES ANDRUS",
+      "category": "CAD Tech III"
+    },
+    {
+      "name": "JOHN ARDS JR",
+      "category": "CAD Tech IV"
+    },
+    {
+      "name": "CHARLES ASHFORD",
+      "category": "Inspector III"
+    },
+    {
+      "name": "JEREMY BARNES",
+      "category": "CAD Tech IV"
+    },
+    {
+      "name": "ARTURO BONILLA",
+      "category": "Engineer IV"
+    },
+    {
+      "name": "SHARON BROWN",
+      "category": "CAD Tech IV"
+    },
+    {
+      "name": "WILLIAM CALLAHAN",
+      "category": "Consultant V"
+    },
+    {
+      "name": "DOUGLAS CALVIN",
+      "category": "Consultant III"
+    },
+    {
+      "name": "RENE CHACON",
+      "category": "Engineer IV"
+    },
+    {
+      "name": "ALEXIS CHILDRESS",
+      "category": "Team Support Member I"
+    },
+    {
+      "name": "ANDRE CHILDRESS",
+      "category": "Senior Executive"
+    },
+    {
+      "name": "PRESTON CHILDRESS",
+      "category": "EIT IV"
+    },
+    {
+      "name": "TONY CHILDRESS",
+      "category": "Principal"
+    },
+    {
+      "name": "CRYSTAL COLBERT",
+      "category": "CAD Tech II"
+    },
+    {
+      "name": "DUSTIN DAVISON",
+      "category": "Engineer V"
+    },
+    {
+      "name": "PAMELA DAY",
+      "category": "Team Support Member I"
+    },
+    {
+      "name": "JEREMY DEAN",
+      "category": "Inspector III"
+    },
+    {
+      "name": "JAMES DOBSON",
+      "category": "Consultant V"
+    },
+    {
+      "name": "FREDERICK ESPANA",
+      "category": "CAD Tech IV"
+    },
+    {
+      "name": "JACKIE FARRIS",
+      "category": "Inspector III"
+    },
+    {
+      "name": "ATHENA FERNANDEZ",
+      "category": "CAD Tech IV"
+    },
+    {
+      "name": "AARON FLORES AYALA",
+      "category": "EIT II"
+    },
+    {
+      "name": "SELINA FORTE",
+      "category": "Consultant IV"
+    },
+    {
+      "name": "VINCE GARZA",
+      "category": "CAD Tech V"
+    },
+    {
+      "name": "SCOTT GENTRY",
+      "category": "Consultant II"
+    },
+    {
+      "name": "ALEXANDER GLASHAN",
+      "category": "IT Server Support"
+    },
+    {
+      "name": "AMY GOARD",
+      "category": "Team Support Member I"
+    },
+    {
+      "name": "MISTY GRAVES",
+      "category": "CAD Tech IV"
+    },
+    {
+      "name": "JOSE GUIA JR",
+      "category": "Programmer"
+    },
+    {
+      "name": "HERMAN GUNAWAN",
+      "category": "Engineer V"
+    },
+    {
+      "name": "ELIUD GURROLA",
+      "category": "CAD Tech VI"
+    },
+    {
+      "name": "SHANNON HAGGE",
+      "category": "Team Support Member V"
+    },
+    {
+      "name": "KEVIN HAMMER",
+      "category": "CAD Tech VI"
+    },
+    {
+      "name": "CLIFF HARRISON",
+      "category": "Inspector V"
+    },
+    {
+      "name": "JOSHUA HAYES",
+      "category": "CAD Tech IV"
+    },
+    {
+      "name": "SUSAN HENDRICKS",
+      "category": "Team Support Member IV"
+    },
+    {
+      "name": "PAUL HOANG",
+      "category": "EIT IV"
+    },
+    {
+      "name": "HOLLIE KARBOWSKI",
+      "category": "Manager V"
+    },
+    {
+      "name": "GARY KEITH",
+      "category": "CAD Tech V"
+    },
+    {
+      "name": "ALLEN KIPP",
+      "category": "Consultant II"
+    },
+    {
+      "name": "RAYMOND KIRBY",
+      "category": "Constructibility Coordinator"
+    },
+    {
+      "name": "BRYCE LANCASTER",
+      "category": "Engineer III"
+    },
+    {
+      "name": "SIERRA LENCKUS",
+      "category": "Team Support Member II"
+    },
+    {
+      "name": "DONALD LENNOX",
+      "category": "Inspector IV"
+    },
+    {
+      "name": "NICHOLAS LEONE",
+      "category": "Architect V"
+    },
+    {
+      "name": "KEVIN LIU",
+      "category": "Engineer V"
+    },
+    {
+      "name": "SEAN LYDEN",
+      "category": "Manager I"
+    },
+    {
+      "name": "HUMBERTO MADERO MCENTEE",
+      "category": "Engineer II"
+    },
+    {
+      "name": "CHRISTOPHER MASSEY",
+      "category": "CAD Tech VI"
+    },
+    {
+      "name": "TAYLOR MASSEY",
+      "category": "Inspector I"
+    },
+    {
+      "name": "MICHAEL MAXWELL",
+      "category": "Consultant V"
+    },
+    {
+      "name": "TRACIE MAXWELL",
+      "category": "Consultant V"
+    },
+    {
+      "name": "JENNY MEDRANO",
+      "category": "Manager II"
+    },
+    {
+      "name": "JOSEPH MURDTER",
+      "category": "Consultant IV"
+    },
+    {
+      "name": "JONATHAN MYERS",
+      "category": "Programmer"
+    },
+    {
+      "name": "RICHARD NADEAU",
+      "category": "Consultant V"
+    },
+    {
+      "name": "DEVIN NICHOLS",
+      "category": "Consultant III"
+    },
+    {
+      "name": "COLLIN OATMAN",
+      "category": "Engineer V"
+    },
+    {
+      "name": "DANYEL OBRYAN",
+      "category": "Team Support Member V"
+    },
+    {
+      "name": "MARCUS OCON",
+      "category": "CAD Tech V"
+    },
+    {
+      "name": "THOMAS OHMANN",
+      "category": "Engineer IV"
+    },
+    {
+      "name": "JONATHAN ORILEY",
+      "category": "Engineer IV"
+    },
+    {
+      "name": "NOAH PARSONS",
+      "category": "CAD Tech III"
+    },
+    {
+      "name": "BROOKS PETERMAN",
+      "category": "Inspector V"
+    },
+    {
+      "name": "MIKE PHILLIPS",
+      "category": "Inspector V"
+    },
+    {
+      "name": "GEORGE PSALEDAKIS",
+      "category": "Architect IV"
+    },
+    {
+      "name": "DANIEL RASBAND",
+      "category": "Engineering VP"
+    },
+    {
+      "name": "MASON SALINAS",
+      "category": "Engineer I"
+    },
+    {
+      "name": "MATTHEW SAMS",
+      "category": "Principal"
+    },
+    {
+      "name": "MANUEL SARINANA",
+      "category": "CAD Tech IV"
+    },
+    {
+      "name": "STEVE SCHNEIDER",
+      "category": "Manager V"
+    },
+    {
+      "name": "JOEL SCOTT",
+      "category": "Consultant III"
+    },
+    {
+      "name": "HECTOR SILVA",
+      "category": "Architectural Drafter IV"
+    },
+    {
+      "name": "DAVID SMEDLEY",
+      "category": "Consultant V"
+    },
+    {
+      "name": "ROBERTO SOTO MAYNEZ TILENIUS",
+      "category": "Engineer V"
+    },
+    {
+      "name": "ROBERT STADE",
+      "category": "CAD Tech VI"
+    },
+    {
+      "name": "TRISTAN STADE",
+      "category": "Team Support Member I"
+    },
+    {
+      "name": "INNA STADNIK",
+      "category": "CAD Tech V"
+    },
+    {
+      "name": "JUCARLOS STEWART",
+      "category": "Inspector I"
+    },
+    {
+      "name": "BRIAN STUCKS",
+      "category": "CAD Tech V"
+    },
+    {
+      "name": "MICHAEL SUYAT",
+      "category": "CAD Tech VI"
+    },
+    {
+      "name": "CHIKITA TATUM",
+      "category": "Team Support Member I"
+    },
+    {
+      "name": "GREGORY TAYLOR",
+      "category": "Architectural Drafter IV"
+    },
+    {
+      "name": "MICHAEL THOMPSON",
+      "category": "EIT III"
+    },
+    {
+      "name": "JORDAN TUNNELL",
+      "category": "Engineer IV"
+    },
+    {
+      "name": "DAWN VEGA",
+      "category": "Manager I"
+    },
+    {
+      "name": "ADAM VELA",
+      "category": "CAD Tech VI"
+    },
+    {
+      "name": "PATRICIA WATKER",
+      "category": "Team Support Member I"
+    },
+    {
+      "name": "SHERRY VON FUMETTI",
+      "category": "Team Support Member I"
+    },
+    {
+      "name": "JACOB WELHOUSE",
+      "category": "Architect IV"
+    },
+    {
+      "name": "CHRISTOPHER WOHLETZ",
+      "category": "CTO"
+    },
+    {
+      "name": "GUADALUPE ZEPEDA",
+      "category": "Consultant V"
+    },
+    {
+      "name": "GRIGORIY ZILBERLEYB",
+      "category": "Engineer IV"
+    },
+    {
+      "name": "KISHA LITTRELL",
+      "category": "Team Support Member I"
+    },
+    {
+      "name": "AMBER ALEXANDER",
+      "category": "Project Manager I"
+    },
+    {
+      "name": "DAVID ATKINSON",
+      "category": "EIT I"
+    },
+    {
+      "name": "CHARLES KILGORE JR",
+      "category": "Inspector II"
+    },
+    {
+      "name": "CHANTELLE SAN NICOLAS",
+      "category": "Consultant IV"
+    },
+    {
+      "name": "MILTON RODRIGUEZ",
+      "category": "Consultant III"
+    },
+    {
+      "name": "GARY WITHERS",
+      "category": "Consultant III"
+    },
+    {
+      "name": "RYAN LIM",
+      "category": "Consultant III"
+    },
+    {
+      "name": "GUNNAR PECK",
+      "category": "CAD Tech I"
+    },
+    {
+      "name": "NICHOLAS JUNKIN-PENU",
+      "category": "Inspector I"
+    },
+    {
+      "name": "NATHAN WILLIAMS",
+      "category": "CAD Tech IV"
+    },
+    {
+      "name": "JUAN SALAZAR",
+      "category": "CAD Tech II"
+    },
+    {
+      "name": "ANDREW ORELLANA",
+      "category": "Architectural Drafter I"
+    },
+    {
+      "name": "MATIN RAHMANI",
+      "category": "Programmer"
+    },
+    {
+      "name": "ASHLEY PEREZ",
+      "category": "EIT I"
+    },
+    {
+      "name": "ALEXIS TRUJILLO",
+      "category": "EIT I"
+    },
+    {
+      "name": "JAYDAN GILSTRAP",
+      "category": "Engineer I"
+    },
+    {
+      "name": "SAVONI OROSCO",
+      "category": "CAD Tech I"
+    },
+    {
+      "name": "RYAN TREANOR",
+      "category": "EIT III"
+    },
+    {
+      "name": "MICHAEL PRESLEY",
+      "category": "Consultant III"
+    },
+    {
+      "name": "BRANDON MOLSON",
+      "category": "Manager I"
+    }
+  ],
+  "category_mapping": {
+    "Principal": "Tony Childress, P.E., S.E., CEO",
+    "Engineering VP": "Daniel P. Rasband, P.E. \u2013 VP of Engineering (V)",
+    "Engineer V": "Senior Engineer, P.E. (V)",
+    "Engineer IV": "Engineer, P.E. (IV)",
+    "Engineer III": "Engineer, P.E. (III)",
+    "Engineer II": "Engineer, P.E. (II)",
+    "Engineer I": "Engineer, P.E. (I)",
+    "EIT IV": "Engineer, EIT (IV)",
+    "EIT III": "Engineer, EIT (III)",
+    "EIT II": "Engineer, EIT (II)",
+    "EIT I": "Engineer, EIT (I)",
+    "CAD Tech VI": "CADD Tech (VI)",
+    "CAD Tech V": "CADD Tech (V)",
+    "CAD Tech IV": "CADD Tech (IV)",
+    "CAD Tech III": "CADD Tech (III)",
+    "CAD Tech II": "CADD Tech (II)",
+    "CAD Tech I": "CADD Tech (I)",
+    "Consultant V": "Senior Consultant (V)",
+    "Consultant IV": "Senior Consultant (IV)",
+    "Consultant III": "Lead Consultant (III)",
+    "Consultant II": "Consultant (II)",
+    "Consultant I": "Consultant (I)",
+    "Architect V": "Senior Architect (V)",
+    "Architect IV": "Senior Architect (IV)",
+    "Architect III": "Architect (III)",
+    "Architect II": "Architect (II)",
+    "Architect I": "Architect (I)",
+    "Architectural Drafter V": "Architectural CADD Tech (V)",
+    "Architectural Drafter IV": "Architectural CADD Tech (IV)",
+    "Architectural Drafter III": "Architectural CADD Tech (III)",
+    "Architectural Drafter II": "Architectural CADD Tech (II)",
+    "Architectural Drafter I": "Architectural CADD Tech (I)",
+    "Inspector V": "Senior Inspector (V)",
+    "Inspector IV": "Senior Inspector (IV)",
+    "Inspector III": "Inspector (III)",
+    "Inspector II": "Inspector (II)",
+    "Inspector I": "Inspector (I)",
+    "Constructibility Coordinator": "Constructability Coordinator",
+    "Team Support Member V": "Clerical",
+    "Team Support Member IV": "Clerical",
+    "Team Support Member III": "Clerical",
+    "Team Support Member II": "Clerical",
+    "Team Support Member I": "Clerical",
+    "CTO": "Senior Engineer, P.E. (V)",
+    "Senior Executive": "Senior Engineer, P.E. (V)",
+    "Programmer": "CADD Tech (IV)",
+    "Manager V": "Senior Consultant (V)",
+    "Manager IV": "Senior Consultant (IV)",
+    "Manager III": "Lead Consultant (III)",
+    "Manager II": "Consultant (II)",
+    "Manager I": "Consultant (I)",
+    "IT Server Support": "CADD Tech (III)",
+    "Project Manager I": "Lead Consultant (III)"
+  },
+  "consulting_rates": {
+    "Tony Childress, P.E., S.E., CEO": 350.0,
+    "Daniel P. Rasband, P.E. \u2013 VP of Engineering (V)": 225.0,
+    "Senior Engineer, P.E. (V)": 210.0,
+    "Engineer, P.E. (IV)": 195.0,
+    "Engineer, P.E. (III)": 185.0,
+    "Engineer, P.E. (II)": 175.0,
+    "Engineer, P.E. (I)": 165.0,
+    "Engineer, EIT (IV)": 160.0,
+    "Engineer, EIT (III)": 150.0,
+    "Engineer, EIT (II)": 140.0,
+    "Engineer, EIT (I)": 130.0,
+    "CADD Tech (VI)": 145.0,
+    "CADD Tech (V)": 140.0,
+    "CADD Tech (IV)": 135.0,
+    "CADD Tech (III)": 125.0,
+    "CADD Tech (II)": 115.0,
+    "CADD Tech (I)": 110.0,
+    "Senior Consultant (V)": 200.0,
+    "Senior Consultant (IV)": 180.0,
+    "Lead Consultant (III)": 160.0,
+    "Consultant (II)": 140.0,
+    "Consultant (I)": 120.0,
+    "Constructability Coordinator": 150.0,
+    "Principal Architect": 225.0,
+    "Senior Architect (V)": 200.0,
+    "Senior Architect (IV)": 195.0,
+    "Architect (III)": 185.0,
+    "Architect (II)": 175.0,
+    "Architect (I)": 165.0,
+    "Architectural CADD Tech (V)": 140.0,
+    "Architectural CADD Tech (IV)": 135.0,
+    "Architectural CADD Tech (III)": 125.0,
+    "Architectural CADD Tech (II)": 115.0,
+    "Architectural CADD Tech (I)": 110.0,
+    "Senior Inspector (V)": 150.0,
+    "Senior Inspector (IV)": 145.0,
+    "Inspector (III)": 140.0,
+    "Inspector (II)": 135.0,
+    "Inspector (I)": 130.0,
+    "Clerical": 85.0,
+    "Legal Depositions (Tony Childress)": 400.0,
+    "Legal Depositions (Others)": 275.0,
+    "Expert Witness (Tony Childress)": 500.0,
+    "Expert Witness (Others)": 325.0
+  },
+  "structural_rates": {
+    "Tony Childress, P.E., S.E., CEO": 350.0,
+    "Daniel P. Rasband, P.E. \u2013 VP of Engineering (V)": 225.0,
+    "Senior Engineer, P.E. (V)": 165.0,
+    "Engineer, P.E. (IV)": 145.0,
+    "Engineer, P.E. (III)": 135.0,
+    "Engineer, P.E. (II)": 125.0,
+    "Engineer, P.E. (I)": 115.0,
+    "Engineer, EIT (IV)": 110.0,
+    "Engineer, EIT (III)": 100.0,
+    "Engineer, EIT (II)": 95.0,
+    "Engineer, EIT (I)": 90.0,
+    "CADD Tech (VI)": 130.0,
+    "CADD Tech (V)": 120.0,
+    "CADD Tech (IV)": 110.0,
+    "CADD Tech (III)": 100.0,
+    "CADD Tech (II)": 90.0,
+    "CADD Tech (I)": 80.0,
+    "Senior Consultant (V)": 200.0,
+    "Senior Consultant (IV)": 180.0,
+    "Lead Consultant (III)": 160.0,
+    "Consultant (II)": 140.0,
+    "Consultant (I)": 120.0,
+    "Constructability Coordinator": 150.0,
+    "Principal Architect": 200.0,
+    "Senior Architect (V)": 155.0,
+    "Senior Architect (IV)": 145.0,
+    "Architect (III)": 135.0,
+    "Architect (II)": 125.0,
+    "Architect (I)": 115.0,
+    "Architectural CADD Tech (V)": 120.0,
+    "Architectural CADD Tech (IV)": 110.0,
+    "Architectural CADD Tech (III)": 100.0,
+    "Architectural CADD Tech (II)": 90.0,
+    "Architectural CADD Tech (I)": 80.0,
+    "Senior Inspector (V)": 140.0,
+    "Senior Inspector (IV)": 130.0,
+    "Inspector (III)": 110.0,
+    "Inspector (II)": 100.0,
+    "Inspector (I)": 90.0,
+    "Clerical": 60.0,
+    "Legal Depositions (Tony Childress)": 400.0,
+    "Legal Depositions (Others)": 275.0,
+    "Expert Witness (Tony Childress)": 500.0,
+    "Expert Witness (Others)": 325.0
+  },
+  "expense_lines": [
+    {
+      "name": "Mileage to Airport",
+      "qty_unit": "miles",
+      "default_rate": 0.7,
+      "rate_unit": "/mi"
+    },
+    {
+      "name": "Parking at Airport",
+      "qty_unit": "days",
+      "default_rate": 30.0,
+      "rate_unit": "/day"
+    },
+    {
+      "name": "Airfare - Round Trip",
+      "qty_unit": "trips",
+      "default_rate": 500.0,
+      "rate_unit": "/trip"
+    },
+    {
+      "name": "Rental Car",
+      "qty_unit": "days",
+      "default_rate": 75.0,
+      "rate_unit": "/day"
+    },
+    {
+      "name": "Hotel",
+      "qty_unit": "nights",
+      "default_rate": 150.0,
+      "rate_unit": "/night"
+    },
+    {
+      "name": "Per Diem",
+      "qty_unit": "days",
+      "default_rate": 75.0,
+      "rate_unit": "/day"
+    }
+  ]
+}
