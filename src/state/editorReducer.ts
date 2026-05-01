@@ -7,6 +7,7 @@
 import type {
   AutosaveStatus,
   Bootstrap,
+  EditorMode,
   EditorView,
   ExpenseRow,
   GeneratedFormat,
@@ -14,6 +15,7 @@ import type {
   LaborRow,
   Lifecycle,
   LookupsTab,
+  Project,
   Proposal,
   ProjectTemplateRecord,
   ClientTemplateRecord,
@@ -104,6 +106,14 @@ export interface EditorState {
    *  panel close so reopening restores where the user left off. */
   lookupsOpen: boolean;
   lookupsTab: LookupsTab;
+  /** Editor view mode. 'proposal' is the existing sell-phase editor;
+   *  'project' is the post-Won PM editor (Stage 5 fills the body).
+   *  LOAD_PROPOSAL flips this to 'project' iff a project row exists for
+   *  the loaded proposal. */
+  editorMode: EditorMode;
+  /** Loaded project row for the current proposal, or null when the proposal
+   *  hasn't been initialized as a project yet. */
+  project: Project | null;
 }
 
 export function initialState(): EditorState {
@@ -128,6 +138,8 @@ export function initialState(): EditorState {
     liveProposalCache: null,
     lookupsOpen:       false,
     lookupsTab:        'basic',
+    editorMode:        'proposal',
+    project:           null,
   };
 }
 
@@ -171,7 +183,10 @@ export type EditorAction =
   | { type: 'REPLACE_LIFECYCLE'; lifecycle: Lifecycle }
   | { type: 'REPLACE_PROPOSAL'; proposal: Proposal }
   | { type: 'SET_LOOKUPS_OPEN'; open: boolean }
-  | { type: 'SET_LOOKUPS_TAB'; tab: LookupsTab };
+  | { type: 'SET_LOOKUPS_TAB'; tab: LookupsTab }
+  | { type: 'SET_EDITOR_MODE'; mode: EditorMode }
+  | { type: 'LOAD_PROJECT'; project: Project }
+  | { type: 'CLEAR_PROJECT' };
 
 /** Action types that mutate proposal *content* — dropped silently while
  *  viewing a snapshot so historical versions stay read-only. */
@@ -203,6 +218,11 @@ export function reducer(state: EditorState, action: EditorAction): EditorState {
         autosaveStatus:    'saved',
         viewingVersion:    null,
         liveProposalCache: null,
+        // Clear stale project from a previously loaded proposal.
+        // App.tsx will fetch the new project (if any) and dispatch
+        // LOAD_PROJECT — until then, we default to proposal mode.
+        project:           null,
+        editorMode:        'proposal',
       };
 
     case 'NEW_PROPOSAL': {
@@ -215,6 +235,8 @@ export function reducer(state: EditorState, action: EditorAction): EditorState {
         autosaveStatus:    'idle',
         viewingVersion:    null,
         liveProposalCache: null,
+        project:           null,
+        editorMode:        'proposal',
       };
     }
 
@@ -273,6 +295,8 @@ export function reducer(state: EditorState, action: EditorAction): EditorState {
         autosaveStatus:    'idle',  // triggers a save once the user pauses
         viewingVersion:    null,
         liveProposalCache: null,
+        project:           null,    // duplicate is a fresh proposal — no project
+        editorMode:        'proposal',
       };
     }
 
@@ -497,5 +521,14 @@ export function reducer(state: EditorState, action: EditorAction): EditorState {
 
     case 'SET_LOOKUPS_TAB':
       return { ...state, lookupsTab: action.tab };
+
+    case 'SET_EDITOR_MODE':
+      return { ...state, editorMode: action.mode };
+
+    case 'LOAD_PROJECT':
+      return { ...state, project: action.project, editorMode: 'project' };
+
+    case 'CLEAR_PROJECT':
+      return { ...state, project: null, editorMode: 'proposal' };
   }
 }

@@ -19,6 +19,9 @@ import { buildDashboard } from './lifecycle/dashboard';
 import * as identity from './identity/identity';
 import { generateProposal } from './proposal/generate';
 import { importFromQuickProp, importFromPMQuoting } from './db/importer';
+import * as Project from './project/queries';
+import type { InitializeHeaderInput } from './project/queries';
+import { sectionsToPhases, applyPhaseTemplate } from './project/converter';
 import { IPC } from './ipc-channels';
 
 const IS_DEV = process.env.NODE_ENV === 'development';
@@ -422,6 +425,56 @@ function registerIpc(): void {
     ok: false as const,
     error: 'ClickUp sync not implemented in Stage 2',
   }));
+
+  // ── Project mode (Stage 4) ───────────────────────────────────────────────
+  // initialize takes the proposal name, the modal-collected header, and an
+  // applyTemplate hint. Reads the proposal's sections, runs the converter,
+  // optionally overlays a phase template, then writes the project row.
+  ipcMain.handle(IPC.PROJECT_INITIALIZE, (_e, payload: {
+    proposalName: string;
+    header: InitializeHeaderInput;
+    template?: { name: string; mode: 'append' | 'replace' } | null;
+  }) => {
+    const db = requireDb();
+    const actor = actorFromIdentity();
+    const proposal = Q.loadProposal(db, payload.proposalName);
+    let phases = sectionsToPhases(proposal.sections || [],
+      payload.header.rate_table || proposal.rateTable || '');
+    if (payload.template?.name) {
+      const tplRows = Lookups.listTemplatePhases(db, {
+        legal_entity: payload.header.legal_entity,
+        department:   payload.header.department,
+        template:     payload.template.name,
+      });
+      phases = applyPhaseTemplate(phases, tplRows, payload.template.mode);
+    }
+    return Project.initializeProject(
+      db,
+      payload.proposalName,
+      payload.header,
+      { phases, resources: [] },
+      actor,
+    );
+  });
+
+  ipcMain.handle(IPC.PROJECT_GET, (_e, id: number) =>
+    Project.getProject(requireDb(), id),
+  );
+  ipcMain.handle(IPC.PROJECT_GET_BY_PROPOSAL_NAME, (_e, proposalName: string) =>
+    Project.getProjectByProposalName(requireDb(), proposalName),
+  );
+  ipcMain.handle(IPC.PROJECT_LIST, (_e, filters?: Project.ListProjectsFilters) =>
+    Project.listProjects(requireDb(), filters ?? {}),
+  );
+  ipcMain.handle(IPC.PROJECT_UPDATE_HEADER, (_e, id: number, patch: any) =>
+    Project.updateProjectHeader(requireDb(), id, patch, actorFromIdentity()),
+  );
+  ipcMain.handle(IPC.PROJECT_SAVE_PAYLOAD, (_e, id: number, payload: any) =>
+    Project.saveProjectPayload(requireDb(), id, payload, actorFromIdentity()),
+  );
+  ipcMain.handle(IPC.PROJECT_REASSIGN_PM, (_e, id: number, newEmail: string, newName: string) =>
+    Project.reassignProjectPm(requireDb(), id, newEmail, newName, actorFromIdentity()),
+  );
 
   // ── OS integration ───────────────────────────────────────────────────────
   ipcMain.handle(IPC.OS_OPEN_FILE, async (_e, p: string) => {

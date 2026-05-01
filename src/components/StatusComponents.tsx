@@ -8,11 +8,13 @@ import { LOST_REASONS, STATUS_LABELS, canDelete, getStatus } from '../lib/lifecy
 import type {
   AllowedUser,
   Lifecycle,
+  Project,
   Proposal,
   ProposalStatus,
   VersionRecord,
 } from '../types/domain';
 import type { EditorState, EditorAction } from '../state/editorReducer';
+import InitializeProjectModal from './InitializeProjectModal';
 
 // ── status badge ──────────────────────────────────────────────────────────
 
@@ -67,6 +69,7 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
   const [showDelete, setShowDelete] = useState(false);
   const [showReassign, setShowReassign] = useState(false);
   const [showFollowUp, setShowFollowUp] = useState(false);
+  const [showInitProject, setShowInitProject] = useState(false);
   const currentPm = (proposal.lifecycle?.owner) || { email: '', name: '' };
   const followUpAt = proposal.lifecycle?.metadata?.follow_up_at || null;
   const followUpOverdue = isFollowUpOverdue(followUpAt, status);
@@ -98,8 +101,18 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
   } else if (status === 'sent') {
     buttons.push({
       label: 'Mark Won', fn: 'mark_won', kind: 'win',
-      click: () => dispatchLifecycle('mark_won', async () =>
-        (await window.api.lifecycle.markWon(state.projectName!)) as any),
+      // Stage 4 intercepts the Mark Won button: instead of immediately
+      // flipping status, open the InitializeProjectModal so the user can
+      // pick legal_entity / department / iCore ID. The modal handles the
+      // markWon + project.initialize chain on submit, and leaves the
+      // proposal in 'sent' state if the user cancels.
+      click: () => {
+        if (!saved || !state.projectName) {
+          alert('Save the proposal first (autosave will kick in once you give it a name).');
+          return;
+        }
+        setShowInitProject(true);
+      },
     });
     buttons.push({
       label: 'Mark Lost', fn: 'mark_lost', kind: 'loss',
@@ -295,6 +308,27 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
             setShowFollowUp(false);
             await dispatchLifecycle('follow_up', async () =>
               (await window.api.lifecycle.setFollowUp(state.projectName!, whenIso, note)) as any);
+          }}
+        />
+      )}
+
+      {showInitProject && (
+        <InitializeProjectModal
+          proposal={state.proposal}
+          onClose={() => setShowInitProject(false)}
+          onCommitted={async (project: Project) => {
+            setShowInitProject(false);
+            // Project's already saved on the main side. Reload the proposal
+            // so the lifecycle reflects "won" status, then load the project
+            // into reducer state so editorMode flips to 'project'.
+            try {
+              const fresh = (await window.api.proposals.load(state.projectName!)) as Proposal;
+              dispatch({ type: 'LOAD_PROPOSAL', payload: fresh });
+            } catch (e: any) {
+              console.warn('reload proposal after initialize failed', e);
+            }
+            dispatch({ type: 'LOAD_PROJECT', project });
+            onReload?.();
           }}
         />
       )}

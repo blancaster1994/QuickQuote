@@ -189,6 +189,23 @@ const api = {
     setConfig:      (patch: any) => ipcRenderer.invoke('clickup:setConfig', patch),
     testConnection: () => ipcRenderer.invoke('clickup:testConnection'),
   },
+
+  /** Project mode (Stage 4). Per-Won-proposal record holding entity /
+   *  department / PM / iCore + the editable phases + resources payload.
+   *  Renderer addresses by proposal name (consistent with lifecycle.*). */
+  project: {
+    /** Create the project row from the Won proposal. Throws if one already
+     *  exists — caller should call getByProposalName first to detect that
+     *  case and route to "open existing" UX. */
+    initialize: (payload: any) => ipcRenderer.invoke('project:initialize', payload),
+    get:               (id: number) => ipcRenderer.invoke('project:get', id),
+    getByProposalName: (proposalName: string) => ipcRenderer.invoke('project:getByProposalName', proposalName),
+    list:              (filters?: any) => ipcRenderer.invoke('project:list', filters),
+    updateHeader:      (id: number, patch: any) => ipcRenderer.invoke('project:updateHeader', id, patch),
+    savePayload:       (id: number, payload: any) => ipcRenderer.invoke('project:savePayload', id, payload),
+    reassignPm:        (id: number, newEmail: string, newName: string) =>
+      ipcRenderer.invoke('project:reassignPm', id, newEmail, newName),
+  },
 };
 
 contextBridge.exposeInMainWorld('api', api);

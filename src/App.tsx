@@ -19,7 +19,7 @@ import { reducer, initialState } from './state/editorReducer';
 import type { EditorAction, EditorState } from './state/editorReducer';
 import { calcProposal } from './lib/calc';
 import { getStatus, isFrozen, STATUS_LABELS } from './lib/lifecycle';
-import type { Bootstrap, GeneratedFormat, Identity, Proposal, ViewingVersion } from './types/domain';
+import type { Bootstrap, GeneratedFormat, Identity, Project, Proposal, ViewingVersion } from './types/domain';
 
 import TopBar from './components/TopBar';
 import Sidebar from './components/Sidebar';
@@ -123,6 +123,15 @@ export default function App() {
       const p = (await window.api.proposals.load(name)) as Proposal;
       dispatch({ type: 'LOAD_PROPOSAL', payload: p });
       dispatch({ type: 'SET_VIEW', view: 'editor' });
+      // If this proposal has been initialized as a Project (post-Won),
+      // load that record too so editorMode flips and the project view
+      // is available. Stage 5 renders the project body.
+      try {
+        const proj = (await window.api.project.getByProposalName(name)) as Project | null;
+        if (proj) dispatch({ type: 'LOAD_PROJECT', project: proj });
+      } catch (e) {
+        console.warn('project.getByProposalName failed', e);
+      }
     } catch (e: any) {
       console.error('proposals.load failed', e);
       alert(`Couldn't load "${name}": ${e?.message || String(e)}`);

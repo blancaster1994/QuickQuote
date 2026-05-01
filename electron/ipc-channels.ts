@@ -111,6 +111,18 @@ export const IPC = {
   CLICKUP_GET_CONFIG:      'clickup:getConfig',
   CLICKUP_SET_CONFIG:      'clickup:setConfig',
   CLICKUP_TEST_CONNECTION: 'clickup:testConnection',
+
+  // ── Project mode (Stage 4) ───────────────────────────────────────────────
+  // Per-proposal post-Won record. One project row per Won proposal, joined
+  // via proposal_id. Renderer-facing IPC takes proposal name (consistent
+  // with lifecycle.* channels); name → id translation is internal.
+  PROJECT_INITIALIZE:               'project:initialize',
+  PROJECT_GET:                      'project:get',
+  PROJECT_GET_BY_PROPOSAL_NAME:     'project:getByProposalName',
+  PROJECT_LIST:                     'project:list',
+  PROJECT_UPDATE_HEADER:            'project:updateHeader',
+  PROJECT_SAVE_PAYLOAD:             'project:savePayload',
+  PROJECT_REASSIGN_PM:              'project:reassignPm',
 } as const;
 
 export type IpcChannel = typeof IPC[keyof typeof IPC];

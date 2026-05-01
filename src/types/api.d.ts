@@ -19,12 +19,44 @@ import type {
   LostReason,
   MarkupPct,
   PhaseDef,
+  Project,
+  ProjectHeader,
+  ProjectPayload,
   ProjectTypeDef,
   RateEntry,
   RateTable,
   TaskDef,
   TemplatePhase,
 } from './domain';
+
+/** Header fields the user fills in `InitializeProjectModal`. */
+interface ProjectInitializeHeader {
+  legal_entity: string;
+  department: string;
+  rate_table?: string | null;
+  project_type?: string | null;
+  phase_template?: string | null;
+  icore_project_id?: string | null;
+  current_pm_email?: string | null;
+  current_pm_name?: string | null;
+}
+
+/** Payload for `window.api.project.initialize`. Bundles the proposal name,
+ *  the header, and the optional template overlay so the IPC is one call. */
+interface ProjectInitializePayload {
+  proposalName: string;
+  header: ProjectInitializeHeader;
+  /** When set, overlay the named phase template on top of (or instead of)
+   *  the auto-converted sections. */
+  template?: { name: string; mode: 'append' | 'replace' } | null;
+}
+
+interface ProjectListFilters {
+  pm_email?: string;
+  legal_entity?: string;
+  department?: string;
+  status?: 'active' | 'archived' | 'all';
+}
 
 /** PM-mode lookups keyed by table name. Used by `window.api.lookups.*`. */
 type NameTable =
@@ -191,6 +223,19 @@ export interface QuickQuoteApi {
     getConfig(): Promise<ClickUpStatus>;
     setConfig(patch: ClickUpConfigPatch): Promise<ClickUpStatus>;
     testConnection(): Promise<ClickUpTestResult>;
+  };
+
+  /** Project mode (Stage 4). One row per Won proposal, joined via
+   *  proposal_id. Renderer-facing IPC addresses by proposal name; main side
+   *  translates to id. */
+  project: {
+    initialize(payload: ProjectInitializePayload): Promise<Project>;
+    get(id: number): Promise<Project | null>;
+    getByProposalName(proposalName: string): Promise<Project | null>;
+    list(filters?: ProjectListFilters): Promise<ProjectHeader[]>;
+    updateHeader(id: number, patch: Partial<ProjectHeader>): Promise<Project>;
+    savePayload(id: number, payload: ProjectPayload): Promise<Project>;
+    reassignPm(id: number, newEmail: string, newName: string): Promise<Project>;
   };
 }
 
