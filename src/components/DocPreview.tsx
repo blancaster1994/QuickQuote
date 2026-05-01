@@ -86,7 +86,7 @@ function PageHeader() {
       display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
       marginBottom: 18,
     }}>
-      <img src="assets/logo.png" alt="CES"
+      <img src="/logo.png" alt="CES"
         style={{ height: 52, width: 'auto', objectFit: 'contain' }} />
       <div style={{
         textAlign: 'right',

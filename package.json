@@ -1,6 +1,6 @@
 {
   "name": "quickquote",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "QuickQuote — engineering proposal/quote generator (replacing QuickProp v3)",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -48,6 +48,7 @@
       "**/node_modules/better-sqlite3/**"
     ],
     "win": {
+      "icon": "app_icon.ico",
       "target": [
         {
           "target": "portable",
