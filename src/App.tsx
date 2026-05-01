@@ -29,6 +29,7 @@ import SectionEditor from './components/SectionEditor';
 import DocPreview from './components/DocPreview';
 import Dashboard from './components/Dashboard';
 import { LookupsPanel } from './components/lookups';
+import { ProjectEditor, ProjectModeToggle } from './components/project';
 import {
   ActivityTimeline, FirstRunIdentity, Modal, ModalActions, StatusActionBar,
 } from './components/StatusComponents';
@@ -323,37 +324,97 @@ interface EditorLayoutProps {
 
 function EditorLayout({ state, dispatch, onReload }: EditorLayoutProps) {
   const viewing = state.viewingVersion;
+  const inProjectMode = state.editorMode === 'project' && !!state.project;
+  // Hide DocPreview in project mode — its content is for proposals only.
+  // The TopBar Preview toggle stays visible but is rendered disabled by
+  // TopBar.tsx so we don't need to gate it twice here.
+  const showPreview = state.previewOpen && !inProjectMode;
   return (
     <div style={{
       flex: 1, display: 'grid',
-      gridTemplateColumns: state.previewOpen ? '1fr 680px' : '1fr',
+      gridTemplateColumns: showPreview ? '1fr 680px' : '1fr',
       minHeight: 0, transition: 'grid-template-columns .2s ease',
     }}>
-      <div style={{ overflow: 'auto', padding: '20px 26px', background: 'var(--canvas)' }}>
-        {viewing && <ViewingSnapshotBanner viewing={viewing} dispatch={dispatch} />}
+      <div style={{ overflow: 'auto', background: 'var(--canvas)' }}>
+        {viewing && (
+          <div style={{ padding: '20px 26px 0' }}>
+            <ViewingSnapshotBanner viewing={viewing} dispatch={dispatch} />
+          </div>
+        )}
 
-        {/* Wrapper applies pointer-events: none + opacity when viewing a
-            snapshot so the editor area is visually and functionally read-only.
-            Belt-and-suspenders: the reducer also drops content-mutation
-            actions when viewingVersion is set. */}
-        <div style={viewing
-          ? { pointerEvents: 'none', opacity: 0.78, userSelect: 'text' }
-          : undefined}
-          aria-readonly={!!viewing}>
-          <StatusActionBar state={state} dispatch={dispatch}
-            onReload={onReload} onDeleted={onReload} />
-          {state.activityOpen && (
-            <div style={{ marginBottom: 14 }}>
-              <ActivityTimeline proposal={state.proposal} />
+        {inProjectMode && state.project ? (
+          // Project mode — phase editor + resource allocation. Read-only when
+          // viewing a snapshot, same belt-and-suspenders pattern as proposal.
+          <div style={viewing
+            ? { pointerEvents: 'none', opacity: 0.78, userSelect: 'text' }
+            : undefined}
+            aria-readonly={!!viewing}>
+            <div style={{ padding: '20px 26px 0', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <ProjectModeToggle mode={state.editorMode} dispatch={dispatch} />
+              <StatusActionBar state={state} dispatch={dispatch}
+                onReload={onReload} onDeleted={onReload} />
             </div>
-          )}
-          <HeaderCard proposal={state.proposal} dispatch={dispatch}
-            bootstrap={state.bootstrap} />
-          <SectionsRegion state={state} dispatch={dispatch} />
-        </div>
+            <ProjectEditor project={state.project} identity={state.identity} outerDispatch={dispatch} />
+          </div>
+        ) : (
+          // Proposal mode — original sell-phase editor.
+          <div style={viewing
+            ? { pointerEvents: 'none', opacity: 0.78, userSelect: 'text' }
+            : undefined}
+            aria-readonly={!!viewing}>
+            <div style={{ padding: '20px 26px 0' }}>
+              {/* Mode toggle only when this proposal has a project. Lets the
+                  user flip back to the project view from proposal mode. */}
+              {state.project && (
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
+                  <ProjectModeToggle mode={state.editorMode} dispatch={dispatch} />
+                </div>
+              )}
+              {state.project && (
+                <ProjectAvailableBanner dispatch={dispatch} />
+              )}
+              <StatusActionBar state={state} dispatch={dispatch}
+                onReload={onReload} onDeleted={onReload} />
+              {state.activityOpen && (
+                <div style={{ marginBottom: 14 }}>
+                  <ActivityTimeline proposal={state.proposal} />
+                </div>
+              )}
+              <HeaderCard proposal={state.proposal} dispatch={dispatch}
+                bootstrap={state.bootstrap} />
+              <SectionsRegion state={state} dispatch={dispatch} />
+            </div>
+          </div>
+        )}
       </div>
 
-      {state.previewOpen && <PreviewColumn state={state} />}
+      {showPreview && <PreviewColumn state={state} />}
+    </div>
+  );
+}
+
+function ProjectAvailableBanner({ dispatch }: { dispatch: Dispatch<EditorAction> }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 12,
+      padding: '10px 14px', marginBottom: 14,
+      background: 'var(--navy-tint)', border: '1px solid var(--hair)',
+      borderRadius: 8,
+    }}>
+      <div style={{ flex: 1, fontSize: 12.5, color: 'var(--navy-deep)' }}>
+        This proposal was won and is now tracked as a project. Switch to
+        Project view to edit phases and resources.
+      </div>
+      <button onClick={() => dispatch({ type: 'SET_EDITOR_MODE', mode: 'project' })}
+        style={{
+          height: 28, padding: '0 12px',
+          background: 'var(--navy-deep)', color: '#fff',
+          border: 'none', borderRadius: 6,
+          fontSize: 11.5, fontWeight: 700, cursor: 'pointer',
+          fontFamily: 'var(--sans)',
+        }}>
+        Open project
+      </button>
     </div>
   );
 }

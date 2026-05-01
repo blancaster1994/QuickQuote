@@ -24,7 +24,8 @@ export default function TopBar({
   state, dispatch, onNewProject, onDuplicateProject,
   onGenerate, generating, onReloadProjects,
 }: TopBarProps) {
-  const { proposal, previewOpen, genMenuOpen, lastFormat, autosaveStatus, bootstrap, view } = state;
+  const { proposal, previewOpen, genMenuOpen, lastFormat, autosaveStatus, bootstrap, view, editorMode, project } = state;
+  const inProjectMode = editorMode === 'project' && !!project;
   const status = getStatus(proposal);
   const appVersion = bootstrap?.app_version || '';
 
@@ -90,15 +91,21 @@ export default function TopBar({
 
       <AutosavePill status={autosaveStatus} />
 
-      {/* Preview toggle */}
-      <button onClick={() => dispatch({ type: 'TOGGLE_PREVIEW' })}
-        title={previewOpen ? 'Hide document preview' : 'Show document preview'}
+      {/* Preview toggle — disabled in project mode (the doc preview is for
+          proposals only; project mode hides it). */}
+      <button onClick={() => !inProjectMode && dispatch({ type: 'TOGGLE_PREVIEW' })}
+        disabled={inProjectMode}
+        title={inProjectMode
+          ? 'Preview is for proposals only — switch to Proposal view to use it'
+          : (previewOpen ? 'Hide document preview' : 'Show document preview')}
         style={{
           height: 30, padding: '0 12px',
-          background: previewOpen ? 'var(--navy-tint)' : 'transparent',
-          color: previewOpen ? 'var(--navy-deep)' : 'var(--body)',
-          border: `1px solid ${previewOpen ? 'transparent' : 'var(--hair)'}`,
-          borderRadius: 6, fontSize: 11.5, fontWeight: 600, cursor: 'pointer',
+          background: !inProjectMode && previewOpen ? 'var(--navy-tint)' : 'transparent',
+          color: inProjectMode ? 'var(--subtle)' : (previewOpen ? 'var(--navy-deep)' : 'var(--body)'),
+          border: `1px solid ${!inProjectMode && previewOpen ? 'transparent' : 'var(--hair)'}`,
+          borderRadius: 6, fontSize: 11.5, fontWeight: 600,
+          cursor: inProjectMode ? 'not-allowed' : 'pointer',
+          opacity: inProjectMode ? 0.55 : 1,
           fontFamily: 'var(--sans)', display: 'flex', alignItems: 'center', gap: 7,
         }}>
         <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
