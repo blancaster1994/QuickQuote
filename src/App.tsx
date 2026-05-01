@@ -9,6 +9,7 @@ import { useReducer } from 'react';
 import { calcProposal } from './lib/calc';
 import { fmt$ } from './lib/formatting';
 import { getStatus, STATUS_LABELS } from './lib/lifecycle';
+import BidItemTabs from './components/BidItemTabs';
 
 interface Bootstrap {
   app_version: string;
@@ -24,8 +25,8 @@ interface Bootstrap {
 }
 
 export default function App() {
-  const [state] = useReducer(reducer, undefined, initialState);
-  const { sum } = calcProposal(state.proposal);
+  const [state, dispatch] = useReducer(reducer, undefined, initialState);
+  const { totals, sum } = calcProposal(state.proposal);
   const status = getStatus(state.proposal);
 
   const [boot, setBoot] = useState<Bootstrap | null>(null);
@@ -130,8 +131,44 @@ export default function App() {
         QuickQuote
       </h1>
       <p style={{ color: 'var(--muted)', marginTop: 12 }}>
-        Step 6 smoke test — IPC handlers wired through to SQLite + identity file.
+        Step 8 — first ported component (BidItemTabs) live below; smoke-test
+        panel for IPC handlers underneath.
       </p>
+
+      <section style={{ marginTop: 20, marginBottom: 24 }}>
+        <h3 style={{ color: 'var(--ink)', marginBottom: 8 }}>BidItemTabs (live reducer state)</h3>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--hair)', borderRadius: 6 }}>
+          <BidItemTabs
+            sections={state.proposal.sections}
+            totals={totals}
+            activeSection={state.activeSection}
+            dispatch={dispatch}
+          />
+        </div>
+        <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+          <button onClick={() => dispatch({ type: 'ADD_SECTION' })}>
+            + Add section (via reducer)
+          </button>
+          <button
+            onClick={() => dispatch({
+              type: 'UPDATE_SECTION',
+              id: state.activeSection,
+              patch: { title: `Bid Item — Sample ${Date.now() % 1000}`, fee: 1234 + Math.floor(Math.random() * 9000) },
+            })}
+          >
+            Patch active section (title + fee)
+          </button>
+          <button
+            onClick={() => dispatch({
+              type: 'UPDATE_SECTION',
+              id: state.activeSection,
+              patch: { billing: state.proposal.sections.find(s => s.id === state.activeSection)?.billing === 'fixed' ? 'tm' : 'fixed' },
+            })}
+          >
+            Toggle active billing
+          </button>
+        </div>
+      </section>
 
       {error && (
         <div style={{ padding: 12, background: '#FBECEB', color: '#8A2A2A', borderRadius: 6, marginTop: 16 }}>
