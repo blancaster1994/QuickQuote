@@ -9,6 +9,7 @@ import * as activity from './lifecycle/activity';
 import * as versioning from './lifecycle/versioning';
 import { buildDashboard } from './lifecycle/dashboard';
 import * as identity from './identity/identity';
+import { generateProposal } from './proposal/generate';
 import { IPC } from './ipc-channels';
 
 const IS_DEV = process.env.NODE_ENV === 'development';
@@ -210,12 +211,16 @@ function registerIpc(): void {
     buildDashboard(requireDb(), opts ?? {}),
   );
 
-  // ── proposal generation (Step 7 plugs in the Python CLI subprocess) ─────
-  ipcMain.handle(IPC.GENERATE_DOCX, async () => {
-    throw new Error('generate.docx: not implemented yet (Step 7)');
+  // ── proposal generation (Python CLI subprocess in quickquote_cli/) ──────
+  // Accepts a proposal object for QuickProp 1:1 IPC compatibility but only
+  // uses proposal.name — the backend reloads from DB so the generated file
+  // always reflects the saved state. Renderer is responsible for saving
+  // first, same as QuickProp's autosave-then-generate flow.
+  ipcMain.handle(IPC.GENERATE_DOCX, async (_e, proposal: any) => {
+    return generateProposal(requireDb(), { name: proposal?.name || '', format: 'docx' });
   });
-  ipcMain.handle(IPC.GENERATE_PDF, async () => {
-    throw new Error('generate.pdf: not implemented yet (Step 7)');
+  ipcMain.handle(IPC.GENERATE_PDF, async (_e, proposal: any, _previewHtml?: string) => {
+    return generateProposal(requireDb(), { name: proposal?.name || '', format: 'pdf' });
   });
 
   // ── OS integration ───────────────────────────────────────────────────────

@@ -65,16 +65,23 @@ export default function App() {
     }
   }
 
+  const [demoName, setDemoName] = useState<string | null>(null);
+
   async function handleSaveDemoProposal() {
     setBusy(true);
     try {
       const p = emptyProposal();
       p.name = `Smoke Test ${new Date().toISOString().slice(0, 16)}`;
       p.client = 'Test Client Inc.';
+      p.contact = 'Jane Doe';
+      p.address = '123 Test Way';
+      p.cityStateZip = 'Testville, TX 75001';
       p.sections[0].title = 'Initial Survey';
+      p.sections[0].scope = 'Conduct preliminary site survey and produce report.';
       p.sections[0].fee = 5000;
       const result = (await window.api.proposals.save(p, null)) as any;
       appendLog(`proposals.save ok: "${result.name}"`);
+      setDemoName(result.name);
 
       const list = (await window.api.proposals.list()) as string[];
       appendLog(`proposals.list (${list.length}): ${list.slice(0, 3).join(', ')}${list.length > 3 ? '…' : ''}`);
@@ -83,6 +90,30 @@ export default function App() {
       appendLog(`proposals.load ok: status=${loaded.lifecycle.status}, fee=${loaded.sections[0].fee}`);
     } catch (e: any) {
       appendLog(`save/load demo FAILED: ${e?.message || String(e)}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleGenerate(format: 'docx' | 'pdf') {
+    if (!demoName) {
+      appendLog('save a demo proposal first');
+      return;
+    }
+    setBusy(true);
+    try {
+      const proposal = await window.api.proposals.load(demoName);
+      const fn = format === 'docx' ? window.api.generate.docx : window.api.generate.pdf;
+      const start = Date.now();
+      const result: any = await fn(proposal as any);
+      const ms = Date.now() - start;
+      if (result?.ok) {
+        appendLog(`generate.${format} ok in ${ms}ms ${result.reused ? '(reused)' : ''}: ${result.path}`);
+      } else {
+        appendLog(`generate.${format} FAILED: ${result?.error || '(no error message)'}`);
+      }
+    } catch (e: any) {
+      appendLog(`generate.${format} threw: ${e?.message || String(e)}`);
     } finally {
       setBusy(false);
     }
@@ -155,6 +186,12 @@ export default function App() {
         </button>
         <button disabled={busy} onClick={handleSaveDemoProposal}>
           Save demo proposal
+        </button>
+        <button disabled={busy || !demoName} onClick={() => handleGenerate('docx')}>
+          Generate .docx
+        </button>
+        <button disabled={busy || !demoName} onClick={() => handleGenerate('pdf')}>
+          Generate .pdf
         </button>
         <button disabled={busy} onClick={loadBootstrap}>
           Refresh bootstrap

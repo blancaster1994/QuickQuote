@@ -30,6 +30,18 @@
       {
         "from": "seed",
         "to": "seed"
+      },
+      {
+        "from": "quickquote_cli",
+        "to": "quickquote_cli",
+        "filter": [
+          "**/*",
+          "!__pycache__/**"
+        ]
+      },
+      {
+        "from": "Templates",
+        "to": "Templates"
       }
     ],
     "asarUnpack": [
