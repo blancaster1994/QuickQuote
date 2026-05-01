@@ -48,7 +48,7 @@ export function StatusBadge({ status, size = 'md' }: StatusBadgeProps) {
 
 // ── status action bar ─────────────────────────────────────────────────────
 
-type LifecycleFn = 'mark_sent' | 'mark_won' | 'mark_lost' | 'mark_archived' | 'reopen' | 'add_note';
+type LifecycleFn = 'mark_sent' | 'mark_won' | 'mark_lost' | 'mark_archived' | 'reopen' | 'add_note' | 'follow_up';
 
 interface StatusActionBarProps {
   state: EditorState;
@@ -66,7 +66,10 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
   const [showNote, setShowNote] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [showReassign, setShowReassign] = useState(false);
+  const [showFollowUp, setShowFollowUp] = useState(false);
   const currentPm = (proposal.lifecycle?.owner) || { email: '', name: '' };
+  const followUpAt = proposal.lifecycle?.metadata?.follow_up_at || null;
+  const followUpOverdue = isFollowUpOverdue(followUpAt, status);
 
   async function dispatchLifecycle(fn: LifecycleFn, run: () => Promise<{ lifecycle: Lifecycle }>) {
     if (!saved || !state.projectName) {
@@ -171,6 +174,24 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
               {currentPm.name || currentPm.email || '— Unassigned —'}
               <span style={{ fontSize: 8, opacity: 0.6 }}>▾</span>
             </button>
+
+            <button onClick={() => setShowFollowUp(true)}
+              title={followUpAt
+                ? `Follow-up ${followUpOverdue ? 'was due' : 'set for'} ${formatDate(followUpAt)}`
+                : 'Set a follow-up reminder for this proposal'}
+              style={{
+                height: 24, padding: '0 8px', borderRadius: 5,
+                background:    followUpOverdue ? '#FBECEB'        : 'var(--canvas)',
+                color:         followUpOverdue ? '#B8322F'        : (followUpAt ? 'var(--ink)' : 'var(--muted)'),
+                border: '1px solid ' + (followUpOverdue ? '#F3CFCC' : 'var(--hair)'),
+                fontSize: 11.5, fontWeight: 600, cursor: 'pointer',
+                fontFamily: 'var(--sans)',
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+              }}>
+              {followUpAt
+                ? <>{followUpOverdue && '⚠ '}Follow-up {formatDate(followUpAt)}</>
+                : <>+ Follow-up</>}
+            </button>
           </>
         )}
 
@@ -262,6 +283,18 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
             } catch (e: any) {
               alert(`Reassign failed: ${e?.message || String(e)}`);
             }
+          }}
+        />
+      )}
+
+      {showFollowUp && (
+        <FollowUpModal
+          current={followUpAt}
+          onClose={() => setShowFollowUp(false)}
+          onSubmit={async ({ whenIso, note }) => {
+            setShowFollowUp(false);
+            await dispatchLifecycle('follow_up', async () =>
+              (await window.api.lifecycle.setFollowUp(state.projectName!, whenIso, note)) as any);
           }}
         />
       )}
@@ -400,6 +433,115 @@ function LostReasonModal({ onClose, onSubmit }: LostReasonModalProps) {
   );
 }
 
+// ── follow-up modal ───────────────────────────────────────────────────────
+
+interface FollowUpModalProps {
+  /** Existing follow-up date (YYYY-MM-DD or full ISO). null when none. */
+  current: string | null;
+  onClose: () => void;
+  onSubmit: (args: { whenIso: string | null; note: string }) => void;
+}
+
+function FollowUpModal({ current, onClose, onSubmit }: FollowUpModalProps) {
+  const [when, setWhen] = useState<string>(toDateInput(current));
+  const [note, setNote] = useState('');
+
+  const today = localTodayStr();
+  const isPast = !!when && when < today;
+
+  function pickPreset(days: number) { setWhen(addDaysIso(days)); }
+
+  return (
+    <Modal title={current ? 'Update follow-up' : 'Set follow-up'} onClose={onClose}>
+      <div style={{ fontSize: 12.5, color: 'var(--body)', marginBottom: 12 }}>
+        A follow-up is a reminder to yourself. We don't email or notify anyone — it just shows up
+        on the dashboard and the editor's status bar so you can spot proposals that need attention.
+      </div>
+
+      <FieldLabel>Date</FieldLabel>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 6 }}>
+        <input
+          type="date"
+          value={when}
+          min={today}
+          onChange={(e) => setWhen(e.target.value)}
+          style={{
+            height: 30, padding: '0 8px', border: '1px solid var(--hair)',
+            borderRadius: 6, fontSize: 12.5, fontFamily: 'var(--sans)',
+            background: 'var(--surface)', color: 'var(--ink)',
+          }}
+        />
+        <button type="button" onClick={() => pickPreset(7)}  style={btnStyle('ghost', false)}>+1 week</button>
+        <button type="button" onClick={() => pickPreset(14)} style={btnStyle('ghost', false)}>+2 weeks</button>
+        <button type="button" onClick={() => pickPreset(30)} style={btnStyle('ghost', false)}>+30 days</button>
+      </div>
+      {isPast && (
+        <div style={{ fontSize: 11.5, color: '#B8322F', marginTop: 4, marginBottom: 4 }}>
+          That date is in the past. Pick today or later, or hit Clear to remove the reminder.
+        </div>
+      )}
+
+      <FieldLabel>Note (optional)</FieldLabel>
+      <TextArea value={note} onChange={setNote} minHeight={70}
+        placeholder="What should you do then? e.g. 'Call John about scope changes.'" />
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 18, gap: 8 }}>
+        <div>
+          {current && (
+            <button
+              type="button"
+              onClick={() => onSubmit({ whenIso: null, note: note.trim() })}
+              title="Remove the follow-up date from this proposal"
+              style={btnStyle('loss-ghost', false)}>
+              Clear
+            </button>
+          )}
+        </div>
+        <ModalActions
+          onCancel={onClose}
+          onConfirm={() => onSubmit({ whenIso: when || null, note: note.trim() })}
+          confirmLabel={current ? 'Update' : 'Set'}
+          confirmDisabled={!when || isPast} />
+      </div>
+    </Modal>
+  );
+}
+
+/** True when the proposal has an explicit follow-up date that's already
+ *  past AND it's still in a state where the reminder is meaningful (draft
+ *  or sent). Won/lost/archived suppress the alert. Exposed for reuse on the
+ *  dashboard. */
+export function isFollowUpOverdue(
+  followUpAt: string | null | undefined,
+  status: ProposalStatus,
+): boolean {
+  if (!followUpAt) return false;
+  if (status !== 'draft' && status !== 'sent') return false;
+  return followUpAt.slice(0, 10) < localTodayStr();
+}
+
+function localTodayStr(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function addDaysIso(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function toDateInput(iso: string | null | undefined): string {
+  if (!iso) return '';
+  return iso.slice(0, 10);
+}
+
 // ── note modal ────────────────────────────────────────────────────────────
 
 interface NoteModalProps {
@@ -488,6 +630,11 @@ function ActivityEntryRow({ entry }: { entry: any }) {
           {entry.action === 'reassign' && entry.meta && (
             <> from <em>{entry.meta.from_pm?.name || '—'}</em>
               {' '}to <em>{entry.meta.to_pm?.name || '—'}</em></>
+          )}
+          {entry.action === 'follow_up' && (
+            entry.meta?.follow_up_at
+              ? <> for <em>{formatDate(entry.meta.follow_up_at)}</em></>
+              : <> — <em>cleared</em></>
           )}
         </div>
         {entry.note && (

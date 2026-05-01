@@ -3,7 +3,7 @@
 // clicking any proposal opens it in the editor.
 
 import { useCallback, useEffect, useState, type Dispatch } from 'react';
-import { Modal, ModalActions, StatusBadge } from './StatusComponents';
+import { Modal, ModalActions, StatusBadge, formatDate, isFollowUpOverdue } from './StatusComponents';
 import { STATUSES, STATUS_LABELS } from '../lib/lifecycle';
 import type { ProposalStatus } from '../types/domain';
 import type { EditorAction, EditorState } from '../state/editorReducer';
@@ -102,6 +102,13 @@ export default function Dashboard({ state, onOpenProposal, refreshKey }: Dashboa
     return true;
   });
 
+  // Overdue follow-up count drives the inline summary on "All proposals"
+  // and the per-card badge below. Computed in the renderer (not the
+  // backend) so it always reflects local "today" without an extra IPC.
+  const overdueFollowUpCount = data.rows.filter((r) =>
+    isFollowUpOverdue(r.follow_up_at, r.status),
+  ).length;
+
   const allowed = state.bootstrap?.allowed_users || [];
   const myEmail = state.identity?.email;
   const pms = [...allowed].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
@@ -175,6 +182,16 @@ export default function Dashboard({ state, onOpenProposal, refreshKey }: Dashboa
       <div style={{ marginTop: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>All proposals</div>
+          {overdueFollowUpCount > 0 && (
+            <span style={{
+              padding: '2px 8px', borderRadius: 9,
+              background: '#FBECEB', color: '#B8322F',
+              fontSize: 11, fontWeight: 700,
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+            }} title="Proposals with a follow-up date that's already past">
+              ⚠ {overdueFollowUpCount} follow-up{overdueFollowUpCount === 1 ? '' : 's'} overdue
+            </span>
+          )}
           <div style={{ flex: 1 }} />
           <input value={filter.search}
             onChange={(e) => setFilter((f) => ({ ...f, search: e.target.value }))}
@@ -319,7 +336,7 @@ function PipelineBoard({ pipeline, onOpen }: { pipeline: Record<string, Dashboar
                   }}>
                     {r.client || '—'}
                   </div>
-                  <div style={{ display: 'flex', gap: 8, marginTop: 3 }}>
+                  <div style={{ display: 'flex', gap: 6, marginTop: 3, flexWrap: 'wrap', alignItems: 'center' }}>
                     <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--ink)' }}>
                       {localFmt$(r.value)}
                     </span>
@@ -328,6 +345,13 @@ function PipelineBoard({ pipeline, onOpen }: { pipeline: Record<string, Dashboar
                         fontSize: 10, padding: '1px 6px', borderRadius: 8,
                         background: '#FDE4C4', color: '#8A5A1A', fontWeight: 700,
                       }}>Stale</span>
+                    )}
+                    {isFollowUpOverdue(r.follow_up_at, r.status) && (
+                      <span title={`Follow-up was due ${formatDate(r.follow_up_at!)}`}
+                        style={{
+                          fontSize: 10, padding: '1px 6px', borderRadius: 8,
+                          background: '#FBECEB', color: '#B8322F', fontWeight: 700,
+                        }}>⚠ Overdue</span>
                     )}
                   </div>
                 </button>
@@ -389,14 +413,27 @@ function ProposalList({ rows, onOpen, onDeleted }: ProposalListProps) {
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => (
+          {rows.map((r) => {
+            const overdue = isFollowUpOverdue(r.follow_up_at, r.status);
+            const rowBg = overdue ? '#FDF6F5' : (r.stale ? '#FFFBF1' : 'transparent');
+            return (
             <tr key={r.name} style={{
               borderTop: '1px solid var(--line)',
-              background: r.stale ? '#FFFBF1' : 'transparent',
+              background: rowBg,
             }}>
               <td onClick={() => onOpen(r.name)}
                 style={{ padding: '8px 10px', fontWeight: 600, color: 'var(--ink)', cursor: 'pointer' }}>
-                {r.name || '(untitled)'}
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  {r.name || '(untitled)'}
+                  {overdue && (
+                    <span title={`Follow-up was due ${formatDate(r.follow_up_at!)}`}
+                      style={{
+                        fontSize: 9.5, padding: '1px 5px', borderRadius: 8,
+                        background: '#FBECEB', color: '#B8322F', fontWeight: 700,
+                        textTransform: 'uppercase', letterSpacing: 0.3,
+                      }}>⚠ Follow-up</span>
+                  )}
+                </span>
               </td>
               <td onClick={() => onOpen(r.name)}
                 style={{ padding: '8px 10px', color: 'var(--body)', cursor: 'pointer' }}>{r.client || '—'}</td>
@@ -446,7 +483,8 @@ function ProposalList({ rows, onOpen, onDeleted }: ProposalListProps) {
                 )}
               </td>
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
 
