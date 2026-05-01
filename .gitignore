@@ -14,6 +14,11 @@ release/
 # Logs
 *.log
 
+# Python build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+
 # OS / editor crumbs
 ~$*
 .DS_Store
