@@ -13,6 +13,7 @@ import type {
   Identity,
   LaborRow,
   Lifecycle,
+  LookupsTab,
   Proposal,
   ProjectTemplateRecord,
   ClientTemplateRecord,
@@ -98,6 +99,11 @@ export interface EditorState {
    *  instant. */
   viewingVersion: ViewingVersion | null;
   liveProposalCache: Proposal | null;
+  /** Slide-out Lookups admin panel — open/closed flag and the active sub-tab.
+   *  Sidebar's Lookups button toggles `lookupsOpen`; `lookupsTab` survives
+   *  panel close so reopening restores where the user left off. */
+  lookupsOpen: boolean;
+  lookupsTab: LookupsTab;
 }
 
 export function initialState(): EditorState {
@@ -120,6 +126,8 @@ export function initialState(): EditorState {
     winRateWindowDays: 90,
     viewingVersion:    null,
     liveProposalCache: null,
+    lookupsOpen:       false,
+    lookupsTab:        'basic',
   };
 }
 
@@ -161,7 +169,9 @@ export type EditorAction =
   | { type: 'TOGGLE_ACTIVITY' }
   | { type: 'SET_ACTIVITY_OPEN'; open: boolean }
   | { type: 'REPLACE_LIFECYCLE'; lifecycle: Lifecycle }
-  | { type: 'REPLACE_PROPOSAL'; proposal: Proposal };
+  | { type: 'REPLACE_PROPOSAL'; proposal: Proposal }
+  | { type: 'SET_LOOKUPS_OPEN'; open: boolean }
+  | { type: 'SET_LOOKUPS_TAB'; tab: LookupsTab };
 
 /** Action types that mutate proposal *content* — dropped silently while
  *  viewing a snapshot so historical versions stay read-only. */
@@ -481,5 +491,11 @@ export function reducer(state: EditorState, action: EditorAction): EditorState {
         autosaveStatus: 'saved',
         projectName:    action.proposal.name || state.projectName,
       };
+
+    case 'SET_LOOKUPS_OPEN':
+      return { ...state, lookupsOpen: !!action.open };
+
+    case 'SET_LOOKUPS_TAB':
+      return { ...state, lookupsTab: action.tab };
   }
 }

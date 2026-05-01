@@ -1,0 +1,191 @@
+/* Lookups admin panel — shared styles for the 7 sub-tab editors.
+   Scoped under .lookups-body so the table/card classes (which were generic
+   in PM Quoting App's global CSS) don't leak into the rest of QuickQuote.
+
+   QuickQuote elsewhere uses inline styles; introducing these utility classes
+   keeps the editor ports byte-compatible with the PM source. */
+
+.lookups-body {
+  font-family: var(--sans);
+  color: var(--body);
+  font-size: 12.5px;
+}
+
+.lookups-body h3 {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0 0 10px;
+}
+
+.lookups-body h4 {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 8px 0;
+}
+
+.lookups-body p { margin: 0 0 8px; }
+
+.lookups-body .card {
+  background: var(--surface);
+  border: 1px solid var(--hair);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+
+.lookups-body .toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.lookups-body .toolbar label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.lookups-body .spacer { flex: 1; }
+
+.lookups-body table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.lookups-body thead th {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--muted);
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  padding: 6px 8px;
+  background: var(--canvas);
+}
+
+.lookups-body thead th.num { text-align: right; }
+
+.lookups-body tbody td {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+
+.lookups-body tbody td.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.lookups-body input,
+.lookups-body select {
+  width: 100%;
+  height: 28px;
+  padding: 0 8px;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--hair);
+  border-radius: 5px;
+  font-size: 12px;
+  font-family: var(--sans);
+}
+
+.lookups-body input[type="checkbox"] {
+  width: auto;
+  height: auto;
+  margin: 0;
+}
+
+.lookups-body input[type="number"] { text-align: right; font-variant-numeric: tabular-nums; }
+
+.lookups-body input:focus,
+.lookups-body select:focus {
+  outline: none;
+  border-color: var(--navy);
+  box-shadow: 0 0 0 2px var(--navy-tint);
+}
+
+.lookups-body button {
+  height: 28px;
+  padding: 0 12px;
+  background: var(--surface);
+  color: var(--body);
+  border: 1px solid var(--hair);
+  border-radius: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--sans);
+}
+
+.lookups-body button:hover:not(:disabled) {
+  background: var(--canvas-deep);
+}
+
+.lookups-body button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.lookups-body button.primary {
+  background: var(--navy-deep);
+  color: #fff;
+  border-color: transparent;
+}
+
+.lookups-body button.primary:hover:not(:disabled) {
+  background: var(--navy-ink);
+}
+
+.lookups-body button.delete-x {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 4px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1;
+}
+
+.lookups-body button.delete-x:hover {
+  background: #FBECEB;
+  color: #B8322F;
+  border-color: #F3CFA8;
+}
+
+.lookups-body .muted {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.lookups-body .success {
+  background: #E7F4EC;
+  border: 1px solid #B5DBC4;
+  color: #2C5F45;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  margin-bottom: 8px;
+}
+
+.lookups-body .error {
+  background: #FBECEB;
+  border: 1px solid #F3CFA8;
+  color: #B8322F;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  margin-top: 6px;
+}
+
+.lookups-body code {
+  font-family: var(--mono);
+  font-size: 11px;
+  background: var(--canvas);
+  padding: 1px 4px;
+  border-radius: 3px;
+}

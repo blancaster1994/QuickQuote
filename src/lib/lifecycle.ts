@@ -2,7 +2,7 @@
 // quickprop/activity.py constants and the JS-side helpers in
 // QuickProp/ui/state/store.js.
 
-import type { LostReason, LostReasonOption, Proposal, ProposalStatus } from '../types/domain';
+import type { LostReason, LostReasonOption, Permission, Proposal, ProposalStatus } from '../types/domain';
 
 export const STATUSES: readonly ProposalStatus[] = [
   'draft', 'sent', 'won', 'lost', 'archived',
@@ -49,4 +49,14 @@ export function canDelete(p: Proposal | null | undefined): boolean {
 
 // Re-export these so callers can `import { LostReason } from '../lib/lifecycle'`
 // without reaching into types/. Convenience only.
-export type { LostReason };
+export type { LostReason, Permission };
+
+// ── permissions ─────────────────────────────────────────────────────────────
+
+/** Permission gate for renderer features. QuickQuote is single-user — every
+ *  role can do everything for now. Kept as a function (not a constant true)
+ *  so a future multi-user rollout adds the role matrix here without touching
+ *  any call sites. ClickUpSettings is the only Stage 2 caller. */
+export function canDo(_role: string | null | undefined, _perm: Permission): boolean {
+  return true;
+}

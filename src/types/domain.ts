@@ -46,6 +46,35 @@ export type LookupsTab =
   | 'legal-departments'
   | 'clickup';
 
+/** Capability the renderer might want to gate. QuickQuote is single-user and
+ *  canDo() returns true for every value today, but keeping the union lets a
+ *  future multi-user rollout add the role matrix without touching call sites. */
+export type Permission =
+  | 'view'
+  | 'edit'
+  | 'mark_sent'
+  | 'mark_won'
+  | 'mark_lost'
+  | 'mark_archived'
+  | 'reopen'
+  | 'reassign'
+  | 'add_note'
+  | 'follow_up'
+  | 'send_to_clickup'
+  | 'manage';
+
+/** Filter row for the native open-file dialog. Mirrors Electron's
+ *  FileFilter shape. Used by window.api.dialog.openFile for XLSX import. */
+export interface DialogFileFilter {
+  name: string;
+  extensions: string[];
+}
+
+/** Result of a successful native open-file dialog: the file is read on the
+ *  main process and base64-encoded so the renderer can hand it to xlsx
+ *  without a second IPC round-trip. Null when the user cancels. */
+export type DialogOpenFileResult = { filePath: string; base64: string } | null;
+
 /** Resource assignment status — drives the colored pill in resource tables. */
 export type ResourceStatus = 'Not Started' | 'In-process' | 'Completed' | 'On-hold';
 
@@ -451,6 +480,33 @@ export interface ClickUpConfig {
   enabled: boolean;
   updated_at: string | null;
 }
+
+/** Sanitized config shape returned to the renderer — never carries the API
+ *  token. The settings card only needs to know whether one is configured. */
+export interface ClickUpStatus {
+  configured: boolean;
+  enabled: boolean;
+  workspace_id: string | null;
+  admin_requests_space_id: string | null;
+  admin_requests_list_id: string | null;
+  updated_at: string | null;
+}
+
+/** Patch payload for `clickup.setConfig`. `api_token` is write-only — the
+ *  renderer can rotate it but never reads it back. */
+export interface ClickUpConfigPatch {
+  api_token?: string | null;
+  enabled?: boolean;
+  workspace_id?: string | null;
+  admin_requests_space_id?: string | null;
+  admin_requests_list_id?: string | null;
+}
+
+/** ClickUp connection-test result. Stage 2 returns the stub-error variant
+ *  unconditionally; Stage 6 returns either form. */
+export type ClickUpTestResult =
+  | { ok: true; user?: { email: string; id: string } }
+  | { ok: false; error: string };
 
 export interface ClickUpLink {
   project_id: ID;

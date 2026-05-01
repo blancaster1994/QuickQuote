@@ -1,9 +1,10 @@
-// Top bar — direct port of QuickProp's TopBar.jsx.
-// Logo + breadcrumb + status pill, view switcher (Editor/Dashboard), New /
-// Duplicate / VersionSwitcher, autosave pill, user menu, Preview toggle,
-// split Generate button.
+// Top bar — ported from QuickProp's TopBar.jsx; trimmed in Stage 2 when the
+// Sidebar took over view switching and user-identity. Now: logo + breadcrumb
+// + status pill, New / Duplicate / VersionSwitcher, autosave pill, Preview
+// toggle, split Generate button. (View switcher and identity menu live in
+// Sidebar.tsx.)
 
-import { useState, type Dispatch } from 'react';
+import { type Dispatch } from 'react';
 import { StatusBadge, VersionSwitcher } from './StatusComponents';
 import { getStatus } from '../lib/lifecycle';
 import type { GeneratedFormat } from '../types/domain';
@@ -23,8 +24,7 @@ export default function TopBar({
   state, dispatch, onNewProject, onDuplicateProject,
   onGenerate, generating, onReloadProjects,
 }: TopBarProps) {
-  const { proposal, previewOpen, genMenuOpen, lastFormat, autosaveStatus, bootstrap, view, identity } = state;
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const { proposal, previewOpen, genMenuOpen, lastFormat, autosaveStatus, bootstrap, view } = state;
   const status = getStatus(proposal);
   const appVersion = bootstrap?.app_version || '';
 
@@ -62,33 +62,6 @@ export default function TopBar({
         <StatusBadge status={status} size="sm" />
       </div>
 
-      {/* View switcher — Editor | Dashboard */}
-      <div style={{
-        marginLeft: 16, display: 'flex', background: 'var(--canvas-deep)',
-        borderRadius: 7, padding: 3,
-      }}>
-        {([
-          { id: 'editor',    label: 'Editor' },
-          { id: 'dashboard', label: 'Dashboard' },
-        ] as const).map((v) => {
-          const active = view === v.id;
-          return (
-            <button key={v.id}
-              onClick={() => dispatch({ type: 'SET_VIEW', view: v.id })}
-              style={{
-                padding: '5px 12px', border: 'none',
-                background: active ? 'var(--surface)' : 'transparent',
-                color: active ? 'var(--ink)' : 'var(--muted)',
-                borderRadius: 5, fontSize: 11.5, fontWeight: 600,
-                cursor: 'pointer', fontFamily: 'var(--sans)',
-                boxShadow: active ? '0 1px 2px rgba(0,0,0,.06)' : 'none',
-              }}>
-              {v.label}
-            </button>
-          );
-        })}
-      </div>
-
       <div style={{ flex: 1 }} />
 
       <button onClick={onNewProject}
@@ -116,54 +89,6 @@ export default function TopBar({
       <div style={{ width: 1, height: 20, background: 'var(--hair)' }} />
 
       <AutosavePill status={autosaveStatus} />
-
-      {identity && (
-        <div style={{ position: 'relative' }}>
-          <button onClick={() => setUserMenuOpen((o) => !o)}
-            title={`${identity.name} · ${identity.email}`}
-            style={{
-              width: 30, height: 30, borderRadius: '50%',
-              background: 'var(--navy-deep)', color: '#fff',
-              border: 'none', cursor: 'pointer',
-              fontSize: 11, fontWeight: 800, fontFamily: 'var(--sans)',
-            }}>
-            {initials(identity.name || identity.email)}
-          </button>
-          {userMenuOpen && (
-            <>
-              <div onClick={() => setUserMenuOpen(false)}
-                style={{ position: 'fixed', inset: 0, zIndex: 10 }} />
-              <div style={{
-                position: 'absolute', top: 36, right: 0, minWidth: 220, zIndex: 11,
-                background: 'var(--surface)', border: '1px solid var(--hair)', borderRadius: 8,
-                boxShadow: '0 8px 24px rgba(15,25,40,0.12)', overflow: 'hidden',
-                padding: 10,
-              }}>
-                <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)' }}>
-                  {identity.name}
-                </div>
-                <div style={{ fontSize: 11, color: 'var(--muted)' }}>{identity.email}</div>
-                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
-                  Role: <strong>{identity.role}</strong>
-                </div>
-                <button onClick={async () => {
-                  await window.api.identity.clear();
-                  window.location.reload();
-                }}
-                  style={{
-                    width: '100%', marginTop: 10, height: 28,
-                    background: 'var(--canvas)', color: 'var(--body)',
-                    border: '1px solid var(--hair)', borderRadius: 6,
-                    fontSize: 11.5, fontWeight: 600, cursor: 'pointer',
-                    fontFamily: 'var(--sans)',
-                  }}>
-                  Switch user
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      )}
 
       {/* Preview toggle */}
       <button onClick={() => dispatch({ type: 'TOGGLE_PREVIEW' })}
@@ -308,13 +233,6 @@ function pillButton(disabled: boolean) {
     display: 'inline-flex', alignItems: 'center',
     opacity: disabled ? 0.55 : 1,
   };
-}
-
-function initials(s: string): string {
-  if (!s) return '—';
-  const parts = String(s).trim().split(/\s+/);
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
 interface GenMenuItemProps {

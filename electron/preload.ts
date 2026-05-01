@@ -106,6 +106,89 @@ const api = {
     openFile:         (path: string) => ipcRenderer.invoke('os:openFile', path),
     revealInExplorer: (path: string) => ipcRenderer.invoke('os:revealInExplorer', path),
   },
+
+  // ── PM-mode admin (Stage 2) ───────────────────────────────────────────────
+  // Method names follow PM Quoting App's conventions (`remove`, `importBulk`)
+  // so the editor ports work without a rename. The underlying channel strings
+  // come from electron/ipc-channels.ts (`*_DELETE`, `*_BULK_REPLACE`).
+
+  /** Native open-file dialog (XLSX import for lookups admin). */
+  dialog: {
+    openFile: (filters?: Array<{ name: string; extensions: string[] }>) =>
+      ipcRenderer.invoke('dialog:openFile', filters),
+  },
+
+  /** Simple name-list CRUD keyed by table name. */
+  lookups: {
+    list:   (table: string) => ipcRenderer.invoke('lookup:list', table),
+    add:    (table: string, name: string) => ipcRenderer.invoke('lookup:add', table, name),
+    update: (table: string, id: number, name: string) =>
+      ipcRenderer.invoke('lookup:update', table, id, name),
+    remove: (table: string, id: number) => ipcRenderer.invoke('lookup:delete', table, id),
+  },
+
+  /** Markup percentages (numeric value list). */
+  markup: {
+    list:   () => ipcRenderer.invoke('markup:list'),
+    add:    (value: number) => ipcRenderer.invoke('markup:add', value),
+    update: (id: number, value: number) => ipcRenderer.invoke('markup:update', id, value),
+    remove: (id: number) => ipcRenderer.invoke('markup:delete', id),
+  },
+
+  /** Department-scoped phase taxonomy. */
+  phases: {
+    list:   (department?: string) => ipcRenderer.invoke('phaseDef:list', department),
+    save:   (row: any) => ipcRenderer.invoke('phaseDef:save', row),
+    remove: (id: number) => ipcRenderer.invoke('phaseDef:delete', id),
+  },
+
+  /** (department, phase)-scoped task taxonomy. */
+  tasks: {
+    list:   (department?: string, phase?: string) =>
+      ipcRenderer.invoke('taskDef:list', department, phase),
+    save:   (row: any) => ipcRenderer.invoke('taskDef:save', row),
+    remove: (id: number) => ipcRenderer.invoke('taskDef:delete', id),
+  },
+
+  /** Phase templates. `importBulk` replaces the whole table per the bulk
+   *  semantics in electron/db/lookups.ts. */
+  templates: {
+    list:           (filters?: any) => ipcRenderer.invoke('templatePhase:list', filters),
+    listForContext: (legalEntity: string, department: string) =>
+      ipcRenderer.invoke('templatePhase:listForContext', legalEntity, department),
+    save:           (row: any) => ipcRenderer.invoke('templatePhase:save', row),
+    remove:         (id: number) => ipcRenderer.invoke('templatePhase:delete', id),
+    importBulk:     (rows: any[]) => ipcRenderer.invoke('templatePhase:bulkReplace', rows),
+  },
+
+  /** Employees (extended). */
+  employees: {
+    list:        (activeOnly?: boolean) => ipcRenderer.invoke('employee:list', activeOnly),
+    save:        (row: any) => ipcRenderer.invoke('employee:save', row),
+    remove:      (id: number) => ipcRenderer.invoke('employee:delete', id),
+    importBulk:  (rows: any[]) => ipcRenderer.invoke('employee:importBulk', rows),
+    findByEmail: (email: string) => ipcRenderer.invoke('employee:findByEmail', email),
+  },
+
+  /** Rates (4-tier lookup). */
+  rates: {
+    list:             (filters?: any) => ipcRenderer.invoke('rate:list', filters),
+    save:             (row: any) => ipcRenderer.invoke('rate:save', row),
+    remove:           (id: number) => ipcRenderer.invoke('rate:delete', id),
+    importBulk:       (rows: any[]) => ipcRenderer.invoke('rate:importBulk', rows),
+    lookup:           (legalEntity: string, rateTable: string, category: string, resourceId?: string | null) =>
+      ipcRenderer.invoke('rate:lookup', legalEntity, rateTable, category, resourceId ?? null),
+    categories:       (legalEntity?: string) => ipcRenderer.invoke('rate:categories', legalEntity),
+    tablesForEntity:  (legalEntity: string) => ipcRenderer.invoke('rate:tablesForEntity', legalEntity),
+  },
+
+  /** ClickUp settings. `getConfig` returns a sanitized status object — the
+   *  api_token is intentionally never sent to the renderer. */
+  clickup: {
+    getConfig:      () => ipcRenderer.invoke('clickup:getConfig'),
+    setConfig:      (patch: any) => ipcRenderer.invoke('clickup:setConfig', patch),
+    testConnection: () => ipcRenderer.invoke('clickup:testConnection'),
+  },
 };
 
 contextBridge.exposeInMainWorld('api', api);

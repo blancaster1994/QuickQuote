@@ -22,11 +22,13 @@ import { getStatus, isFrozen, STATUS_LABELS } from './lib/lifecycle';
 import type { Bootstrap, GeneratedFormat, Identity, Proposal, ViewingVersion } from './types/domain';
 
 import TopBar from './components/TopBar';
+import Sidebar from './components/Sidebar';
 import HeaderCard from './components/HeaderCard';
 import BidItemTabs from './components/BidItemTabs';
 import SectionEditor from './components/SectionEditor';
 import DocPreview from './components/DocPreview';
 import Dashboard from './components/Dashboard';
+import { LookupsPanel } from './components/lookups';
 import {
   ActivityTimeline, FirstRunIdentity, Modal, ModalActions, StatusActionBar,
 } from './components/StatusComponents';
@@ -230,32 +232,52 @@ export default function App() {
   return (
     <div style={{
       width: '100%', height: '100vh', background: 'var(--canvas)',
-      display: 'flex', flexDirection: 'column', overflow: 'hidden',
+      display: 'grid',
+      gridTemplateRows: '48px auto 1fr',
+      gridTemplateColumns: '200px 1fr',
+      overflow: 'hidden',
     }}>
-      <TopBar
-        state={state}
-        dispatch={dispatch}
-        onNewProject={handleNewProject}
-        onDuplicateProject={handleDuplicate}
-        onGenerate={handleGenerate}
-        generating={generating}
-        onReloadProjects={reloadProjects}
-      />
+      {/* Row 1, full width: TopBar */}
+      <div style={{ gridRow: '1', gridColumn: '1 / span 2', minHeight: 0 }}>
+        <TopBar
+          state={state}
+          dispatch={dispatch}
+          onNewProject={handleNewProject}
+          onDuplicateProject={handleDuplicate}
+          onGenerate={handleGenerate}
+          generating={generating}
+          onReloadProjects={reloadProjects}
+        />
+      </div>
 
-      <ImportBanner state={state} onAfterImport={reloadProjects} />
+      {/* Rows 2-3, col 1: Sidebar (spans the import banner row + main row) */}
+      <div style={{ gridRow: '2 / span 2', gridColumn: '1', minHeight: 0 }}>
+        <Sidebar state={state} dispatch={dispatch} />
+      </div>
 
-      {state.view === 'dashboard' ? (
-        <div style={{ flex: 1, overflow: 'auto' }}>
-          <Dashboard
-            state={state}
-            dispatch={dispatch}
-            onOpenProposal={handleSelectProject}
-            refreshKey={dashboardRefresh}
-          />
-        </div>
-      ) : (
-        <EditorLayout state={state} dispatch={dispatch} onReload={reloadProjects} />
-      )}
+      {/* Row 2, col 2: optional import banner */}
+      <div style={{ gridRow: '2', gridColumn: '2', minHeight: 0 }}>
+        <ImportBanner state={state} onAfterImport={reloadProjects} />
+      </div>
+
+      {/* Row 3, col 2: main content (Dashboard or EditorLayout) */}
+      <div style={{
+        gridRow: '3', gridColumn: '2',
+        minHeight: 0, display: 'flex', flexDirection: 'column',
+      }}>
+        {state.view === 'dashboard' ? (
+          <div style={{ flex: 1, overflow: 'auto' }}>
+            <Dashboard
+              state={state}
+              dispatch={dispatch}
+              onOpenProposal={handleSelectProject}
+              refreshKey={dashboardRefresh}
+            />
+          </div>
+        ) : (
+          <EditorLayout state={state} dispatch={dispatch} onReload={reloadProjects} />
+        )}
+      </div>
 
       {versionPrompt === 'pending' && state.projectName && (
         <VersionPromptModal
@@ -275,6 +297,11 @@ export default function App() {
           onContinueWithoutVersioning={() => setVersionPrompt('dismissed')}
         />
       )}
+
+      {/* Slide-out Lookups admin panel — position:fixed, lazy-mounted on
+          first open, then stays in DOM. Renders nothing until lookupsOpen
+          first goes true. */}
+      <LookupsPanel state={state} dispatch={dispatch} />
     </div>
   );
 }

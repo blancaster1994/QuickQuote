@@ -100,6 +100,17 @@ export const IPC = {
   RATE_LOOKUP:             'rate:lookup',
   RATE_CATEGORIES:         'rate:categories',
   RATE_TABLES_FOR_ENTITY:  'rate:tablesForEntity',
+
+  // ── native open-file dialog (XLSX import for lookups admin) ──────────────
+  DIALOG_OPEN_FILE:        'dialog:openFile',
+
+  // ── ClickUp settings (Stage 2; full sync lands in Stage 6) ───────────────
+  // testConnection is a stub until Stage 6 wires the REST client.
+  // getConfig MUST strip api_token from the response — the renderer never
+  // sees the token, only a `configured: boolean` flag.
+  CLICKUP_GET_CONFIG:      'clickup:getConfig',
+  CLICKUP_SET_CONFIG:      'clickup:setConfig',
+  CLICKUP_TEST_CONNECTION: 'clickup:testConnection',
 } as const;
 
 export type IpcChannel = typeof IPC[keyof typeof IPC];

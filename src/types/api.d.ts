@@ -5,7 +5,39 @@
 // Step 3 leaves payload shapes loose (most are `unknown` until Step 4 ports
 // the domain types from QuickProp's reducer). Tighten in Step 4.
 
-import type { LostReason, GenerateResult } from './domain';
+import type {
+  ClickUpConfigPatch,
+  ClickUpStatus,
+  ClickUpTestResult,
+  Department,
+  DialogFileFilter,
+  DialogOpenFileResult,
+  EmployeeRow,
+  ExpenseCategoryDef,
+  GenerateResult,
+  LegalEntity,
+  LostReason,
+  MarkupPct,
+  PhaseDef,
+  ProjectTypeDef,
+  RateEntry,
+  RateTable,
+  TaskDef,
+  TemplatePhase,
+} from './domain';
+
+/** PM-mode lookups keyed by table name. Used by `window.api.lookups.*`. */
+type NameTable =
+  | 'legal_entity'
+  | 'department'
+  | 'rate_table'
+  | 'project_type'
+  | 'expense_category';
+
+/** Row shape returned by `lookups.list(table)` — the union of all simple
+ *  name-list rows. Each variant has `{ id, name }` so callers don't need to
+ *  branch on table. */
+type LookupNameRow = LegalEntity | Department | RateTable | ProjectTypeDef | ExpenseCategoryDef;
 
 export interface QuickQuoteApi {
   app: {
@@ -83,6 +115,82 @@ export interface QuickQuoteApi {
   os: {
     openFile(path: string): Promise<{ ok: true }>;
     revealInExplorer(path: string): Promise<{ ok: true }>;
+  };
+
+  // ── PM-mode admin (Stage 2) ─────────────────────────────────────────────
+
+  /** Native open-file dialog. Returns `{ filePath, base64 }` so the renderer
+   *  can hand bytes to xlsx without a second IPC round-trip. `null` = user
+   *  cancelled. */
+  dialog: {
+    openFile(filters?: DialogFileFilter[]): Promise<DialogOpenFileResult>;
+  };
+
+  /** Simple name-list CRUD. `table` is one of the five name-list tables. */
+  lookups: {
+    list(table: NameTable): Promise<LookupNameRow[]>;
+    add(table: NameTable, name: string): Promise<number>;
+    update(table: NameTable, id: number, name: string): Promise<{ ok: true }>;
+    remove(table: NameTable, id: number): Promise<{ ok: true }>;
+  };
+
+  /** Markup percentages (numeric value list). */
+  markup: {
+    list(): Promise<MarkupPct[]>;
+    add(value: number): Promise<number>;
+    update(id: number, value: number): Promise<{ ok: true }>;
+    remove(id: number): Promise<{ ok: true }>;
+  };
+
+  /** Department-scoped phase taxonomy. */
+  phases: {
+    list(department?: string): Promise<PhaseDef[]>;
+    save(row: { id?: number; department: string; name: string; sort_order: number }): Promise<number>;
+    remove(id: number): Promise<{ ok: true }>;
+  };
+
+  /** (department, phase)-scoped task taxonomy. */
+  tasks: {
+    list(department?: string, phase?: string): Promise<TaskDef[]>;
+    save(row: { id?: number; department: string; phase: string; name: string; sort_order: number }): Promise<number>;
+    remove(id: number): Promise<{ ok: true }>;
+  };
+
+  /** Phase templates (legal_entity + department-scoped bundles). */
+  templates: {
+    list(filters?: { legal_entity?: string; department?: string; template?: string }): Promise<TemplatePhase[]>;
+    listForContext(legalEntity: string, department: string): Promise<string[]>;
+    save(row: Omit<TemplatePhase, 'id'> & { id?: number }): Promise<number>;
+    remove(id: number): Promise<{ ok: true }>;
+    importBulk(rows: Array<Omit<TemplatePhase, 'id'>>): Promise<{ ok: true; count: number }>;
+  };
+
+  /** Employees (extended). Used for resource allocation, PM picker, ClickUp. */
+  employees: {
+    list(activeOnly?: boolean): Promise<EmployeeRow[]>;
+    save(row: Partial<EmployeeRow>): Promise<number>;
+    remove(id: number): Promise<{ ok: true }>;
+    importBulk(rows: Array<Omit<EmployeeRow, 'id' | 'active'>>): Promise<{ ok: true; count: number }>;
+    findByEmail(email: string): Promise<EmployeeRow | null>;
+  };
+
+  /** Rates (4-tier lookup: legal_entity → rate_table → category → resource_id). */
+  rates: {
+    list(filters?: { legal_entity?: string; rate_table?: string }): Promise<RateEntry[]>;
+    save(row: Partial<RateEntry>): Promise<number>;
+    remove(id: number): Promise<{ ok: true }>;
+    importBulk(rows: Array<Omit<RateEntry, 'id'>>): Promise<{ ok: true; count: number }>;
+    lookup(legalEntity: string, rateTable: string, category: string, resourceId?: string | null): Promise<number | null>;
+    categories(legalEntity?: string): Promise<string[]>;
+    tablesForEntity(legalEntity: string): Promise<string[]>;
+  };
+
+  /** ClickUp settings. `getConfig` returns a sanitized status (no api_token).
+   *  Stage 2 stubs `testConnection`; full sync lands in Stage 6. */
+  clickup: {
+    getConfig(): Promise<ClickUpStatus>;
+    setConfig(patch: ClickUpConfigPatch): Promise<ClickUpStatus>;
+    testConnection(): Promise<ClickUpTestResult>;
   };
 }
 

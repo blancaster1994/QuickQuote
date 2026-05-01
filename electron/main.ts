@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
 import BetterSqlite3 from 'better-sqlite3';
@@ -11,6 +11,8 @@ import {
 import * as Q from './db/queries';
 import * as Lookups from './db/lookups';
 import type { NameTable } from './db/lookups';
+import { getClickUpConfig, setClickUpConfig } from './db/clickup';
+import type { ClickUpConfigRow } from './db/clickup';
 import * as activity from './lifecycle/activity';
 import * as versioning from './lifecycle/versioning';
 import { buildDashboard } from './lifecycle/dashboard';
@@ -372,6 +374,54 @@ function registerIpc(): void {
   ipcMain.handle(IPC.RATE_TABLES_FOR_ENTITY, (_e, legalEntity: string) =>
     Lookups.listRateTablesForEntity(requireDb(), legalEntity),
   );
+
+  // ── native open-file dialog ──────────────────────────────────────────────
+  // Used by the lookups admin (Templates, Employees, Rates) for XLSX import.
+  // Reads the file on the main process and base64-encodes so the renderer can
+  // hand bytes to xlsx without a second round-trip.
+  ipcMain.handle(IPC.DIALOG_OPEN_FILE, async (_e, filters?: Array<{ name: string; extensions: string[] }>) => {
+    if (!mainWindow) return null;
+    const res = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openFile'],
+      filters: filters ?? [
+        { name: 'Spreadsheet/CSV', extensions: ['xlsx', 'xls', 'xlsm', 'csv'] },
+      ],
+    });
+    if (res.canceled || res.filePaths.length === 0) return null;
+    const filePath = res.filePaths[0];
+    const buf = fs.readFileSync(filePath);
+    return { filePath, base64: buf.toString('base64') };
+  });
+
+  // ── ClickUp settings (Stage 2; full sync lands in Stage 6) ───────────────
+  // getConfig MUST strip api_token from the response. The renderer only needs
+  // a `configured: boolean`. The token never enters the JS heap.
+  ipcMain.handle(IPC.CLICKUP_GET_CONFIG, () => {
+    const row = getClickUpConfig(requireDb());
+    return {
+      configured: !!row.api_token,
+      enabled:    row.enabled,
+      workspace_id:            row.workspace_id,
+      admin_requests_space_id: row.admin_requests_space_id,
+      admin_requests_list_id:  row.admin_requests_list_id,
+      updated_at: row.updated_at,
+    };
+  });
+  ipcMain.handle(IPC.CLICKUP_SET_CONFIG, (_e, patch: Partial<ClickUpConfigRow>) => {
+    const row = setClickUpConfig(requireDb(), patch);
+    return {
+      configured: !!row.api_token,
+      enabled:    row.enabled,
+      workspace_id:            row.workspace_id,
+      admin_requests_space_id: row.admin_requests_space_id,
+      admin_requests_list_id:  row.admin_requests_list_id,
+      updated_at: row.updated_at,
+    };
+  });
+  ipcMain.handle(IPC.CLICKUP_TEST_CONNECTION, () => ({
+    ok: false as const,
+    error: 'ClickUp sync not implemented in Stage 2',
+  }));
 
   // ── OS integration ───────────────────────────────────────────────────────
   ipcMain.handle(IPC.OS_OPEN_FILE, async (_e, p: string) => {
