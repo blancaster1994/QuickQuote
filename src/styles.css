@@ -1,14 +1,63 @@
-/* Step 1 scaffold styles. Replaced with QuickProp/ui/styles.css verbatim in Step 2. */
+@import './_fonts.css';
 
-html, body, #root {
+/* QuickQuote design tokens — ported verbatim from QuickProp v3.1.1
+   (ui/styles.css). Mirrors the handoff README §Design Tokens. */
+
+:root {
+  --navy:        #17416F;
+  --navy-deep:   #0F2D4E;
+  --navy-ink:    #081A30;
+  --navy-tint:   #EAF0F7;
+
+  --ink:         #1A1F2A;
+  --body:        #3D4553;
+  --muted:       #6B7382;
+  --subtle:      #A0A7B3;
+  --hair:        #E4E6EA;
+  --line:        #ECEDF0;
+  --surface:     #FFFFFF;
+  --canvas:      #F6F5F2;
+  --canvas-deep: #EDECE7;
+
+  --amber:       oklch(72% 0.12 60);
+  --green:       oklch(58% 0.12 160);
+  --red:         oklch(55% 0.15 25);
+
+  --pill-draft-bg: #FDF3E3;
+  --pill-draft-fg: #8A5A1A;
+
+  --sans:  "Inter Tight", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --serif: "Source Serif 4", Georgia, serif;
+  --mono:  "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
   margin: 0;
   padding: 0;
   height: 100%;
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-feature-settings: "ss01", "cv11";
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
 }
 
-body {
-  background: #F6F5F2;
-  color: #1A1F2A;
-  font-family: 'Inter Tight', system-ui, -apple-system, Segoe UI, sans-serif;
-  -webkit-font-smoothing: antialiased;
+#root { height: 100vh; }
+
+.money,
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* Kill native number-input spinners — they steal clicks on the right edge
+   of tabular number cells. Users can type directly; up/down arrow keys still work. */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
 }
