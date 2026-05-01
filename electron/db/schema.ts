@@ -402,6 +402,52 @@ const MIGRATIONS: Migration[] = [
       db.exec(SCHEMA_V2_INDEXES);
     },
   },
+  {
+    version: 3,
+    up: (db) => {
+      // Defensive: backfill v1 columns that the queries write but which an
+      // older `proposal` / `proposal_version` row may be missing.
+      // CREATE TABLE IF NOT EXISTS in SCHEMA_V1 is a no-op when the table
+      // already exists, so an early-dev DB created before a v1 column was
+      // added would never get it. The fix surfaced when `lifecycle:markSent`
+      // (and any other write path) tried to UPDATE last_modified_by_email
+      // on a table that didn't have it.
+      const v1ProposalCols: Array<[string, string]> = [
+        ['name',                      'name TEXT'],
+        ['status',                    "status TEXT NOT NULL DEFAULT 'draft'"],
+        ['rate_table',                "rate_table TEXT NOT NULL DEFAULT 'consulting'"],
+        ['owner_email',               'owner_email TEXT'],
+        ['owner_name',                'owner_name TEXT'],
+        ['created_by_email',          'created_by_email TEXT'],
+        ['created_by_name',           'created_by_name TEXT'],
+        ['last_modified_by_email',    'last_modified_by_email TEXT'],
+        ['last_modified_by_name',     'last_modified_by_name TEXT'],
+        ['last_modified_at',          'last_modified_at TEXT'],
+        ['sent_date',                 'sent_date TEXT'],
+        ['won_date',                  'won_date TEXT'],
+        ['lost_date',                 'lost_date TEXT'],
+        ['lost_reason',               'lost_reason TEXT'],
+        ['lost_notes',                'lost_notes TEXT'],
+        ['follow_up_at',              'follow_up_at TEXT'],
+        ['icore_project_id',          'icore_project_id TEXT'],
+        ['client_name',               'client_name TEXT'],
+        ['client_contact',            'client_contact TEXT'],
+        ['client_address',            'client_address TEXT'],
+        ['client_city_state_zip',     'client_city_state_zip TEXT'],
+        ['project_address',           'project_address TEXT'],
+        ['project_city_state_zip',    'project_city_state_zip TEXT'],
+        ['proposal_date',             'proposal_date TEXT'],
+      ];
+      for (const [col, ddl] of v1ProposalCols) addColumnIfMissing(db, 'proposal', col, ddl);
+
+      const v1ProposalVersionCols: Array<[string, string]> = [
+        ['last_modified_by_email', 'last_modified_by_email TEXT'],
+        ['last_modified_by_name',  'last_modified_by_name TEXT'],
+        ['last_modified_at',       'last_modified_at TEXT'],
+      ];
+      for (const [col, ddl] of v1ProposalVersionCols) addColumnIfMissing(db, 'proposal_version', col, ddl);
+    },
+  },
   // Append future migrations here. Never edit a past entry — the runner
   // only applies versions strictly greater than the current recorded one.
 ];
