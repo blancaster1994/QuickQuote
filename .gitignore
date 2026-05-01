@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-electron/
+release/
+
+# Local SQLite databases (DB lives in %APPDATA%\QuickQuote\, but just in case)
+*.db
+*.db-shm
+*.db-wal
+
+# Logs
+*.log
+
+# OS / editor crumbs
+~$*
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+.claude/
