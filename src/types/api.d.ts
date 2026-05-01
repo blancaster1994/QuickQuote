@@ -7,6 +7,11 @@
 
 import type {
   ClickUpConfigPatch,
+  ClickUpExecuteDecisions,
+  ClickUpLink,
+  ClickUpPhaseLink,
+  ClickUpPreflightResult,
+  ClickUpSendResult,
   ClickUpStatus,
   ClickUpTestResult,
   Department,
@@ -217,12 +222,18 @@ export interface QuickQuoteApi {
     tablesForEntity(legalEntity: string): Promise<string[]>;
   };
 
-  /** ClickUp settings. `getConfig` returns a sanitized status (no api_token).
-   *  Stage 2 stubs `testConnection`; full sync lands in Stage 6. */
+  /** ClickUp settings + sync. `getConfig` returns a sanitized status
+   *  (no api_token). preflight returns a plan describing what will happen;
+   *  send executes user-confirmed phase decisions. */
   clickup: {
     getConfig(): Promise<ClickUpStatus>;
     setConfig(patch: ClickUpConfigPatch): Promise<ClickUpStatus>;
     testConnection(): Promise<ClickUpTestResult>;
+    preflight(projectId: number): Promise<ClickUpPreflightResult>;
+    send(projectId: number, decisions: ClickUpExecuteDecisions): Promise<ClickUpSendResult>;
+    getLink(projectId: number): Promise<ClickUpLink | null>;
+    listPhaseLinks(projectId: number): Promise<ClickUpPhaseLink[]>;
+    unlink(projectId: number): Promise<{ ok: true }>;
   };
 
   /** Project mode (Stage 4). One row per Won proposal, joined via

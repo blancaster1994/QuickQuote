@@ -15,6 +15,7 @@ import type {
 } from '../types/domain';
 import type { EditorState, EditorAction } from '../state/editorReducer';
 import InitializeProjectModal from './InitializeProjectModal';
+import SendToClickUpModal from './clickup/SendToClickUpModal';
 
 // ── status badge ──────────────────────────────────────────────────────────
 
@@ -70,9 +71,32 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
   const [showReassign, setShowReassign] = useState(false);
   const [showFollowUp, setShowFollowUp] = useState(false);
   const [showInitProject, setShowInitProject] = useState(false);
+  const [showSendClickUp, setShowSendClickUp] = useState(false);
+  // ClickUp link + config status. Refreshed when project changes.
+  const [clickUpEnabled, setClickUpEnabled] = useState(false);
+  const [clickUpLinkUrl, setClickUpLinkUrl] = useState<string | null>(null);
   const currentPm = (proposal.lifecycle?.owner) || { email: '', name: '' };
   const followUpAt = proposal.lifecycle?.metadata?.follow_up_at || null;
   const followUpOverdue = isFollowUpOverdue(followUpAt, status);
+  const inProjectMode = state.editorMode === 'project' && !!state.project;
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const cfg = await window.api.clickup.getConfig();
+        if (!cancelled) setClickUpEnabled(!!cfg.configured && !!cfg.enabled);
+      } catch { if (!cancelled) setClickUpEnabled(false); }
+    })();
+    if (state.project) {
+      void window.api.clickup.getLink(state.project.id)
+        .then(link => { if (!cancelled) setClickUpLinkUrl(link?.list_url ?? null); })
+        .catch(() => { if (!cancelled) setClickUpLinkUrl(null); });
+    } else {
+      setClickUpLinkUrl(null);
+    }
+    return () => { cancelled = true; };
+  }, [state.project?.id, state.project]);
 
   async function dispatchLifecycle(fn: LifecycleFn, run: () => Promise<{ lifecycle: Lifecycle }>) {
     if (!saved || !state.projectName) {
@@ -234,6 +258,38 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
           </button>
         ))}
 
+        {/* Send to ClickUp — visible only in project mode AND when sync is
+            enabled in Lookups → ClickUp. Already-linked projects show a
+            secondary "↗ ClickUp" chip + Unlink in the meta region. */}
+        {inProjectMode && clickUpEnabled && state.project && (
+          <>
+            {clickUpLinkUrl ? (
+              <button onClick={() => void window.api.os.openFile(clickUpLinkUrl)}
+                title="Open the linked ClickUp list in your browser"
+                style={{
+                  height: 30, padding: '0 12px',
+                  background: 'transparent', color: '#7c3aed',
+                  border: '1px solid #DDD6FE', borderRadius: 6,
+                  fontSize: 11.5, fontWeight: 600, cursor: 'pointer',
+                  fontFamily: 'var(--sans)',
+                }}>
+                ↗ ClickUp
+              </button>
+            ) : null}
+            <button onClick={() => setShowSendClickUp(true)}
+              title="Push this project's phases to ClickUp as tasks"
+              style={{
+                height: 30, padding: '0 12px',
+                background: '#7c3aed', color: '#fff',
+                border: 'none', borderRadius: 6,
+                fontSize: 11.5, fontWeight: 700, cursor: 'pointer',
+                fontFamily: 'var(--sans)',
+              }}>
+              {clickUpLinkUrl ? 'Re-send' : 'Send to ClickUp'}
+            </button>
+          </>
+        )}
+
         {canDelete(proposal) && saved && (
           <button onClick={() => setShowDelete(true)}
             title="Delete this draft (only un-sent drafts can be deleted)"
@@ -328,6 +384,32 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
               console.warn('reload proposal after initialize failed', e);
             }
             dispatch({ type: 'LOAD_PROJECT', project });
+            onReload?.();
+          }}
+        />
+      )}
+
+      {showSendClickUp && state.project && (
+        <SendToClickUpModal
+          project={state.project}
+          onClose={() => setShowSendClickUp(false)}
+          onSent={(result) => {
+            setShowSendClickUp(false);
+            if (result.ok) {
+              setClickUpLinkUrl(result.list_url);
+              const warnText = result.warnings.length
+                ? `\n\nWarnings:\n${result.warnings.map(w => '· ' + w).join('\n')}`
+                : '';
+              alert(
+                `Sent to ClickUp.\n\n` +
+                `${result.phases_synced} phase${result.phases_synced === 1 ? '' : 's'} synced` +
+                (result.phases_skipped ? `, ${result.phases_skipped} skipped` : '') +
+                (result.list_url ? `\n\nList: ${result.list_url}` : '') +
+                warnText,
+              );
+            } else {
+              alert(`Send failed: ${result.error}`);
+            }
             onReload?.();
           }}
         />

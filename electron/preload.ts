@@ -182,12 +182,19 @@ const api = {
     tablesForEntity:  (legalEntity: string) => ipcRenderer.invoke('rate:tablesForEntity', legalEntity),
   },
 
-  /** ClickUp settings. `getConfig` returns a sanitized status object — the
-   *  api_token is intentionally never sent to the renderer. */
+  /** ClickUp settings + sync. `getConfig` returns a sanitized status object —
+   *  the api_token is intentionally never sent to the renderer. preflight /
+   *  send drive the two-phase send flow shown in SendToClickUpModal. */
   clickup: {
-    getConfig:      () => ipcRenderer.invoke('clickup:getConfig'),
-    setConfig:      (patch: any) => ipcRenderer.invoke('clickup:setConfig', patch),
-    testConnection: () => ipcRenderer.invoke('clickup:testConnection'),
+    getConfig:       () => ipcRenderer.invoke('clickup:getConfig'),
+    setConfig:       (patch: any) => ipcRenderer.invoke('clickup:setConfig', patch),
+    testConnection:  () => ipcRenderer.invoke('clickup:testConnection'),
+    preflight:       (projectId: number) => ipcRenderer.invoke('clickup:preflight', projectId),
+    send:            (projectId: number, decisions: any) =>
+      ipcRenderer.invoke('clickup:send', projectId, decisions),
+    getLink:         (projectId: number) => ipcRenderer.invoke('clickup:getLink', projectId),
+    listPhaseLinks:  (projectId: number) => ipcRenderer.invoke('clickup:listPhaseLinks', projectId),
+    unlink:          (projectId: number) => ipcRenderer.invoke('clickup:unlink', projectId),
   },
 
   /** Project mode (Stage 4). Per-Won-proposal record holding entity /

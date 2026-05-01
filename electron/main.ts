@@ -13,6 +13,7 @@ import * as Lookups from './db/lookups';
 import type { NameTable } from './db/lookups';
 import { getClickUpConfig, setClickUpConfig } from './db/clickup';
 import type { ClickUpConfigRow } from './db/clickup';
+import * as ClickUpSync from './clickup/sync';
 import * as activity from './lifecycle/activity';
 import * as versioning from './lifecycle/versioning';
 import { buildDashboard } from './lifecycle/dashboard';
@@ -421,10 +422,24 @@ function registerIpc(): void {
       updated_at: row.updated_at,
     };
   });
-  ipcMain.handle(IPC.CLICKUP_TEST_CONNECTION, () => ({
-    ok: false as const,
-    error: 'ClickUp sync not implemented in Stage 2',
-  }));
+  ipcMain.handle(IPC.CLICKUP_TEST_CONNECTION, () => ClickUpSync.testConnection(requireDb()));
+
+  ipcMain.handle(IPC.CLICKUP_PREFLIGHT, (_e, projectId: number) =>
+    ClickUpSync.preflight(requireDb(), { projectId }),
+  );
+  ipcMain.handle(IPC.CLICKUP_SEND, (_e, projectId: number, decisions: ClickUpSync.ExecuteDecisions) =>
+    ClickUpSync.execute(requireDb(), { projectId }, decisions, actorFromIdentity()),
+  );
+  ipcMain.handle(IPC.CLICKUP_GET_LINK, (_e, projectId: number) =>
+    ClickUpSync.getLink(requireDb(), projectId),
+  );
+  ipcMain.handle(IPC.CLICKUP_LIST_PHASE_LINKS, (_e, projectId: number) =>
+    ClickUpSync.listPhaseLinks(requireDb(), projectId),
+  );
+  ipcMain.handle(IPC.CLICKUP_UNLINK, (_e, projectId: number) => {
+    ClickUpSync.unlink(requireDb(), projectId);
+    return { ok: true as const };
+  });
 
   // ── Project mode (Stage 4) ───────────────────────────────────────────────
   // initialize takes the proposal name, the modal-collected header, and an

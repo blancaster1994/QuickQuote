@@ -502,11 +502,59 @@ export interface ClickUpConfigPatch {
   admin_requests_list_id?: string | null;
 }
 
-/** ClickUp connection-test result. Stage 2 returns the stub-error variant
- *  unconditionally; Stage 6 returns either form. */
+/** ClickUp connection-test result. Stage 6 returns the success variant when
+ *  the token is valid AND the configured workspace_id is accessible. */
 export type ClickUpTestResult =
-  | { ok: true; user?: { email: string; id: string } }
+  | { ok: true; user: { id: number; email: string; username: string | null }; workspace_id: string | null }
   | { ok: false; error: string };
+
+// ── ClickUp sync (Stage 6) ────────────────────────────────────────────────
+
+export type ClickUpFolderAction = 'reuse' | 'create';
+export type ClickUpListAction   = 'reuse' | 'create';
+export type ClickUpPhaseAction  = 'create' | 'update' | 'skip';
+
+export interface ClickUpPreflightPlan {
+  ok: true;
+  legal_entity: string;
+  department: string;
+  workspace: { id: string; name: string };
+  space: { id: string; name: string };
+  folder: { id: string | null; name: string; action: ClickUpFolderAction };
+  list:   { id: string | null; name: string; action: ClickUpListAction; url?: string | null };
+  phases: Array<{
+    phase_index: number;
+    phase_name: string;
+    existing_task_id: string | null;
+    existing_task_url: string | null;
+    last_synced_at: string | null;
+    payload_changed: boolean;
+    default_action: ClickUpPhaseAction;
+  }>;
+  warnings: string[];
+}
+
+export interface ClickUpPreflightError {
+  ok: false;
+  error: string;
+}
+
+export type ClickUpPreflightResult = ClickUpPreflightPlan | ClickUpPreflightError;
+
+export interface ClickUpExecuteDecisions {
+  phases: Array<{ phase_index: number; action: ClickUpPhaseAction }>;
+}
+
+export interface ClickUpExecuteResult {
+  ok: true;
+  list_id: string;
+  list_url: string | null;
+  phases_synced: number;
+  phases_skipped: number;
+  warnings: string[];
+}
+
+export type ClickUpSendResult = ClickUpExecuteResult | { ok: false; error: string };
 
 export interface ClickUpLink {
   project_id: ID;

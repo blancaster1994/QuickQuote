@@ -104,13 +104,20 @@ export const IPC = {
   // ── native open-file dialog (XLSX import for lookups admin) ──────────────
   DIALOG_OPEN_FILE:        'dialog:openFile',
 
-  // ── ClickUp settings (Stage 2; full sync lands in Stage 6) ───────────────
-  // testConnection is a stub until Stage 6 wires the REST client.
+  // ── ClickUp settings + sync ──────────────────────────────────────────────
   // getConfig MUST strip api_token from the response — the renderer never
-  // sees the token, only a `configured: boolean` flag.
-  CLICKUP_GET_CONFIG:      'clickup:getConfig',
-  CLICKUP_SET_CONFIG:      'clickup:setConfig',
-  CLICKUP_TEST_CONNECTION: 'clickup:testConnection',
+  // sees the token, only a `configured: boolean` flag. Sync flow lands in
+  // Stage 6: preflight returns a plan, send executes user-confirmed
+  // decisions. getLink / listPhaseLinks / unlink read/clear the local
+  // mapping rows in project_clickup_link / project_clickup_phase_link.
+  CLICKUP_GET_CONFIG:        'clickup:getConfig',
+  CLICKUP_SET_CONFIG:        'clickup:setConfig',
+  CLICKUP_TEST_CONNECTION:   'clickup:testConnection',
+  CLICKUP_PREFLIGHT:         'clickup:preflight',
+  CLICKUP_SEND:              'clickup:send',
+  CLICKUP_GET_LINK:          'clickup:getLink',
+  CLICKUP_LIST_PHASE_LINKS:  'clickup:listPhaseLinks',
+  CLICKUP_UNLINK:            'clickup:unlink',
 
   // ── Project mode (Stage 4) ───────────────────────────────────────────────
   // Per-proposal post-Won record. One project row per Won proposal, joined
