@@ -242,6 +242,8 @@ export default function App() {
         onReloadProjects={reloadProjects}
       />
 
+      <ImportBanner state={state} onAfterImport={reloadProjects} />
+
       {state.view === 'dashboard' ? (
         <div style={{ flex: 1, overflow: 'auto' }}>
           <Dashboard
@@ -423,6 +425,88 @@ function SectionsRegion({ state, dispatch }: { state: EditorState; dispatch: Dis
         activeSection={state.activeSection} dispatch={dispatch} />
       <SectionEditor section={section} total={total} state={state} dispatch={dispatch} />
     </>
+  );
+}
+
+interface ImportBannerProps {
+  state: EditorState;
+  onAfterImport: () => Promise<void>;
+}
+
+function ImportBanner({ state, onAfterImport }: ImportBannerProps) {
+  const [dismissed, setDismissed] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{ proposals: number; clientTpls: number; projectTpls: number; identity: boolean } | null>(null);
+
+  // Only show when the DB is empty + identity is set + the user hasn't
+  // dismissed it. The IPC call is gated by schema_meta.imported_from_quickprop
+  // on the main side, so a refresh after a successful import won't re-show
+  // this even without the local dismissed flag.
+  const hasProposals = (state.bootstrap?.projects.length || 0) > 0;
+  if (hasProposals || dismissed || result) return null;
+
+  async function runImport() {
+    setBusy(true);
+    try {
+      const r: any = await window.api.app.importFromQuickProp();
+      if (!r.ok) {
+        alert(`Import did not complete:\n\n${r.skipped.join('\n')}`);
+        return;
+      }
+      if (r.alreadyImported) {
+        alert('Already imported from QuickProp on a previous run. Nothing to do.');
+        setDismissed(true);
+        return;
+      }
+      setResult({
+        proposals:   r.proposalsImported,
+        clientTpls:  r.clientTemplatesImported,
+        projectTpls: r.projectTemplatesImported,
+        identity:    r.identityCopied,
+      });
+      await onAfterImport();
+    } catch (e: any) {
+      alert(`Import failed: ${e?.message || String(e)}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 12,
+      padding: '10px 16px', background: 'var(--navy-tint)',
+      borderBottom: '1px solid var(--hair)', flexShrink: 0,
+    }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--navy-deep)' }}>
+          Import from QuickProp?
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--body)', marginTop: 1 }}>
+          QuickQuote has no proposals yet. Pull every proposal, client + project type
+          template, and your saved identity over from your QuickProp v3 install.
+          Runs once; safe to re-launch afterward.
+        </div>
+      </div>
+      <button onClick={() => setDismissed(true)} disabled={busy}
+        style={{
+          height: 28, padding: '0 10px', borderRadius: 6,
+          background: 'transparent', color: 'var(--muted)',
+          border: '1px solid var(--hair)', fontSize: 11.5, fontWeight: 600,
+          cursor: busy ? 'wait' : 'pointer', fontFamily: 'var(--sans)',
+        }}>
+        Skip
+      </button>
+      <button onClick={runImport} disabled={busy}
+        style={{
+          height: 28, padding: '0 14px', borderRadius: 6,
+          background: 'var(--navy-deep)', color: '#fff', border: 'none',
+          fontSize: 11.5, fontWeight: 700,
+          cursor: busy ? 'wait' : 'pointer', fontFamily: 'var(--sans)',
+        }}>
+        {busy ? 'Importing…' : 'Import now'}
+      </button>
+    </div>
   );
 }
 

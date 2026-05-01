@@ -11,6 +11,18 @@ export interface QuickQuoteApi {
   app: {
     /** One-shot mount call (QuickProp v3 `get_bootstrap`). */
     bootstrap(): Promise<unknown>;
+    /** One-time importer from QuickProp v3. `sourceDir` defaults to
+     *  `C:\Users\blancaster\dev\QuickProp\`. Idempotent. */
+    importFromQuickProp(sourceDir?: string): Promise<{
+      ok: boolean;
+      alreadyImported: boolean;
+      proposalsImported: number;
+      clientTemplatesImported: number;
+      projectTemplatesImported: number;
+      identityCopied: boolean;
+      skipped: string[];
+      sourceDir: string;
+    }>;
   };
 
   identity: {

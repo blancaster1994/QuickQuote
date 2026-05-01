@@ -19,6 +19,10 @@ const api = {
   app: {
     /** One-shot mount-time call (was `get_bootstrap`). */
     bootstrap: () => ipcRenderer.invoke('app:bootstrap'),
+    /** One-time data import from QuickProp v3 — copies proposals,
+     *  templates, and identity over. Idempotent via schema_meta marker. */
+    importFromQuickProp: (sourceDir?: string) =>
+      ipcRenderer.invoke('app:importFromQuickProp', sourceDir ?? null),
   },
 
   // ── identity ──────────────────────────────────────────────────────────────

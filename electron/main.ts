@@ -10,6 +10,7 @@ import * as versioning from './lifecycle/versioning';
 import { buildDashboard } from './lifecycle/dashboard';
 import * as identity from './identity/identity';
 import { generateProposal } from './proposal/generate';
+import { importFromQuickProp } from './db/importer';
 import { IPC } from './ipc-channels';
 
 const IS_DEV = process.env.NODE_ENV === 'development';
@@ -75,6 +76,9 @@ function registerIpc(): void {
     const ident = identity.loadIdentity(requireDb());
     return Q.getBootstrap(requireDb(), { identity: ident });
   });
+  ipcMain.handle(IPC.APP_IMPORT_FROM_QUICKPROP, (_e, sourceDir: string | null) =>
+    importFromQuickProp(requireDb(), sourceDir ?? undefined),
+  );
 
   // ── identity ─────────────────────────────────────────────────────────────
   ipcMain.handle(IPC.IDENTITY_GET, () => identity.loadIdentity(requireDb()));

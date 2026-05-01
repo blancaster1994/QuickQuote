@@ -8,6 +8,7 @@
 export const IPC = {
   // ── bootstrap ─────────────────────────────────────────────────────────────
   APP_BOOTSTRAP:           'app:bootstrap',
+  APP_IMPORT_FROM_QUICKPROP: 'app:importFromQuickProp',
 
   // ── identity ──────────────────────────────────────────────────────────────
   IDENTITY_GET:            'identity:get',
