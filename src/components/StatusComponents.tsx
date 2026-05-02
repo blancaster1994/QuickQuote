@@ -19,12 +19,14 @@ import SendToClickUpModal from './clickup/SendToClickUpModal';
 
 // ── status badge ──────────────────────────────────────────────────────────
 
+// Status pill colors live in styles.css (--status-{status}-bg/fg). Pulled out
+// of the JS so a re-skin is a CSS edit, not a code search.
 const STATUS_COLORS: Record<ProposalStatus, { bg: string; fg: string }> = {
-  draft:    { bg: '#FDF3E3', fg: '#8A5A1A' },
-  sent:     { bg: '#EAF0F7', fg: '#17416F' },
-  won:      { bg: '#E2F0E8', fg: '#2F6B5A' },
-  lost:     { bg: '#FBECEB', fg: '#8A2A2A' },
-  archived: { bg: '#ECEDF0', fg: '#6B7382' },
+  draft:    { bg: 'var(--status-draft-bg)',    fg: 'var(--status-draft-fg)' },
+  sent:     { bg: 'var(--status-sent-bg)',     fg: 'var(--status-sent-fg)' },
+  won:      { bg: 'var(--status-won-bg)',      fg: 'var(--status-won-fg)' },
+  lost:     { bg: 'var(--status-lost-bg)',     fg: 'var(--status-lost-fg)' },
+  archived: { bg: 'var(--status-archived-bg)', fg: 'var(--status-archived-fg)' },
 };
 
 interface StatusBadgeProps {
@@ -218,9 +220,9 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
                 : 'Set a follow-up reminder for this proposal'}
               style={{
                 height: 24, padding: '0 8px', borderRadius: 5,
-                background:    followUpOverdue ? '#FBECEB'        : 'var(--canvas)',
-                color:         followUpOverdue ? '#B8322F'        : (followUpAt ? 'var(--ink)' : 'var(--muted)'),
-                border: '1px solid ' + (followUpOverdue ? '#F3CFCC' : 'var(--hair)'),
+                background:    followUpOverdue ? 'var(--action-danger-tint)' : 'var(--canvas)',
+                color:         followUpOverdue ? 'var(--action-danger)'      : (followUpAt ? 'var(--ink)' : 'var(--muted)'),
+                border: '1px solid ' + (followUpOverdue ? 'var(--action-danger-edge)' : 'var(--hair)'),
                 fontSize: 11.5, fontWeight: 600, cursor: 'pointer',
                 fontFamily: 'var(--sans)',
                 display: 'inline-flex', alignItems: 'center', gap: 4,
@@ -592,7 +594,7 @@ function FollowUpModal({ current, onClose, onSubmit }: FollowUpModalProps) {
         <button type="button" onClick={() => pickPreset(30)} style={btnStyle('ghost', false)}>+30 days</button>
       </div>
       {isPast && (
-        <div style={{ fontSize: 11.5, color: '#B8322F', marginTop: 4, marginBottom: 4 }}>
+        <div style={{ fontSize: 11.5, color: 'var(--action-danger)', marginTop: 4, marginBottom: 4 }}>
           That date is in the past. Pick today or later, or hit Clear to remove the reminder.
         </div>
       )}
@@ -1137,25 +1139,28 @@ function btnStyle(kind: ButtonKind, busy: boolean, disabled?: boolean) {
     opacity: disabled ? 0.4 : 1,
   };
   const bg: Record<ButtonKind, any> = {
-    primary:      { background: 'var(--navy-deep)', color: '#fff' },
-    win:          { background: '#2F6B5A',          color: '#fff' },
-    loss:         { background: '#B8322F',          color: '#fff' },
-    ghost:        { background: 'transparent',      color: 'var(--body)',
+    primary:      { background: 'var(--navy-deep)',     color: '#fff' },
+    win:          { background: 'var(--action-success)', color: '#fff' },
+    loss:         { background: 'var(--action-danger)',  color: '#fff' },
+    ghost:        { background: 'transparent',          color: 'var(--body)',
                     border: '1px solid var(--hair)' },
-    'loss-ghost': { background: 'transparent',      color: '#B8322F',
-                    border: '1px solid #F3CFCC' },
+    'loss-ghost': { background: 'transparent',          color: 'var(--action-danger)',
+                    border: '1px solid var(--action-danger-edge)' },
   };
   return { ...base, ...(bg[kind] || {}) };
 }
 
 function actionColor(action: string): string {
-  if (action === 'mark_won') return '#2F6B5A';
-  if (action === 'mark_lost') return '#B8322F';
-  if (action === 'mark_sent') return '#17416F';
-  if (action === 'reopen') return '#8A5A1A';
+  // Activity timeline dot colors. Status-related ones reach for the same
+  // hex values as the status pills (which now live in CSS vars); the
+  // version/reassign colors are tonal and unique to the timeline.
+  if (action === 'mark_won') return 'var(--status-won-fg)';
+  if (action === 'mark_lost') return 'var(--action-danger)';
+  if (action === 'mark_sent') return 'var(--status-sent-fg)';
+  if (action === 'reopen') return 'var(--status-draft-fg)';
   if (action === 'create_version') return '#4A3A8A';
   if (action === 'reassign') return '#5A7CA8';
-  return '#6B7382';
+  return 'var(--muted)';
 }
 
 export function formatDate(iso: string): string {

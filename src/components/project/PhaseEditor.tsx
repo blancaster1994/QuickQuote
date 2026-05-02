@@ -13,6 +13,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch } from 'react';
 import RateCell from './RateCell';
+import { ConfirmDialog } from '../ui';
 import type { Identity, Project, ProjectPhase } from '../../types/domain';
 import type { ProjectEditorAction } from '../../state/projectReducer';
 import { fmt$ } from '../../lib/formatting';
@@ -34,6 +35,7 @@ export default function PhaseEditor({
   // on demand; clears when the rate table changes.
   const [rateMap, setRateMap] = useState<Map<string, number>>(new Map());
   const inflight = useRef<Set<string>>(new Set());
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const lookupCategoryRate = useCallback(async (rateTable: string, category: string) => {
     const key = `${rateTable}||${category}`;
@@ -126,21 +128,30 @@ export default function PhaseEditor({
         </div>
         {!disabled && (
           <button
-            onClick={() => {
-              if (!confirm(`Delete phase "${phase.name}"?`)) return;
-              dispatch({ type: 'REMOVE_PHASE', index: phaseIndex });
-            }}
+            onClick={() => setConfirmDelete(true)}
             title="Delete this phase"
             style={{
               alignSelf: 'flex-end', height: 30, padding: '0 12px',
-              background: 'transparent', color: '#B8322F',
-              border: '1px solid #F3CFCC', borderRadius: 6,
+              background: 'transparent', color: 'var(--action-danger)',
+              border: '1px solid var(--action-danger-edge)', borderRadius: 6,
               fontSize: 11.5, fontWeight: 600, cursor: 'pointer',
               fontFamily: 'var(--sans)',
             }}>
             Delete phase
           </button>
         )}
+        <ConfirmDialog
+          open={confirmDelete}
+          title="Delete phase?"
+          body={<>Remove <strong>{phase.name || 'this phase'}</strong>? Its tasks, hours, and rates will be lost.</>}
+          confirmLabel="Delete"
+          confirmKind="loss"
+          onConfirm={() => {
+            setConfirmDelete(false);
+            dispatch({ type: 'REMOVE_PHASE', index: phaseIndex });
+          }}
+          onCancel={() => setConfirmDelete(false)}
+        />
       </div>
 
       {/* Scope of Work + internal notes */}

@@ -33,8 +33,15 @@ import { ProjectEditor, ProjectModeToggle } from './components/project';
 import {
   ActivityTimeline, FirstRunIdentity, Modal, ModalActions, StatusActionBar,
 } from './components/StatusComponents';
+import { ConfirmDialog } from './components/ui';
 
 type VersionPromptState = null | 'pending' | 'dismissed';
+
+interface PostGeneratePrompt {
+  filename: string;
+  path: string;
+  reused: boolean;
+}
 
 export default function App() {
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
@@ -42,6 +49,7 @@ export default function App() {
   const [dashboardRefresh, setDashboardRefresh] = useState(0);
   const [generating, setGenerating] = useState<GeneratedFormat | null>(null);
   const [versionPrompt, setVersionPrompt] = useState<VersionPromptState>(null);
+  const [postGenerate, setPostGenerate] = useState<PostGeneratePrompt | null>(null);
 
   // Bootstrap on mount — config + current identity in one IPC call.
   useEffect(() => {
@@ -188,13 +196,12 @@ export default function App() {
       if (!result.reused && isFrozen(state.proposal)) {
         setVersionPrompt(null);
       }
-      const verb = result.reused ? 'Already generated' : 'Generated';
-      const note = result.reused
-        ? `${verb} ${result.filename}\n\nThis file matches the current proposal — no changes since the last generation, so no new copy was made.\n\nOpen it now?`
-        : `${verb} ${result.filename}\n\nOpen it now?`;
-      const open = confirm(note);
-      if (open && result.path) {
-        await window.api.os.openFile(result.path);
+      if (result.path) {
+        setPostGenerate({
+          filename: result.filename,
+          path: result.path,
+          reused: !!result.reused,
+        });
       }
     } catch (e: any) {
       console.error('Generate failed', e);
@@ -288,6 +295,31 @@ export default function App() {
           <EditorLayout state={state} dispatch={dispatch} onReload={reloadProjects} />
         )}
       </div>
+
+      <ConfirmDialog
+        open={!!postGenerate}
+        title={postGenerate?.reused ? 'Already generated' : 'Generated'}
+        body={postGenerate && (
+          <>
+            <div><strong>{postGenerate.filename}</strong></div>
+            <div style={{ marginTop: 6, color: 'var(--muted)', fontSize: 12.5 }}>
+              {postGenerate.reused
+                ? 'This file matches the current proposal — no changes since the last generation, so no new copy was made.'
+                : 'Saved to your Generated Proposals folder.'}
+            </div>
+          </>
+        )}
+        confirmLabel="Open"
+        onConfirm={async () => {
+          const target = postGenerate?.path;
+          setPostGenerate(null);
+          if (target) {
+            try { await window.api.os.openFile(target); }
+            catch (e: any) { alert(`Couldn't open file: ${e?.message || String(e)}`); }
+          }
+        }}
+        onCancel={() => setPostGenerate(null)}
+      />
 
       {versionPrompt === 'pending' && state.projectName && (
         <VersionPromptModal
@@ -435,10 +467,10 @@ function ViewingSnapshotBanner({ viewing, dispatch }: ViewingSnapshotBannerProps
     <div style={{
       display: 'flex', alignItems: 'center', gap: 12,
       padding: '10px 14px', marginBottom: 14,
-      background: '#FDF3E3', border: '1px solid #F3CFA8', borderRadius: 8,
+      background: 'var(--status-draft-bg)', border: '1px solid #F3CFA8', borderRadius: 8,
     }}>
       <div style={{
-        width: 26, height: 26, borderRadius: '50%', background: '#8A5A1A',
+        width: 26, height: 26, borderRadius: '50%', background: 'var(--status-draft-fg)',
         color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0,
       }}>
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -459,7 +491,7 @@ function ViewingSnapshotBanner({ viewing, dispatch }: ViewingSnapshotBannerProps
       <button onClick={() => dispatch({ type: 'RETURN_TO_LIVE' })}
         style={{
           height: 30, padding: '0 14px', borderRadius: 6,
-          background: '#8A5A1A', color: '#fff', border: 'none',
+          background: 'var(--status-draft-fg)', color: '#fff', border: 'none',
           fontSize: 12, fontWeight: 700, cursor: 'pointer',
           fontFamily: 'var(--sans)', flexShrink: 0,
         }}>

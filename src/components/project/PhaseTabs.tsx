@@ -59,8 +59,8 @@ export default function PhaseTabs({ phases, activeIndex, budgets, dispatch, disa
             }}>
               <span style={{
                 padding: '1px 5px', borderRadius: 3,
-                background: p.project_type === 'T&M' ? '#FDF3E3' : 'var(--navy-tint)',
-                color: p.project_type === 'T&M' ? '#8A5A1A' : 'var(--navy-deep)',
+                background: p.project_type === 'T&M' ? 'var(--status-draft-bg)' : 'var(--navy-tint)',
+                color: p.project_type === 'T&M' ? 'var(--status-draft-fg)' : 'var(--navy-deep)',
                 fontWeight: 700, letterSpacing: 0.3,
               }}>{p.project_type || 'FF'}</span>
               <span>{fmt$(budget)}</span>
