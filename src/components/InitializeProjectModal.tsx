@@ -5,9 +5,10 @@
 // to the caller for state.
 //
 // If the proposal already has a project (e.g. user reopened a Won proposal
-// then clicked Mark Won again), the modal swaps to "Open existing"
-// read-only mode. The Continue button just hands the existing project to
-// the caller without re-running markWon.
+// then re-marked it Sent and clicked Mark Won again), the modal swaps to
+// "Open existing" read-only mode. The Continue button preserves the
+// existing project payload but still runs markWon when the proposal isn't
+// already in Won status, so lifecycle state stays in sync.
 
 import { useEffect, useState } from 'react';
 import { Modal, ModalActions } from './StatusComponents';
@@ -130,8 +131,32 @@ export default function InitializeProjectModal({
     }
   }
 
-  function continueExisting() {
-    if (existing) onCommitted(existing);
+  async function continueExisting() {
+    if (!existing) return;
+    if (!proposal.name?.trim()) {
+      setErr('Save the proposal first (give it a name) before continuing.');
+      return;
+    }
+    setBusy(true);
+    setErr(null);
+    try {
+      // If the proposal isn't already Won (user reopened a Won project then
+      // re-marked it Sent), re-run markWon now so lifecycle status matches
+      // the existing project. The project payload — phases, resources,
+      // ClickUp links — is preserved untouched; we only flip status.
+      const currentStatus = proposal.lifecycle?.status;
+      if (currentStatus === 'sent') {
+        await window.api.lifecycle.markWon(
+          proposal.name,
+          '',
+          existing.icore_project_id || null,
+        );
+      }
+      onCommitted(existing);
+    } catch (e: any) {
+      setErr(`Mark Won failed: ${e?.message || String(e)}`);
+      setBusy(false);
+    }
   }
 
   return (
@@ -140,9 +165,9 @@ export default function InitializeProjectModal({
 
       {loaded && existing && (
         <div style={{ fontSize: 12.5, color: 'var(--body)', marginBottom: 14 }}>
-          This proposal was already marked Won and initialized as a project. Opening
-          continues to the project view — your phases, resources, and ClickUp links
-          are preserved. Cancel to leave the proposal where it is.
+          {proposal.lifecycle?.status === 'won'
+            ? `This proposal is already Won and initialized as a project. Opening continues to the project view — your phases, resources, and ClickUp links are preserved. Cancel to leave the proposal where it is.`
+            : `This proposal was previously marked Won and still has its project (phases, resources, ClickUp links). Continuing will mark it Won again and open the project — your existing project work is preserved. Cancel to leave the proposal in ${proposal.lifecycle?.status ?? 'its current'} state.`}
         </div>
       )}
 
@@ -242,8 +267,16 @@ export default function InitializeProjectModal({
       {existing ? (
         <ModalActions
           onCancel={onClose}
-          onConfirm={continueExisting}
-          confirmLabel="Continue to project"
+          onConfirm={() => void continueExisting()}
+          confirmLabel={
+            busy
+              ? 'Marking Won…'
+              : (proposal.lifecycle?.status === 'sent'
+                  ? 'Mark Won + Open project'
+                  : 'Continue to project')
+          }
+          confirmDisabled={busy}
+          confirmKind={proposal.lifecycle?.status === 'sent' ? 'win' : 'primary'}
         />
       ) : (
         <ModalActions
