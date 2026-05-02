@@ -8,7 +8,10 @@
 
 import { useEffect, useState } from 'react';
 import * as XLSX from 'xlsx';
+import { ConfirmDialog } from '../ui';
 import type { RateEntry } from '../../types/domain';
+
+type PendingImport = { rows: Array<Omit<RateEntry, 'id'>>; filePath: string };
 
 export default function RateEditor() {
   const [rows, setRows] = useState<RateEntry[]>([]);
@@ -18,6 +21,8 @@ export default function RateEditor() {
   const [selectedRT, setSelectedRT] = useState<string>('');
   const [filter, setFilter] = useState('');
   const [importMsg, setImportMsg] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<RateEntry | null>(null);
+  const [pendingImport, setPendingImport] = useState<PendingImport | null>(null);
 
   async function refresh() {
     const filters: any = {};
@@ -36,8 +41,10 @@ export default function RateEditor() {
     await window.api.rates.save({ ...r, ...patch });
     void refresh();
   }
-  async function remove(id: number) {
-    if (!confirm('Delete this rate?')) return;
+  async function performDelete() {
+    if (!pendingDelete) return;
+    const id = pendingDelete.id;
+    setPendingDelete(null);
     await window.api.rates.remove(id);
     void refresh();
   }
@@ -80,9 +87,15 @@ export default function RateEditor() {
       setImportMsg('No rows found. Expected columns like "Company", "Price group", "Category" and/or "Resource ID", "Pricing".');
       return;
     }
-    if (!confirm(`Replace all ${rows.length} existing rates with ${mapped.length} imported rows?`)) return;
+    setPendingImport({ rows: mapped, filePath: res.filePath });
+  }
+
+  async function performImport() {
+    if (!pendingImport) return;
+    const { rows: mapped, filePath } = pendingImport;
+    setPendingImport(null);
     await window.api.rates.importBulk(mapped);
-    setImportMsg(`Imported ${mapped.length} rates from ${res.filePath}`);
+    setImportMsg(`Imported ${mapped.length} rates from ${filePath}`);
     // TODO(stage5): invalidate rateMap once the project editor's cache lands.
     void refresh();
   }
@@ -160,13 +173,38 @@ export default function RateEditor() {
                 <td className="num"><input type="number" step="0.01" defaultValue={r.price} onBlur={(e) => void save(r, { price: parseFloat(e.target.value) || 0 })} /></td>
                 <td><input type="date" defaultValue={r.effective_date ?? ''} onBlur={(e) => void save(r, { effective_date: e.target.value || null })} /></td>
                 <td><input type="date" defaultValue={r.end_date ?? ''} onBlur={(e) => void save(r, { end_date: e.target.value || null })} /></td>
-                <td><button className="delete-x" onClick={() => void remove(r.id)}>&times;</button></td>
+                <td><button className="delete-x" onClick={() => setPendingDelete(r)}>&times;</button></td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
       <div className="muted" style={{ marginTop: 8 }}>{filtered.length} of {rows.length}</div>
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title="Delete rate?"
+        body={pendingDelete && (
+          <>
+            Remove the <strong>{pendingDelete.legal_entity} / {pendingDelete.rate_table}</strong> rate
+            {pendingDelete.category ? <> for <strong>{pendingDelete.category}</strong></> : ' (flat)'}
+            {pendingDelete.resource_id ? <> ({pendingDelete.resource_id})</> : null}?
+          </>
+        )}
+        confirmLabel="Delete"
+        confirmKind="loss"
+        onConfirm={() => void performDelete()}
+        onCancel={() => setPendingDelete(null)}
+      />
+      <ConfirmDialog
+        open={!!pendingImport}
+        title="Replace all rates?"
+        body={<>Replace all <strong>{rows.length}</strong> existing rates with <strong>{pendingImport?.rows.length ?? 0}</strong> imported rows?</>}
+        confirmLabel="Replace"
+        confirmKind="loss"
+        onConfirm={() => void performImport()}
+        onCancel={() => setPendingImport(null)}
+      />
     </div>
   );
 }

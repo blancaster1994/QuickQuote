@@ -3,9 +3,12 @@
 
 import { useEffect, useState } from 'react';
 import * as XLSX from 'xlsx';
+import { ConfirmDialog } from '../ui';
 import type { EmployeeRow } from '../../types/domain';
 
 const ROLES = ['admin', 'pm', 'accounting', 'viewer'] as const;
+
+type PendingImport = { rows: Array<Omit<EmployeeRow, 'id' | 'active'>>; filePath: string };
 
 const DEPT_NORMALIZE: Record<string, string> = {
   'Architectural': 'Architecture',
@@ -19,6 +22,8 @@ export default function EmployeeEditor() {
   const [rows, setRows] = useState<EmployeeRow[]>([]);
   const [filter, setFilter] = useState('');
   const [importMsg, setImportMsg] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<EmployeeRow | null>(null);
+  const [pendingImport, setPendingImport] = useState<PendingImport | null>(null);
 
   async function refresh() {
     setRows(await window.api.employees.list(false));
@@ -29,8 +34,10 @@ export default function EmployeeEditor() {
     await window.api.employees.save({ ...r, ...patch });
     void refresh();
   }
-  async function remove(id: number) {
-    if (!confirm('Delete this employee?')) return;
+  async function performDelete() {
+    if (!pendingDelete) return;
+    const id = pendingDelete.id;
+    setPendingDelete(null);
     await window.api.employees.remove(id);
     void refresh();
   }
@@ -74,9 +81,15 @@ export default function EmployeeEditor() {
       setImportMsg('No rows found. Expected a sheet with columns like "Resource name" / "Name", and optionally "Resource ID" / "PersonnelNumber", "Category", "Resource legal entity", "PrimaryContactEmail", "EmployeeHomeDepartment".');
       return;
     }
-    if (!confirm(`Replace all ${rows.length} existing employees with ${mapped.length} imported rows?`)) return;
+    setPendingImport({ rows: mapped, filePath: res.filePath });
+  }
+
+  async function performImport() {
+    if (!pendingImport) return;
+    const { rows: mapped, filePath } = pendingImport;
+    setPendingImport(null);
     await window.api.employees.importBulk(mapped);
-    setImportMsg(`Imported ${mapped.length} employees from ${res.filePath}`);
+    setImportMsg(`Imported ${mapped.length} employees from ${filePath}`);
     void refresh();
   }
 
@@ -135,13 +148,32 @@ export default function EmployeeEditor() {
                     onChange={(e) => void save(r, { active: e.target.checked ? 1 : 0 })}
                   />
                 </td>
-                <td><button className="delete-x" onClick={() => void remove(r.id)}>&times;</button></td>
+                <td><button className="delete-x" onClick={() => setPendingDelete(r)}>&times;</button></td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
       <div className="muted" style={{ marginTop: 8 }}>{filtered.length} of {rows.length}</div>
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title="Delete employee?"
+        body={<>Remove <strong>{pendingDelete?.name || 'this employee'}</strong> from the employee list?</>}
+        confirmLabel="Delete"
+        confirmKind="loss"
+        onConfirm={() => void performDelete()}
+        onCancel={() => setPendingDelete(null)}
+      />
+      <ConfirmDialog
+        open={!!pendingImport}
+        title="Replace all employees?"
+        body={<>Replace all <strong>{rows.length}</strong> existing employees with <strong>{pendingImport?.rows.length ?? 0}</strong> imported rows?</>}
+        confirmLabel="Replace"
+        confirmKind="loss"
+        onConfirm={() => void performImport()}
+        onCancel={() => setPendingImport(null)}
+      />
     </div>
   );
 }

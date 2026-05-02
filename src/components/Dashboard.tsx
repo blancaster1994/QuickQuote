@@ -185,7 +185,7 @@ export default function Dashboard({ state, onOpenProposal, refreshKey }: Dashboa
           {overdueFollowUpCount > 0 && (
             <span style={{
               padding: '2px 8px', borderRadius: 9,
-              background: '#FBECEB', color: '#B8322F',
+              background: 'var(--action-danger-tint)', color: 'var(--action-danger)',
               fontSize: 11, fontWeight: 700,
               display: 'inline-flex', alignItems: 'center', gap: 4,
             }} title="Proposals with a follow-up date that's already past">
@@ -350,7 +350,7 @@ function PipelineBoard({ pipeline, onOpen }: { pipeline: Record<string, Dashboar
                       <span title={`Follow-up was due ${formatDate(r.follow_up_at!)}`}
                         style={{
                           fontSize: 10, padding: '1px 6px', borderRadius: 8,
-                          background: '#FBECEB', color: '#B8322F', fontWeight: 700,
+                          background: 'var(--action-danger-tint)', color: 'var(--action-danger)', fontWeight: 700,
                         }}>⚠ Overdue</span>
                     )}
                   </div>
@@ -429,7 +429,7 @@ function ProposalList({ rows, onOpen, onDeleted }: ProposalListProps) {
                     <span title={`Follow-up was due ${formatDate(r.follow_up_at!)}`}
                       style={{
                         fontSize: 9.5, padding: '1px 5px', borderRadius: 8,
-                        background: '#FBECEB', color: '#B8322F', fontWeight: 700,
+                        background: 'var(--action-danger-tint)', color: 'var(--action-danger)', fontWeight: 700,
                         textTransform: 'uppercase', letterSpacing: 0.3,
                       }}>⚠ Follow-up</span>
                   )}
@@ -463,12 +463,12 @@ function ProposalList({ rows, onOpen, onDeleted }: ProposalListProps) {
                     style={{
                       width: 24, height: 24, padding: 0, borderRadius: 4,
                       background: 'transparent', border: '1px solid transparent',
-                      color: '#B8322F', cursor: 'pointer',
+                      color: 'var(--action-danger)', cursor: 'pointer',
                       display: 'grid', placeItems: 'center',
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.background = '#FBECEB';
-                      e.currentTarget.style.borderColor = '#F3CFCC';
+                      e.currentTarget.style.background = 'var(--action-danger-tint)';
+                      e.currentTarget.style.borderColor = 'var(--action-danger-edge)';
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.background = 'transparent';

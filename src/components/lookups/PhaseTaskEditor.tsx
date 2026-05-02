@@ -7,6 +7,7 @@
 // `useEffect` later.
 
 import { useEffect, useState } from 'react';
+import { ConfirmDialog } from '../ui';
 import type { PhaseDef, TaskDef } from '../../types/domain';
 
 export default function PhaseTaskEditor() {
@@ -17,6 +18,8 @@ export default function PhaseTaskEditor() {
   const [newPhase, setNewPhase] = useState('');
   const [newTaskPhase, setNewTaskPhase] = useState('');
   const [newTaskName, setNewTaskName] = useState('');
+  const [pendingPhaseDelete, setPendingPhaseDelete] = useState<PhaseDef | null>(null);
+  const [pendingTaskDelete, setPendingTaskDelete] = useState<TaskDef | null>(null);
 
   useEffect(() => {
     void window.api.lookups.list('department').then(rows => {
@@ -41,8 +44,10 @@ export default function PhaseTaskEditor() {
     void refresh();
   }
 
-  async function removePhase(id: number) {
-    if (!confirm('Delete this phase? (Tasks in this phase will remain but will be orphaned.)')) return;
+  async function performPhaseDelete() {
+    if (!pendingPhaseDelete) return;
+    const id = pendingPhaseDelete.id;
+    setPendingPhaseDelete(null);
     await window.api.phases.remove(id);
     void refresh();
   }
@@ -70,8 +75,10 @@ export default function PhaseTaskEditor() {
     void refresh();
   }
 
-  async function removeTask(id: number) {
-    if (!confirm('Delete this task?')) return;
+  async function performTaskDelete() {
+    if (!pendingTaskDelete) return;
+    const id = pendingTaskDelete.id;
+    setPendingTaskDelete(null);
     await window.api.tasks.remove(id);
     void refresh();
   }
@@ -100,7 +107,7 @@ export default function PhaseTaskEditor() {
               <tr key={p.id}>
                 <td>{p.sort_order}</td>
                 <td><input defaultValue={p.name} onBlur={(e) => void renamePhase(p.id, p.name, e.target.value)} /></td>
-                <td><button className="delete-x" onClick={() => void removePhase(p.id)}>&times;</button></td>
+                <td><button className="delete-x" onClick={() => setPendingPhaseDelete(p)}>&times;</button></td>
               </tr>
             ))}
           </tbody>
@@ -137,7 +144,7 @@ export default function PhaseTaskEditor() {
                     <tr key={t.id}>
                       <td>{t.sort_order}</td>
                       <td><input defaultValue={t.name} onBlur={(e) => void renameTask(t.id, e.target.value)} /></td>
-                      <td><button className="delete-x" onClick={() => void removeTask(t.id)}>&times;</button></td>
+                      <td><button className="delete-x" onClick={() => setPendingTaskDelete(t)}>&times;</button></td>
                     </tr>
                   ))}
                 </tbody>
@@ -161,6 +168,25 @@ export default function PhaseTaskEditor() {
           <button className="primary" onClick={() => void addTask()} disabled={!dept || !newTaskPhase}>Add Task</button>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={!!pendingPhaseDelete}
+        title="Delete phase?"
+        body={<>Remove <strong>{pendingPhaseDelete?.name}</strong> from {dept}? Tasks in this phase will remain but will be orphaned.</>}
+        confirmLabel="Delete"
+        confirmKind="loss"
+        onConfirm={() => void performPhaseDelete()}
+        onCancel={() => setPendingPhaseDelete(null)}
+      />
+      <ConfirmDialog
+        open={!!pendingTaskDelete}
+        title="Delete task?"
+        body={<>Remove the <strong>{pendingTaskDelete?.name}</strong> task from <strong>{pendingTaskDelete?.phase}</strong>?</>}
+        confirmLabel="Delete"
+        confirmKind="loss"
+        onConfirm={() => void performTaskDelete()}
+        onCancel={() => setPendingTaskDelete(null)}
+      />
     </div>
   );
 }

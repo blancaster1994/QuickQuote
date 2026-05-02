@@ -2,6 +2,7 @@
 // Direct port from PM Quoting App's NameListEditor — no logic changes.
 
 import { useEffect, useState } from 'react';
+import { ConfirmDialog } from '../ui';
 
 type NameTable = 'legal_entity' | 'rate_table' | 'project_type' | 'expense_category' | 'department';
 
@@ -10,13 +11,16 @@ interface NameListEditorProps {
   label: string;
 }
 
+type NameRow = { id: number; name: string };
+
 export default function NameListEditor({ table, label }: NameListEditorProps) {
-  const [items, setItems] = useState<Array<{ id: number; name: string }>>([]);
+  const [items, setItems] = useState<NameRow[]>([]);
   const [newName, setNewName] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<NameRow | null>(null);
 
   async function refresh() {
-    setItems(await window.api.lookups.list(table) as Array<{ id: number; name: string }>);
+    setItems(await window.api.lookups.list(table) as NameRow[]);
   }
   useEffect(() => { void refresh(); /* eslint-disable-line react-hooks/exhaustive-deps */ }, [table]);
 
@@ -38,8 +42,10 @@ export default function NameListEditor({ table, label }: NameListEditorProps) {
     void refresh();
   }
 
-  async function remove(id: number) {
-    if (!confirm(`Delete this ${label.toLowerCase()}?`)) return;
+  async function performDelete() {
+    if (!pendingDelete) return;
+    const id = pendingDelete.id;
+    setPendingDelete(null);
     await window.api.lookups.remove(table, id);
     void refresh();
   }
@@ -61,7 +67,7 @@ export default function NameListEditor({ table, label }: NameListEditorProps) {
                 />
               </td>
               <td>
-                <button className="delete-x" onClick={() => void remove(item.id)} title="Delete">&times;</button>
+                <button className="delete-x" onClick={() => setPendingDelete(item)} title="Delete">&times;</button>
               </td>
             </tr>
           ))}
@@ -78,6 +84,16 @@ export default function NameListEditor({ table, label }: NameListEditorProps) {
         <button className="primary" onClick={() => void add()}>Add</button>
       </div>
       {error && <div className="error">{error}</div>}
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title={`Delete ${label.toLowerCase()}?`}
+        body={<>Remove <strong>{pendingDelete?.name}</strong> from the {label.toLowerCase()} list?</>}
+        confirmLabel="Delete"
+        confirmKind="loss"
+        onConfirm={() => void performDelete()}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }
