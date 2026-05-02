@@ -70,18 +70,28 @@ export default function LookupsPanel({ state, dispatch }: LookupsPanelProps) {
   const closed = !lookupsOpen;
 
   return (
-    <>
-      {/* Backdrop — covers main only, not sidebar / topbar. */}
+    // Wrapper covers main-content area (right of sidebar, below topbar) and
+    // CLIPS its children. Without overflow:hidden the panel — anchored at
+    // left:0 inside this wrapper, transformed translateX(-100%) when closed —
+    // would render its body behind the sidebar's right edge and visibly
+    // cover the sidebar's text. The clip means the panel disappears as it
+    // slides past the wrapper's left edge.
+    <div style={{
+      position: 'fixed',
+      left: 200, top: 48, right: 0, bottom: 0,
+      overflow: 'hidden',
+      pointerEvents: 'none',                              // children opt in
+      zIndex: 40,
+    }}>
+      {/* Backdrop — fills the wrapper. */}
       <div
         onClick={() => dispatch({ type: 'SET_LOOKUPS_OPEN', open: false })}
         style={{
-          position: 'fixed',
-          left: 200, top: 48, right: 0, bottom: 0,
+          position: 'absolute', inset: 0,
           background: 'rgba(15,25,40,0.32)',
           opacity: closed ? 0 : 1,
           pointerEvents: closed ? 'none' : 'auto',
           transition: 'opacity 200ms ease-out',
-          zIndex: 40,
         }}
       />
 
@@ -90,16 +100,16 @@ export default function LookupsPanel({ state, dispatch }: LookupsPanelProps) {
         role="dialog"
         aria-label="Lookups admin"
         style={{
-          position: 'fixed',
-          left: 200, top: 48,
+          position: 'absolute',
+          left: 0, top: 0,
           width: 'min(80vw, 1280px)',
-          height: 'calc(100vh - 48px)',
+          height: '100%',
           background: 'var(--surface)',
           borderRight: '1px solid var(--hair)',
           boxShadow: '4px 0 16px rgba(15,25,40,0.10)',
           transform: closed ? 'translateX(-100%)' : 'translateX(0)',
           transition: 'transform 200ms ease-out',
-          zIndex: 41,
+          pointerEvents: closed ? 'none' : 'auto',
           display: 'grid',
           gridTemplateColumns: '180px 1fr',
         }}
@@ -149,7 +159,7 @@ export default function LookupsPanel({ state, dispatch }: LookupsPanelProps) {
           <TabBody tab={lookupsTab} identity={identity} />
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
