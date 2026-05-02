@@ -23,8 +23,28 @@
   --green:       oklch(58% 0.12 160);
   --red:         oklch(55% 0.15 25);
 
-  --pill-draft-bg: #FDF3E3;
-  --pill-draft-fg: #8A5A1A;
+  /* Status pill colors. Pulled out of StatusComponents.tsx so re-skins don't
+     require code edits. Each status has paired bg + fg. */
+  --status-draft-bg:    #FDF3E3;
+  --status-draft-fg:    #8A5A1A;
+  --status-sent-bg:     #EAF0F7;
+  --status-sent-fg:     #17416F;
+  --status-won-bg:      #E2F0E8;
+  --status-won-fg:      #2F6B5A;
+  --status-lost-bg:     #FBECEB;
+  --status-lost-fg:     #8A2A2A;
+  --status-archived-bg: #ECEDF0;
+  --status-archived-fg: #6B7382;
+
+  /* Solid action colors used by primary/danger/success buttons. */
+  --action-success:     #2F6B5A;
+  --action-danger:      #B8322F;
+  --action-danger-tint: #FBECEB;
+  --action-danger-edge: #F3CFCC;
+
+  /* Legacy aliases — kept so anything still reaching for the draft pair works. */
+  --pill-draft-bg: var(--status-draft-bg);
+  --pill-draft-fg: var(--status-draft-fg);
 
   --sans:  "Inter Tight", "Helvetica Neue", Helvetica, Arial, sans-serif;
   --serif: "Source Serif 4", Georgia, serif;

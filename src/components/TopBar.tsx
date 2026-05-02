@@ -6,6 +6,7 @@
 
 import { type Dispatch } from 'react';
 import { StatusBadge, VersionSwitcher } from './StatusComponents';
+import { Button } from './ui';
 import { getStatus } from '../lib/lifecycle';
 import type { GeneratedFormat } from '../types/domain';
 import type { EditorAction, EditorState } from '../state/editorReducer';
@@ -65,23 +66,19 @@ export default function TopBar({
 
       <div style={{ flex: 1 }} />
 
-      <button onClick={onNewProject}
+      <Button onClick={onNewProject}
         title="Start a new proposal (clears the editor)"
-        style={pillButton(false)}>
-        <span style={{ fontSize: 13, lineHeight: 1, marginRight: 4 }}>+</span>
+        iconLeft={<span style={{ fontSize: 13, lineHeight: 1 }}>+</span>}>
         New
-      </button>
+      </Button>
 
-      <button onClick={onDuplicateProject} disabled={!state.projectName}
+      <Button onClick={onDuplicateProject} disabled={!state.projectName}
         title={state.projectName
           ? 'Duplicate this proposal — creates a fresh draft with the same content'
           : 'Save the current proposal first to enable duplicate'}
-        style={pillButton(!state.projectName)}>
-        <span style={{ fontSize: 12, lineHeight: 1, marginRight: 4 }}>⧉</span>
+        iconLeft={<span style={{ fontSize: 12, lineHeight: 1 }}>⧉</span>}>
         Duplicate
-      </button>
-
-      <TextButton disabled>Templates</TextButton>
+      </Button>
 
       {state.projectName && view === 'editor' && (
         <VersionSwitcher state={state} dispatch={dispatch} onReload={onReloadProjects} />
@@ -127,20 +124,6 @@ export default function TopBar({
         onPickFormat={(fmt) => { dispatch({ type: 'SET_LAST_FORMAT', format: fmt }); onGenerate(fmt); }}
       />
     </div>
-  );
-}
-
-function TextButton({ children, onClick, disabled }: { children: any; onClick?: () => void; disabled?: boolean }) {
-  return (
-    <button type="button" onClick={onClick} disabled={disabled}
-      style={{
-        height: 30, padding: '0 10px', background: 'transparent',
-        color: disabled ? 'var(--subtle)' : 'var(--body)',
-        border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 500,
-        cursor: disabled ? 'default' : 'pointer', fontFamily: 'var(--sans)',
-      }}>
-      {children}
-    </button>
   );
 }
 
@@ -226,20 +209,6 @@ function SplitGenerate({ lastFormat, menuOpen, generating, onPrimary, onToggleMe
       )}
     </div>
   );
-}
-
-function pillButton(disabled: boolean) {
-  return {
-    height: 30, padding: '0 12px',
-    background: 'var(--surface)',
-    color: disabled ? 'var(--subtle)' : 'var(--body)',
-    border: '1px solid var(--hair)', borderRadius: 6,
-    fontSize: 12, fontWeight: 600,
-    cursor: disabled ? 'not-allowed' : 'pointer',
-    fontFamily: 'var(--sans)',
-    display: 'inline-flex', alignItems: 'center',
-    opacity: disabled ? 0.55 : 1,
-  };
 }
 
 interface GenMenuItemProps {

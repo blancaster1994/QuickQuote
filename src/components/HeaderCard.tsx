@@ -1,12 +1,13 @@
-// Project / client header card — direct port of QuickProp's HeaderCard.jsx.
+// Project / client header card — ported from QuickProp's HeaderCard.jsx.
 // Project name, Date, Client, Attention always visible; full address fields
-// toggled behind "+ Address Fields". Above the client fields, two toolbars
-// let the engineer recall a saved bundle (Client Template / Project Type
-// Template) — both scoped per CES identity email.
+// toggled behind a persistent disclosure row. Above the client fields, two
+// toolbars let the engineer recall a saved bundle (Client Template / Project
+// Type Template) — both scoped per CES identity email.
 
 import { useState, type Dispatch, type ReactNode } from 'react';
 import { Field, FieldLabel, TextArea } from './shared';
 import { Modal, ModalActions } from './StatusComponents';
+import { Button } from './ui';
 import type { ClientTemplateRecord, Proposal, ProjectTemplateRecord } from '../types/domain';
 import type { EditorAction } from '../state/editorReducer';
 
@@ -36,34 +37,66 @@ export default function HeaderCard({ proposal, dispatch, bootstrap }: HeaderCard
         templates={bootstrap?.project_templates || []} />
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 14px' }}>
-        <Field label="Project Name" value={proposal.name}    onChange={setField('name')} />
+        <div>
+          <Field label="Project Name" value={proposal.name} onChange={setField('name')} />
+          {!(proposal.name && proposal.name.trim()) && (
+            <div style={{
+              marginTop: 4, fontSize: 10.5, color: 'var(--muted)',
+              fontStyle: 'italic',
+            }}>
+              Autosave starts once the proposal has a name.
+            </div>
+          )}
+        </div>
         <Field label="Date"         value={proposal.date}    onChange={setField('date')} />
         <Field label="Client"       value={proposal.client}  onChange={setField('client')} />
         <Field label="Attention"    value={proposal.contact} onChange={setField('contact')} />
       </div>
 
-      {addrOpen ? (
+      <AddressFieldsToggle
+        open={addrOpen}
+        onToggle={() => setAddrOpen((o) => !o)}
+      />
+      {addrOpen && (
         <div style={{
           display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 14px',
-          marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--line)',
+          marginTop: 8,
         }}>
           <Field label="Project Address"            value={proposal.address}            onChange={setField('address')} />
           <Field label="Project City, State, Zip"   value={proposal.cityStateZip}       onChange={setField('cityStateZip')} />
           <Field label="Client Address"             value={proposal.clientAddress}      onChange={setField('clientAddress')} />
           <Field label="Client City, State, Zip"    value={proposal.clientCityStateZip} onChange={setField('clientCityStateZip')} />
-          <button type="button" onClick={() => setAddrOpen(false)} style={{
-            gridColumn: '1 / -1', justifySelf: 'start',
-            fontSize: 11, color: 'var(--muted)', background: 'transparent',
-            border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'var(--sans)',
-          }}>− Hide Address Fields</button>
         </div>
-      ) : (
-        <button type="button" onClick={() => setAddrOpen(true)} style={{
-          marginTop: 10, fontSize: 11, color: 'var(--muted)', background: 'transparent',
-          border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'var(--sans)',
-        }}>+ Address Fields</button>
       )}
     </div>
+  );
+}
+
+// Disclosure row for the optional address block. Persistent regardless of
+// state (open or closed) so users see the affordance even when collapsed.
+function AddressFieldsToggle({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  return (
+    <button type="button" onClick={onToggle}
+      style={{
+        marginTop: 12, paddingTop: 12, paddingBottom: open ? 4 : 0,
+        borderTop: '1px solid var(--line)',
+        width: '100%',
+        display: 'flex', alignItems: 'center', gap: 8,
+        background: 'transparent', border: 'none', cursor: 'pointer',
+        fontFamily: 'var(--sans)', textAlign: 'left',
+      }}>
+      <span style={{
+        fontSize: 11, color: 'var(--muted)',
+        transform: open ? 'rotate(90deg)' : 'none',
+        display: 'inline-block', transition: 'transform .15s',
+      }}>▸</span>
+      <span style={{
+        fontSize: 10.5, letterSpacing: 0.6, color: 'var(--muted)',
+        fontWeight: 600, textTransform: 'uppercase',
+      }}>
+        Address fields {open ? '' : '(optional)'}
+      </span>
+    </button>
   );
 }
 
@@ -260,17 +293,16 @@ function ToolbarRow({ label, picked, setPicked, templates, onLoad, onSaveClick, 
           <option key={name} value={name}>{name}</option>
         ))}
       </select>
-      <button type="button" onClick={onLoad} disabled={!picked}
-        style={primaryBtn(!picked)}>
+      <Button variant="primary" size="sm" onClick={onLoad} disabled={!picked}>
         Load
-      </button>
-      <button type="button" onClick={onSaveClick} style={secondaryBtn}>
+      </Button>
+      <Button variant="secondary" size="sm" onClick={onSaveClick}>
         Save as Template…
-      </button>
+      </Button>
       {picked && (
-        <button type="button" onClick={onDeleteClick} style={linkDangerBtn}>
+        <Button variant="danger-ghost" size="sm" onClick={onDeleteClick}>
           Delete
-        </button>
+        </Button>
       )}
       {children}
     </div>
@@ -373,29 +405,3 @@ function hasContentfulSections(proposal: Proposal): boolean {
   );
 }
 
-function primaryBtn(disabled: boolean) {
-  return {
-    height: 28, padding: '0 12px',
-    background: disabled ? 'var(--canvas-deep)' : 'var(--navy-deep)',
-    color: disabled ? 'var(--subtle)' : '#fff',
-    border: 'none', borderRadius: 6,
-    fontSize: 12, fontWeight: 700,
-    cursor: disabled ? 'not-allowed' : 'pointer',
-    fontFamily: 'var(--sans)',
-  };
-}
-
-const secondaryBtn = {
-  height: 28, padding: '0 12px',
-  background: 'var(--surface)', color: 'var(--body)',
-  border: '1px solid var(--hair)', borderRadius: 6,
-  fontSize: 12, fontWeight: 600, cursor: 'pointer',
-  fontFamily: 'var(--sans)',
-};
-
-const linkDangerBtn = {
-  background: 'transparent', color: '#B8322F',
-  border: 'none', padding: '0 4px',
-  fontSize: 11.5, fontWeight: 600, cursor: 'pointer',
-  fontFamily: 'var(--sans)',
-};

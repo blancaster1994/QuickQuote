@@ -4,8 +4,9 @@
 //
 // Direct port of QuickProp's SectionEditor.jsx.
 
-import { type Dispatch } from 'react';
+import { useState, type Dispatch } from 'react';
 import { Field, FieldLabel, FieldMoney, SegmentedControl, TextArea } from './shared';
+import { ConfirmDialog } from './ui';
 import FeeCalculator from './FeeCalculator';
 import { fmt$ } from '../lib/formatting';
 import type { BillingType, Section } from '../types/domain';
@@ -20,6 +21,7 @@ interface SectionEditorProps {
 }
 
 export default function SectionEditor({ section, total, state, dispatch }: SectionEditorProps) {
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const patch = (p: Partial<Section>) =>
     dispatch({ type: 'UPDATE_SECTION', id: section.id, patch: p });
 
@@ -89,11 +91,7 @@ export default function SectionEditor({ section, total, state, dispatch }: Secti
       {state.proposal.sections.length > 1 && (
         <div style={{ marginTop: 14, display: 'flex', justifyContent: 'flex-end' }}>
           <button type="button"
-            onClick={() => {
-              if (confirm(`Delete "${section.title || 'this section'}"?`)) {
-                dispatch({ type: 'REMOVE_SECTION', id: section.id });
-              }
-            }}
+            onClick={() => setConfirmRemove(true)}
             style={{
               padding: '6px 10px', fontSize: 11, color: 'var(--red)',
               background: 'transparent', border: '1px solid var(--hair)',
@@ -103,6 +101,19 @@ export default function SectionEditor({ section, total, state, dispatch }: Secti
           </button>
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmRemove}
+        title="Delete bid item?"
+        body={<>Remove <strong>{section.title || 'this bid item'}</strong>? Its scope, fee, labor, and expenses will be lost.</>}
+        confirmLabel="Delete"
+        confirmKind="loss"
+        onConfirm={() => {
+          setConfirmRemove(false);
+          dispatch({ type: 'REMOVE_SECTION', id: section.id });
+        }}
+        onCancel={() => setConfirmRemove(false)}
+      />
     </div>
   );
 }

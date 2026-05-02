@@ -65,13 +65,16 @@ export default function BidItemTabs({ sections, totals, activeSection, dispatch 
       <button
         type="button"
         onClick={() => dispatch({ type: 'ADD_SECTION' })}
-        title="Add bid item"
+        title="Add a new bid item"
         style={{
-          padding: '10px 12px', border: 'none', background: 'transparent',
-          fontSize: 18, color: 'var(--muted)', cursor: 'pointer',
+          padding: '8px 12px', border: 'none', background: 'transparent',
+          fontSize: 12, fontWeight: 600, color: 'var(--navy-deep)', cursor: 'pointer',
           alignSelf: 'center', lineHeight: 1,
+          fontFamily: 'var(--sans)',
+          display: 'inline-flex', alignItems: 'center', gap: 4,
         }}>
-        +
+        <span style={{ fontSize: 14, lineHeight: 1 }}>+</span>
+        Add bid item
       </button>
     </div>
   );
