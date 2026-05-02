@@ -131,7 +131,7 @@ function step(state: ProjectEditorState, action: ProjectEditorAction): ProjectEd
           const newIdx = state.project.payload.phases.findIndex(p => p.phase_no === r.phase_no);
           if (newIdx === -1) return r;
           // After removal, indices > action.index shift down by 1.
-          const adjusted = newIdx > action.index ? newIdx : newIdx;
+          const adjusted = newIdx > action.index ? newIdx - 1 : newIdx;
           return { ...r, phase_no: adjusted + 1 };
         });
       const newActive = clamp(state.activePhaseIndex >= action.index
