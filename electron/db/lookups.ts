@@ -292,8 +292,15 @@ export function lookupRate(
 ): number | null {
   const cat = category ?? '';
   const rid = resourceId ?? null;
+  // 4-tier v2 lookup, then a v1 fallback via category_mapping for
+  // QuickProp-imported rates. Legacy rows have legal_entity='' (set by
+  // the v2 migration's default) and category='' (rate_key column drives
+  // the lookup instead). Without the fallback, a project with
+  // legal_entity='CES' never matches anything imported from QuickProp.
+  // Priority: v2 strict > v2 empty-entity > v1 fallback.
   const sql = `
-    SELECT price, priority FROM (
+    SELECT price, priority, effective_date FROM (
+      -- v2: strict entity, exact category + resource
       SELECT price, 1 AS priority, effective_date FROM rate_entry
         WHERE legal_entity=? AND rate_table=? AND category=? AND resource_id=?
       UNION ALL
@@ -305,6 +312,20 @@ export function lookupRate(
       UNION ALL
       SELECT price, 4, effective_date FROM rate_entry
         WHERE legal_entity=? AND rate_table=? AND category='' AND resource_id IS NULL
+      UNION ALL
+      -- v2 entity-less fallback: QuickProp imports landed with
+      -- legal_entity=''. If the strict-entity tiers miss, try again
+      -- without filtering on entity.
+      SELECT price, 5, effective_date FROM rate_entry
+        WHERE legal_entity='' AND rate_table=? AND category=? AND resource_id IS NULL
+      UNION ALL
+      -- v1 fallback: QuickProp shape — category_mapping maps the
+      -- employee_category string to a rate_key, then rate_entry's
+      -- rate_key + rate_table give the price. Only fires for legacy
+      -- rows (legal_entity='') so it doesn't shadow v2-imported data.
+      SELECT re.price, 6, re.effective_date FROM rate_entry re
+        JOIN category_mapping cm ON cm.rate_key = re.rate_key
+        WHERE re.legal_entity='' AND re.rate_table=? AND cm.employee_category=?
     )
     ORDER BY priority, effective_date DESC
     LIMIT 1`;
@@ -313,6 +334,8 @@ export function lookupRate(
     legalEntity, rateTable, rid ?? '',
     legalEntity, rateTable, cat,
     legalEntity, rateTable,
+    rateTable, cat,
+    rateTable, cat,
   ) as { price: number } | undefined;
   return row?.price ?? null;
 }
