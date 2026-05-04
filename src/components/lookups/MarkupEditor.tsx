@@ -3,11 +3,13 @@
 // export it (PM had it; QQ proposals format inline elsewhere).
 
 import { useEffect, useState } from 'react';
+import { ConfirmDialog } from '../ui';
 import type { MarkupPct } from '../../types/domain';
 
 export default function MarkupEditor() {
   const [items, setItems] = useState<MarkupPct[]>([]);
   const [newValue, setNewValue] = useState('');
+  const [pendingDelete, setPendingDelete] = useState<MarkupPct | null>(null);
 
   async function refresh() { setItems(await window.api.markup.list()); }
   useEffect(() => { void refresh(); }, []);
@@ -21,8 +23,10 @@ export default function MarkupEditor() {
     void refresh();
   }
 
-  async function remove(id: number) {
-    if (!confirm('Delete this markup?')) return;
+  async function performDelete() {
+    if (!pendingDelete) return;
+    const id = pendingDelete.id;
+    setPendingDelete(null);
     await window.api.markup.remove(id);
     void refresh();
   }
@@ -39,7 +43,7 @@ export default function MarkupEditor() {
             <tr key={item.id}>
               <td>{formatPct(item.value)}</td>
               <td>
-                <button className="delete-x" onClick={() => void remove(item.id)} title="Delete">&times;</button>
+                <button className="delete-x" onClick={() => setPendingDelete(item)} title="Delete">&times;</button>
               </td>
             </tr>
           ))}
@@ -55,6 +59,16 @@ export default function MarkupEditor() {
         />
         <button className="primary" onClick={() => void add()}>Add</button>
       </div>
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title="Delete markup?"
+        body={<>Remove the <strong>{pendingDelete ? formatPct(pendingDelete.value) : ''}</strong> markup?</>}
+        confirmLabel="Delete"
+        confirmKind="loss"
+        onConfirm={() => void performDelete()}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }

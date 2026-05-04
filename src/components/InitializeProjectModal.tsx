@@ -247,7 +247,7 @@ export default function InitializeProjectModal({
             style={fieldStyle}
           />
           {!icoreValid && (
-            <div style={{ fontSize: 11.5, color: '#B8322F', marginTop: 4 }}>
+            <div style={{ fontSize: 11.5, color: 'var(--action-danger)', marginTop: 4 }}>
               iCore IDs are alphanumeric (letters, digits, "-" or "_").
             </div>
           )}
@@ -257,8 +257,8 @@ export default function InitializeProjectModal({
       {err && (
         <div style={{
           marginTop: 12, padding: '8px 10px',
-          background: '#FBECEB', border: '1px solid #F3CFCC',
-          borderRadius: 6, fontSize: 11.5, color: '#B8322F',
+          background: 'var(--action-danger-tint)', border: '1px solid var(--action-danger-edge)',
+          borderRadius: 6, fontSize: 11.5, color: 'var(--action-danger)',
         }}>
           {err}
         </div>

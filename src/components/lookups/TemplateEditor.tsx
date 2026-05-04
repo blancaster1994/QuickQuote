@@ -4,7 +4,10 @@
 
 import { useEffect, useState } from 'react';
 import * as XLSX from 'xlsx';
+import { ConfirmDialog } from '../ui';
 import type { TemplatePhase } from '../../types/domain';
+
+type PendingImport = { rows: Array<Omit<TemplatePhase, 'id'>>; filePath: string };
 
 // Department normalization: iCore exports use slightly different spellings
 // than QuickQuote's canonical department list.
@@ -25,6 +28,8 @@ export default function TemplateEditor() {
   const [filterDept, setFilterDept] = useState('');
   const [filterTmpl, setFilterTmpl] = useState('');
   const [importMsg, setImportMsg] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<TemplatePhase | null>(null);
+  const [pendingImport, setPendingImport] = useState<PendingImport | null>(null);
 
   async function refresh() {
     const filters: any = {};
@@ -45,8 +50,10 @@ export default function TemplateEditor() {
     await window.api.templates.save({ ...r, ...patch });
     void refresh();
   }
-  async function remove(id: number) {
-    if (!confirm('Delete this template phase?')) return;
+  async function performDelete() {
+    if (!pendingDelete) return;
+    const id = pendingDelete.id;
+    setPendingDelete(null);
     await window.api.templates.remove(id);
     void refresh();
   }
@@ -92,9 +99,15 @@ export default function TemplateEditor() {
       setImportMsg('No rows found. Expected columns: Department, Template, ProjectName ("Template: PhaseName"), RateTable, LegalEntity.');
       return;
     }
-    if (!confirm(`Replace all ${rows.length} existing template rows with ${mapped.length} imported rows?`)) return;
+    setPendingImport({ rows: mapped, filePath: res.filePath });
+  }
+
+  async function performImport() {
+    if (!pendingImport) return;
+    const { rows: mapped, filePath } = pendingImport;
+    setPendingImport(null);
     await window.api.templates.importBulk(mapped);
-    setImportMsg(`Imported ${mapped.length} template phases from ${res.filePath}`);
+    setImportMsg(`Imported ${mapped.length} template phases from ${filePath}`);
     void refresh();
   }
 
@@ -153,13 +166,37 @@ export default function TemplateEditor() {
                   </select>
                 </td>
                 <td className="num"><input type="number" defaultValue={r.sort_order} onBlur={(e) => void save(r, { sort_order: parseInt(e.target.value) || 0 })} /></td>
-                <td><button className="delete-x" onClick={() => void remove(r.id)}>&times;</button></td>
+                <td><button className="delete-x" onClick={() => setPendingDelete(r)}>&times;</button></td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
       <div className="muted" style={{ marginTop: 8 }}>{rows.length} rows</div>
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title="Delete template phase?"
+        body={pendingDelete && (
+          <>
+            Remove the <strong>{pendingDelete.phase_name}</strong> phase from the
+            {' '}<strong>{pendingDelete.template}</strong> template ({pendingDelete.legal_entity} / {pendingDelete.department})?
+          </>
+        )}
+        confirmLabel="Delete"
+        confirmKind="loss"
+        onConfirm={() => void performDelete()}
+        onCancel={() => setPendingDelete(null)}
+      />
+      <ConfirmDialog
+        open={!!pendingImport}
+        title="Replace all template rows?"
+        body={<>Replace all <strong>{rows.length}</strong> existing template rows with <strong>{pendingImport?.rows.length ?? 0}</strong> imported rows?</>}
+        confirmLabel="Replace"
+        confirmKind="loss"
+        onConfirm={() => void performImport()}
+        onCancel={() => setPendingImport(null)}
+      />
     </div>
   );
 }

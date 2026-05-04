@@ -195,7 +195,7 @@ export default function SendToClickUpModal({ project, onClose, onSent }: SendToC
       {plan.warnings.length > 0 && (
         <Section label="Warnings">
           {plan.warnings.map((w, i) => (
-            <div key={i} style={{ fontSize: 11.5, color: '#8A5A1A', padding: '2px 0' }}>
+            <div key={i} style={{ fontSize: 11.5, color: 'var(--status-draft-fg)', padding: '2px 0' }}>
               ⚠ {w}
             </div>
           ))}
@@ -244,8 +244,8 @@ function Row({ label, value, tag, muted }: {
       {tag && (
         <span style={{
           fontSize: 10, padding: '2px 7px', borderRadius: 9,
-          background: tag.kind === 'create' ? '#E2F0E8' : 'var(--navy-tint)',
-          color:      tag.kind === 'create' ? '#2F6B5A' : 'var(--navy-deep)',
+          background: tag.kind === 'create' ? 'var(--status-won-bg)' : 'var(--navy-tint)',
+          color:      tag.kind === 'create' ? 'var(--status-won-fg)' : 'var(--navy-deep)',
           fontWeight: 700, letterSpacing: 0.3, textTransform: 'uppercase',
         }}>{tag.text}</span>
       )}
@@ -255,7 +255,7 @@ function Row({ label, value, tag, muted }: {
 
 const errorBoxStyle: React.CSSProperties = {
   padding: '10px 12px',
-  background: '#FBECEB', border: '1px solid #F3CFCC',
-  borderRadius: 6, color: '#B8322F', fontSize: 12.5,
+  background: 'var(--action-danger-tint)', border: '1px solid var(--action-danger-edge)',
+  borderRadius: 6, color: 'var(--action-danger)', fontSize: 12.5,
   marginBottom: 14,
 };
