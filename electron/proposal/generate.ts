@@ -92,6 +92,9 @@ interface CliValues {
   client_city: string;
   scope_title: string;
   scope_of_work: string;
+  /** Section-1 exclusions. CLI prefixes "Scope specifically excluded: " and
+   *  inserts a paragraph after the scope block when non-empty. */
+  scope_excluded: string;
   signer_name: string;
   signer_title: string;
 }
@@ -105,7 +108,8 @@ interface BuiltCliInput {
   section1_fee: string;
   section1_billing_type: 'fixed' | 'tm';
   section1_nte: boolean;
-  extra_sections: Array<[string, string, string, string, boolean]>;
+  /** [title, scope, fee, billing, nte, exclusions] per extra section. */
+  extra_sections: Array<[string, string, string, string, boolean, string]>;
 }
 
 /**
@@ -144,16 +148,18 @@ function buildCliInput(args: {
     client_city:            clientCity,
     scope_title:            String(s0.title || ''),
     scope_of_work:          String(s0.scope || ''),
+    scope_excluded:         String(s0.exclusions || ''),
     signer_name:            signerName,
     signer_title:           signer?.title || '',
   };
 
-  const extras: Array<[string, string, string, string, boolean]> = sections.slice(1).map((s: any) => [
+  const extras: Array<[string, string, string, string, boolean, string]> = sections.slice(1).map((s: any) => [
     String(s?.title || ''),
     String(s?.scope || ''),
     String(s?.fee ?? ''),
     String(s?.billing || 'fixed'),
     false, // QuickProp doesn't surface NTE per-section in the v3 schema
+    String(s?.exclusions || ''),
   ]);
 
   return {

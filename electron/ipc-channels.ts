@@ -60,6 +60,7 @@ export const IPC = {
   // ── OS integration ────────────────────────────────────────────────────────
   OS_OPEN_FILE:            'os:openFile',
   OS_REVEAL_IN_EXPLORER:   'os:revealInExplorer',
+  OS_COPY_FILE_TO_CLIPBOARD: 'os:copyFileToClipboard',
 
   // ── PM-mode lookups (Stage 1; UI lands in Stage 2) ───────────────────────
   // Simple name-list CRUD keyed by table name (legal_entity, department,

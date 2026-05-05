@@ -122,6 +122,10 @@ export interface Section {
   id: string;
   title: string;
   scope: string;
+  /** Optional "what's NOT covered" list. Rendered in the proposal as a
+   *  paragraph prefixed with "Scope specifically excluded: " under the
+   *  scope of work. Empty string ⇒ no exclusions block emitted. */
+  exclusions: string;
   billing: BillingType;
   fee: number;
   notes: string;
