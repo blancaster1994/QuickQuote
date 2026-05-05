@@ -52,13 +52,29 @@ export default function ResourceAllocation({
     return out;
   }, [project.payload.resources, phase.phase_no]);
 
+  // phase.rate_table can land empty when a phase template's row had no
+  // rate_table set. Fall back to the project header's rate_table so the
+  // lookup matches existing rate_entry rows instead of returning 0.
+  const effectiveRateTable = phase.rate_table || project.rate_table || '';
+
   async function lookup(category: string, resourceId: string | null): Promise<number> {
-    const key = `${phase.rate_table}||${category}||${resourceId ?? ''}`;
+    const key = `${effectiveRateTable}||${category}||${resourceId ?? ''}`;
     const cached = rateMap.get(key);
     if (cached != null) return cached;
     try {
-      const v = await window.api.rates.lookup(project.legal_entity, phase.rate_table, category, resourceId);
+      const v = await window.api.rates.lookup(project.legal_entity, effectiveRateTable, category, resourceId);
       const num = Number(v) || 0;
+      if (!num) {
+        console.warn('[Assign] rates.lookup returned no match', {
+          legal_entity: project.legal_entity,
+          rate_table: effectiveRateTable,
+          phase_rate_table: phase.rate_table,
+          project_rate_table: project.rate_table,
+          category,
+          resource_id: resourceId,
+          raw: v,
+        });
+      }
       setRateMap(m => new Map(m).set(key, num));
       return num;
     } catch (e) {
@@ -238,13 +254,31 @@ export default function ResourceAllocation({
                     />
                   </td>
                   <td style={{ padding: '4px 8px' }}>
-                    <BillRateCell
-                      assignment={r}
-                      lookupRate={lookupRate}
-                      disabled={disabled}
-                      currentUser={u}
-                      onChange={(patch) => dispatch({ type: 'UPDATE_RESOURCE', index: idx, patch })}
-                    />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
+                      <BillRateCell
+                        assignment={r}
+                        lookupRate={lookupRate}
+                        disabled={disabled}
+                        currentUser={u}
+                        onChange={(patch) => dispatch({ type: 'UPDATE_RESOURCE', index: idx, patch })}
+                      />
+                      {(lookupRate || 0) <= 0 && (Number(r.bill_rate) || 0) <= 0 && (
+                        <span
+                          title={
+                            `No rate found for legal_entity="${project.legal_entity}", rate_table="${effectiveRateTable || '(none)'}", category="${'category' in r ? (r as any).category : ''}". ` +
+                            `Add a rate in Lookups → Rates, or type a value here.`
+                          }
+                          style={{
+                            fontSize: 9.5, fontWeight: 700, letterSpacing: 0.4,
+                            padding: '2px 5px', borderRadius: 3,
+                            background: '#FEF3C7', color: '#92400E',
+                            border: '1px solid #FDE68A',
+                            textTransform: 'uppercase', cursor: 'help',
+                          }}>
+                          No rate
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td style={{ padding: '6px 8px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
                     {fmt$(amount)}

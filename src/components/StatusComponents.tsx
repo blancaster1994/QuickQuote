@@ -285,12 +285,14 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
           </button>
         ))}
 
-        {/* Send to ClickUp — visible only in project mode AND when sync is
-            enabled in Lookups → ClickUp. Already-linked projects show a
-            secondary "↗ ClickUp" chip with last-synced timestamp + Unlink. */}
-        {inProjectMode && clickUpEnabled && state.project && (
+        {/* Send to ClickUp — visible whenever we're in project mode. When
+            ClickUp isn't configured yet, the button opens Lookups → ClickUp
+            so the user can paste their token; otherwise it opens the send
+            modal. Already-linked projects show a secondary "↗ ClickUp" chip
+            with last-synced timestamp. */}
+        {inProjectMode && state.project && (
           <>
-            {clickUpLinkUrl ? (
+            {clickUpEnabled && clickUpLinkUrl ? (
               <button onClick={() => void window.api.os.openFile(clickUpLinkUrl)}
                 title={clickUpLastSyncedAt
                   ? `Open in browser — last synced ${formatRelative(clickUpLastSyncedAt)}`
@@ -313,16 +315,30 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
                 )}
               </button>
             ) : null}
-            <button onClick={() => setShowSendClickUp(true)}
-              title="Push this project's phases to ClickUp as tasks"
+            <button
+              onClick={() => {
+                if (!clickUpEnabled) {
+                  dispatch({ type: 'SET_LOOKUPS_TAB', tab: 'clickup' });
+                  dispatch({ type: 'SET_LOOKUPS_OPEN', open: true });
+                  return;
+                }
+                setShowSendClickUp(true);
+              }}
+              title={clickUpEnabled
+                ? "Push this project's phases to ClickUp as tasks"
+                : 'Configure ClickUp in Lookups → ClickUp first'}
               style={{
                 height: 30, padding: '0 12px',
-                background: '#7c3aed', color: '#fff',
-                border: 'none', borderRadius: 6,
+                background: clickUpEnabled ? '#7c3aed' : 'transparent',
+                color: clickUpEnabled ? '#fff' : '#7c3aed',
+                border: clickUpEnabled ? 'none' : '1px solid #DDD6FE',
+                borderRadius: 6,
                 fontSize: 11.5, fontWeight: 700, cursor: 'pointer',
                 fontFamily: 'var(--sans)',
               }}>
-              {clickUpLinkUrl ? 'Re-send' : 'Send to ClickUp'}
+              {clickUpEnabled
+                ? (clickUpLinkUrl ? 'Re-send' : 'Send to ClickUp')
+                : 'Send to ClickUp'}
             </button>
           </>
         )}

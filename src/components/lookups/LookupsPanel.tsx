@@ -52,6 +52,12 @@ export default function LookupsPanel({ state, dispatch }: LookupsPanelProps) {
     if (lookupsOpen && !hasMounted) setHasMounted(true);
   }, [lookupsOpen, hasMounted]);
 
+  // Read-only by default — every editor child receives disabled={!editing}.
+  // Resets to read-only every time the panel closes so a stray click can't
+  // damage data after walking away.
+  const [editing, setEditing] = useState(false);
+  useEffect(() => { if (!lookupsOpen) setEditing(false); }, [lookupsOpen]);
+
   // Esc closes the panel.
   useEffect(() => {
     if (!lookupsOpen) return;
@@ -173,19 +179,26 @@ export default function LookupsPanel({ state, dispatch }: LookupsPanelProps) {
           background: 'var(--canvas)',
         }}>
           <TabHeader tab={lookupsTab}
+            editing={editing}
+            onToggleEdit={() => setEditing(e => !e)}
             onClose={() => dispatch({ type: 'SET_LOOKUPS_OPEN', open: false })} />
-          <TabBody tab={lookupsTab} identity={identity} />
+          <TabBody tab={lookupsTab} identity={identity} disabled={!editing} />
         </div>
       </div>
     </div>
   );
 }
 
-function TabHeader({ tab, onClose }: { tab: LookupsTab; onClose: () => void }) {
+function TabHeader({ tab, editing, onToggleEdit, onClose }: {
+  tab: LookupsTab;
+  editing: boolean;
+  onToggleEdit: () => void;
+  onClose: () => void;
+}) {
   const label = TABS.find(t => t.key === tab)?.label ?? tab;
   return (
     <div style={{
-      display: 'flex', alignItems: 'center',
+      display: 'flex', alignItems: 'center', gap: 10,
       marginBottom: 14,
     }}>
       <h2 style={{
@@ -195,6 +208,23 @@ function TabHeader({ tab, onClose }: { tab: LookupsTab; onClose: () => void }) {
         {label}
       </h2>
       <div style={{ flex: 1 }} />
+      <button onClick={onToggleEdit}
+        title={editing
+          ? 'Click to lock these fields again'
+          : 'Click to edit these fields'}
+        style={{
+          height: 28, padding: '0 12px', borderRadius: 14,
+          background: editing ? 'var(--navy-deep)' : 'var(--canvas)',
+          color: editing ? '#fff' : 'var(--body)',
+          border: `1px solid ${editing ? 'var(--navy-deep)' : 'var(--hair)'}`,
+          cursor: 'pointer',
+          fontSize: 11.5, fontWeight: 700, fontFamily: 'var(--sans)',
+          letterSpacing: 0.2,
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+        }}>
+        <span aria-hidden>{editing ? '✏' : '🔒'}</span>
+        {editing ? 'Editing — Done' : 'Read-only — Edit'}
+      </button>
       <button onClick={onClose}
         aria-label="Close panel (Esc)"
         style={{
@@ -209,7 +239,11 @@ function TabHeader({ tab, onClose }: { tab: LookupsTab; onClose: () => void }) {
   );
 }
 
-function TabBody({ tab, identity }: { tab: LookupsTab; identity: EditorState['identity'] }) {
+function TabBody({ tab, identity, disabled }: {
+  tab: LookupsTab;
+  identity: EditorState['identity'];
+  disabled: boolean;
+}) {
   switch (tab) {
     case 'basic':
       return (
@@ -218,20 +252,20 @@ function TabBody({ tab, identity }: { tab: LookupsTab; identity: EditorState['id
           gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
           gap: 12,
         }}>
-          <NameListEditor table="rate_table"       label="Rate Tables" />
-          <NameListEditor table="project_type"     label="Project Types" />
-          <NameListEditor table="expense_category" label="Expense Categories" />
-          <MarkupEditor />
+          <NameListEditor table="rate_table"       label="Rate Tables"         disabled={disabled} />
+          <NameListEditor table="project_type"     label="Project Types"       disabled={disabled} />
+          <NameListEditor table="expense_category" label="Expense Categories"  disabled={disabled} />
+          <MarkupEditor disabled={disabled} />
         </div>
       );
     case 'phases-tasks':
-      return <PhaseTaskEditor />;
+      return <PhaseTaskEditor disabled={disabled} />;
     case 'templates':
-      return <TemplateEditor />;
+      return <TemplateEditor disabled={disabled} />;
     case 'employees':
-      return <EmployeeEditor />;
+      return <EmployeeEditor disabled={disabled} />;
     case 'rates':
-      return <RateEditor />;
+      return <RateEditor disabled={disabled} />;
     case 'legal-departments':
       return (
         <div style={{
@@ -239,11 +273,11 @@ function TabBody({ tab, identity }: { tab: LookupsTab; identity: EditorState['id
           gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
           gap: 12,
         }}>
-          <NameListEditor table="legal_entity" label="Legal Entities" />
-          <NameListEditor table="department"   label="Departments" />
+          <NameListEditor table="legal_entity" label="Legal Entities" disabled={disabled} />
+          <NameListEditor table="department"   label="Departments"    disabled={disabled} />
         </div>
       );
     case 'clickup':
-      return <ClickUpSettings identity={identity} />;
+      return <ClickUpSettings identity={identity} disabled={disabled} />;
   }
 }

@@ -37,6 +37,11 @@ export default function PhaseEditor({
   const inflight = useRef<Set<string>>(new Set());
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  // phase.rate_table can land empty when a phase template's row had no
+  // rate_table set. Fall back to the project header's rate_table so the
+  // category lookups hit real rate_entry rows.
+  const effectiveRateTable = phase.rate_table || project.rate_table || '';
+
   const lookupCategoryRate = useCallback(async (rateTable: string, category: string) => {
     const key = `${rateTable}||${category}`;
     if (rateMap.has(key)) return;
@@ -56,12 +61,12 @@ export default function PhaseEditor({
   // Trigger lookups for any visible task whose category we don't have yet.
   useEffect(() => {
     for (const t of phase.tasks) {
-      if (t.category) void lookupCategoryRate(phase.rate_table, t.category);
+      if (t.category) void lookupCategoryRate(effectiveRateTable, t.category);
     }
-  }, [phase.tasks, phase.rate_table, lookupCategoryRate]);
+  }, [phase.tasks, effectiveRateTable, lookupCategoryRate]);
 
   function rateFor(category: string): number {
-    return rateMap.get(`${phase.rate_table}||${category}`) ?? 0;
+    return rateMap.get(`${effectiveRateTable}||${category}`) ?? 0;
   }
 
   const taskBudget = useMemo(() => phase.tasks.reduce((sum, t) => {
@@ -154,18 +159,24 @@ export default function PhaseEditor({
         />
       </div>
 
-      {/* Scope of Work + internal notes */}
-      <Field label="Scope of work (drives the proposal docx)">
-        <textarea
-          value={phase.scope_text ?? ''}
-          disabled={disabled}
-          placeholder="Describe the work this phase covers…"
-          onChange={(e) => dispatch({ type: 'UPDATE_PHASE', index: phaseIndex, patch: { scope_text: e.target.value } })}
+      {/* Scope of Work — reference only in project mode. Edit it from the
+          proposal sections; this just mirrors phase.scope_text for context. */}
+      <Field label="Scope of work (reference — edit in proposal)">
+        <div
           style={{
-            ...inputStyle, height: 'auto', minHeight: 70, padding: 8, resize: 'vertical',
+            ...inputStyle,
+            height: 'auto', minHeight: 70, padding: 8,
+            background: 'var(--canvas)', color: 'var(--body)',
+            whiteSpace: 'pre-wrap', overflowWrap: 'break-word',
             fontFamily: 'var(--sans)',
-          }}
-        />
+            cursor: 'default',
+          }}>
+          {phase.scope_text?.trim()
+            ? phase.scope_text
+            : <span style={{ color: 'var(--muted)', fontStyle: 'italic' }}>
+                No scope captured for this phase.
+              </span>}
+        </div>
       </Field>
       <Field label="Internal notes (not exported)">
         <input

@@ -19,7 +19,11 @@ const DEPT_NORMALIZE: Record<string, string> = {
   'Inspection':    'Inspections',
 };
 
-export default function TemplateEditor() {
+interface TemplateEditorProps {
+  disabled?: boolean;
+}
+
+export default function TemplateEditor({ disabled }: TemplateEditorProps = {}) {
   const [rows, setRows] = useState<TemplatePhase[]>([]);
   const [legalEntities, setLegalEntities] = useState<string[]>([]);
   const [departments, setDepartments] = useState<string[]>([]);
@@ -131,8 +135,8 @@ export default function TemplateEditor() {
         <label>Template:</label>
         <input placeholder="filter..." value={filterTmpl} onChange={(e) => setFilterTmpl(e.target.value)} style={{ width: 220 }} />
         <div className="spacer" />
-        <button onClick={() => void addBlank()}>+ Add Row</button>
-        <button className="primary" onClick={() => void importFile()}>Import iCore File…</button>
+        <button onClick={() => void addBlank()} disabled={disabled}>+ Add Row</button>
+        <button className="primary" onClick={() => void importFile()} disabled={disabled}>Import iCore File…</button>
       </div>
       {importMsg && <div className="success">{importMsg}</div>}
       <div style={{ maxHeight: 500, overflow: 'auto' }}>
@@ -149,24 +153,24 @@ export default function TemplateEditor() {
             {rows.map(r => (
               <tr key={r.id}>
                 <td>
-                  <select defaultValue={r.legal_entity} onChange={(e) => void save(r, { legal_entity: e.target.value })}>
+                  <select defaultValue={r.legal_entity} disabled={disabled} onChange={(e) => void save(r, { legal_entity: e.target.value })}>
                     {legalEntities.map(n => <option key={n} value={n}>{n}</option>)}
                   </select>
                 </td>
                 <td>
-                  <select defaultValue={r.department} onChange={(e) => void save(r, { department: e.target.value })}>
+                  <select defaultValue={r.department} disabled={disabled} onChange={(e) => void save(r, { department: e.target.value })}>
                     {departments.map(n => <option key={n} value={n}>{n}</option>)}
                   </select>
                 </td>
-                <td><input defaultValue={r.template} onBlur={(e) => void save(r, { template: e.target.value })} /></td>
-                <td><input defaultValue={r.phase_name} onBlur={(e) => void save(r, { phase_name: e.target.value })} /></td>
+                <td><input defaultValue={r.template} disabled={disabled} onBlur={(e) => void save(r, { template: e.target.value })} /></td>
+                <td><input defaultValue={r.phase_name} disabled={disabled} onBlur={(e) => void save(r, { phase_name: e.target.value })} /></td>
                 <td>
-                  <select defaultValue={r.rate_table} onChange={(e) => void save(r, { rate_table: e.target.value })}>
+                  <select defaultValue={r.rate_table} disabled={disabled} onChange={(e) => void save(r, { rate_table: e.target.value })}>
                     {rateTables.map(n => <option key={n} value={n}>{n}</option>)}
                   </select>
                 </td>
-                <td className="num"><input type="number" defaultValue={r.sort_order} onBlur={(e) => void save(r, { sort_order: parseInt(e.target.value) || 0 })} /></td>
-                <td><button className="delete-x" onClick={() => setPendingDelete(r)}>&times;</button></td>
+                <td className="num"><input type="number" defaultValue={r.sort_order} disabled={disabled} onBlur={(e) => void save(r, { sort_order: parseInt(e.target.value) || 0 })} /></td>
+                <td><button className="delete-x" onClick={() => setPendingDelete(r)} disabled={disabled}>&times;</button></td>
               </tr>
             ))}
           </tbody>

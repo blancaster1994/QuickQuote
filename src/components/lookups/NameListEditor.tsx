@@ -9,11 +9,12 @@ type NameTable = 'legal_entity' | 'rate_table' | 'project_type' | 'expense_categ
 interface NameListEditorProps {
   table: NameTable;
   label: string;
+  disabled?: boolean;
 }
 
 type NameRow = { id: number; name: string };
 
-export default function NameListEditor({ table, label }: NameListEditorProps) {
+export default function NameListEditor({ table, label, disabled }: NameListEditorProps) {
   const [items, setItems] = useState<NameRow[]>([]);
   const [newName, setNewName] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -63,11 +64,12 @@ export default function NameListEditor({ table, label }: NameListEditorProps) {
               <td>
                 <input
                   defaultValue={item.name}
+                  disabled={disabled}
                   onBlur={(e) => { if (e.target.value !== item.name) void update(item.id, e.target.value); }}
                 />
               </td>
               <td>
-                <button className="delete-x" onClick={() => setPendingDelete(item)} aria-label="Delete">&times;</button>
+                <button className="delete-x" onClick={() => setPendingDelete(item)} aria-label="Delete" disabled={disabled}>&times;</button>
               </td>
             </tr>
           ))}
@@ -77,11 +79,12 @@ export default function NameListEditor({ table, label }: NameListEditorProps) {
         <input
           placeholder={`New ${label.toLowerCase()}...`}
           value={newName}
+          disabled={disabled}
           onChange={(e) => setNewName(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') void add(); }}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !disabled) void add(); }}
           style={{ flex: 1 }}
         />
-        <button className="primary" onClick={() => void add()}>Add</button>
+        <button className="primary" onClick={() => void add()} disabled={disabled}>Add</button>
       </div>
       {error && <div className="error">{error}</div>}
 

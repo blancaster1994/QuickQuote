@@ -18,7 +18,11 @@ const DEPT_NORMALIZE: Record<string, string> = {
   'Inspection':    'Inspections',
 };
 
-export default function EmployeeEditor() {
+interface EmployeeEditorProps {
+  disabled?: boolean;
+}
+
+export default function EmployeeEditor({ disabled }: EmployeeEditorProps = {}) {
   const [rows, setRows] = useState<EmployeeRow[]>([]);
   const [filter, setFilter] = useState('');
   const [importMsg, setImportMsg] = useState<string | null>(null);
@@ -112,8 +116,8 @@ export default function EmployeeEditor() {
           style={{ flex: 1, maxWidth: 360 }}
         />
         <div className="spacer" />
-        <button onClick={() => void addBlank()}>+ Add Row</button>
-        <button className="primary" onClick={() => void importFile()}>Import from File…</button>
+        <button onClick={() => void addBlank()} disabled={disabled}>+ Add Row</button>
+        <button className="primary" onClick={() => void importFile()} disabled={disabled}>Import from File…</button>
       </div>
       {importMsg && <div className="success">{importMsg}</div>}
       <div style={{ maxHeight: 500, overflow: 'auto' }}>
@@ -128,16 +132,16 @@ export default function EmployeeEditor() {
           <tbody>
             {filtered.map(r => (
               <tr key={r.id}>
-                <td><input defaultValue={r.resource_id ?? ''} onBlur={(e) => void save(r, { resource_id: e.target.value || null })} /></td>
-                <td><input defaultValue={r.name} onBlur={(e) => void save(r, { name: e.target.value })} /></td>
-                <td><input defaultValue={r.category ?? ''} onBlur={(e) => void save(r, { category: e.target.value || null })} /></td>
-                <td><input defaultValue={r.legal_entity ?? ''} onBlur={(e) => void save(r, { legal_entity: e.target.value || null })} /></td>
-                <td><input defaultValue={r.email ?? ''} onBlur={(e) => void save(r, { email: e.target.value || null })} /></td>
-                <td><input defaultValue={r.home_department ?? ''} onBlur={(e) => void save(r, { home_department: e.target.value || null })} /></td>
-                <td><input defaultValue={r.title ?? ''} placeholder="VP of Engineering" onBlur={(e) => void save(r, { title: e.target.value || null })} /></td>
-                <td><input defaultValue={r.credentials ?? ''} placeholder="P.E., S.E." onBlur={(e) => void save(r, { credentials: e.target.value || null })} /></td>
+                <td><input defaultValue={r.resource_id ?? ''} disabled={disabled} onBlur={(e) => void save(r, { resource_id: e.target.value || null })} /></td>
+                <td><input defaultValue={r.name} disabled={disabled} onBlur={(e) => void save(r, { name: e.target.value })} /></td>
+                <td><input defaultValue={r.category ?? ''} disabled={disabled} onBlur={(e) => void save(r, { category: e.target.value || null })} /></td>
+                <td><input defaultValue={r.legal_entity ?? ''} disabled={disabled} onBlur={(e) => void save(r, { legal_entity: e.target.value || null })} /></td>
+                <td><input defaultValue={r.email ?? ''} disabled={disabled} onBlur={(e) => void save(r, { email: e.target.value || null })} /></td>
+                <td><input defaultValue={r.home_department ?? ''} disabled={disabled} onBlur={(e) => void save(r, { home_department: e.target.value || null })} /></td>
+                <td><input defaultValue={r.title ?? ''} placeholder="VP of Engineering" disabled={disabled} onBlur={(e) => void save(r, { title: e.target.value || null })} /></td>
+                <td><input defaultValue={r.credentials ?? ''} placeholder="P.E., S.E." disabled={disabled} onBlur={(e) => void save(r, { credentials: e.target.value || null })} /></td>
                 <td>
-                  <select defaultValue={r.role || 'pm'} onChange={(e) => void save(r, { role: e.target.value })}>
+                  <select defaultValue={r.role || 'pm'} disabled={disabled} onChange={(e) => void save(r, { role: e.target.value })}>
                     {ROLES.map(role => <option key={role} value={role}>{role}</option>)}
                   </select>
                 </td>
@@ -145,10 +149,11 @@ export default function EmployeeEditor() {
                   <input
                     type="checkbox"
                     checked={!!r.active}
+                    disabled={disabled}
                     onChange={(e) => void save(r, { active: e.target.checked ? 1 : 0 })}
                   />
                 </td>
-                <td><button className="delete-x" onClick={() => setPendingDelete(r)}>&times;</button></td>
+                <td><button className="delete-x" onClick={() => setPendingDelete(r)} disabled={disabled}>&times;</button></td>
               </tr>
             ))}
           </tbody>
