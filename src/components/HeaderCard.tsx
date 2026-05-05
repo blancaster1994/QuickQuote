@@ -5,9 +5,9 @@
 // Type Template) — both scoped per CES identity email.
 
 import { useState, type Dispatch, type ReactNode } from 'react';
-import { Field, FieldLabel, TextArea } from './shared';
+import { Field, FieldLabel } from './shared';
 import { Modal, ModalActions } from './StatusComponents';
-import { Button } from './ui';
+import { Button, Input, Select } from './ui';
 import type { ClientTemplateRecord, Proposal, ProjectTemplateRecord } from '../types/domain';
 import type { EditorAction } from '../state/editorReducer';
 
@@ -27,7 +27,7 @@ export default function HeaderCard({ proposal, dispatch, bootstrap }: HeaderCard
 
   return (
     <div style={{
-      background: 'var(--surface)', border: '1px solid var(--hair)',
+      background: 'var(--surface)',
       borderRadius: 10, padding: 16, marginBottom: 14,
     }}>
       <ClientTemplateBar proposal={proposal} dispatch={dispatch}
@@ -91,7 +91,9 @@ function AddressFieldsToggle({ open, onToggle }: { open: boolean; onToggle: () =
         display: 'inline-block', transition: 'transform .15s',
       }}>▸</span>
       <span style={{
-        fontSize: 10.5, letterSpacing: 0.6, color: 'var(--muted)',
+        fontSize: 'var(--label-size, 12px)',
+        letterSpacing: 'var(--label-letter-spacing, 0.6px)',
+        color: 'var(--label-color, var(--muted))',
         fontWeight: 600, textTransform: 'uppercase',
       }}>
         Address fields {open ? '' : '(optional)'}
@@ -280,19 +282,14 @@ function ToolbarRow({ label, picked, setPicked, templates, onLoad, onSaveClick, 
         fontSize: 9.5, letterSpacing: 1, color: 'var(--muted)',
         fontWeight: 700, textTransform: 'uppercase', minWidth: 120,
       }}>{label}</div>
-      <select value={picked} onChange={(e) => setPicked(e.target.value)}
-        style={{
-          height: 28, minWidth: 200, padding: '0 8px',
-          border: '1px solid #B8BEC8', borderRadius: 6,
-          fontSize: 12.5, color: 'var(--ink)',
-          fontFamily: 'var(--sans)', background: 'var(--surface)',
-          outline: 'none', cursor: 'pointer',
-        }}>
+      <Select size="sm" strongBorder value={picked}
+        onChange={(e) => setPicked(e.target.value)}
+        style={{ minWidth: 200, cursor: 'pointer' }}>
         <option value="">— Select a saved template —</option>
         {templates.map((name) => (
           <option key={name} value={name}>{name}</option>
         ))}
-      </select>
+      </Select>
       <Button variant="primary" size="sm" onClick={onLoad} disabled={!picked}>
         Load
       </Button>
@@ -340,17 +337,11 @@ function SaveTemplateModal({ title, description, initialName, placeholder, onClo
         {description}
       </div>
       <FieldLabel>Template Name</FieldLabel>
-      <input type="text" value={name} autoFocus
+      <Input type="text" value={name} autoFocus strongBorder
         onChange={(e) => setName(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter' && trimmed) { e.preventDefault(); submit(); } }}
         placeholder={placeholder}
-        style={{
-          width: '100%', height: 32, marginTop: 4,
-          border: '1px solid #B8BEC8', borderRadius: 6,
-          padding: '0 10px', fontSize: 13, color: 'var(--ink)',
-          fontFamily: 'var(--sans)', background: 'var(--surface)',
-          outline: 'none',
-        }} />
+        style={{ marginTop: 4, fontSize: 13 }} />
       <ModalActions onCancel={onClose} onConfirm={submit}
         confirmLabel={busy ? 'Saving…' : 'Save'}
         confirmDisabled={!trimmed || busy} />

@@ -310,13 +310,13 @@ function CellInput({ value, onChange, placeholder, list, style }: CellInputProps
     <input value={value ?? ''} onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder} list={list}
       style={{
-        width: '100%', height: 26, border: '1px solid #B8BEC8', borderRadius: 5,
+        width: '100%', height: 26, border: '1px solid var(--hair-strong)', borderRadius: 5,
         padding: '0 7px', fontSize: 12.5, background: 'var(--surface)',
         color: 'var(--ink)', fontFamily: 'var(--sans)', outline: 'none',
         ...(style || {}),
       }}
       onFocus={(e) => { e.currentTarget.style.background = 'var(--canvas)'; e.currentTarget.style.borderColor = 'var(--navy-deep)'; }}
-      onBlur={(e) => { e.currentTarget.style.background = 'var(--surface)'; e.currentTarget.style.borderColor = '#B8BEC8'; }} />
+      onBlur={(e) => { e.currentTarget.style.background = 'var(--surface)'; e.currentTarget.style.borderColor = 'var(--hair-strong)'; }} />
   );
 }
 
@@ -336,7 +336,7 @@ function CellNumber({ value, onChange, prefix, suffix }: CellNumberProps) {
         className="tabular"
         style={{
           width: '100%', height: '100%', boxSizing: 'border-box',
-          border: '1px solid #B8BEC8', outline: 'none',
+          border: '1px solid var(--hair-strong)', outline: 'none',
           background: 'var(--surface)', borderRadius: 5,
           paddingTop: 0, paddingBottom: 0,
           paddingLeft: prefix ? 18 : 7,
@@ -345,7 +345,7 @@ function CellNumber({ value, onChange, prefix, suffix }: CellNumberProps) {
           fontFamily: 'var(--sans)', color: 'var(--ink)',
         }}
         onFocus={(e) => { e.currentTarget.style.background = 'var(--canvas)'; e.currentTarget.style.borderColor = 'var(--navy-deep)'; }}
-        onBlur={(e) => { e.currentTarget.style.background = 'var(--surface)'; e.currentTarget.style.borderColor = '#B8BEC8'; }} />
+        onBlur={(e) => { e.currentTarget.style.background = 'var(--surface)'; e.currentTarget.style.borderColor = 'var(--hair-strong)'; }} />
       {prefix && (
         <span style={{
           position: 'absolute', left: 7, top: '50%', transform: 'translateY(-50%)',
