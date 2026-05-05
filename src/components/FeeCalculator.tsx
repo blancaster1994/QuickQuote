@@ -5,9 +5,25 @@
 // table, but any value can be overridden by typing in the Rate cell.
 
 import { useMemo, type CSSProperties, type Dispatch } from 'react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  sortableKeyboardCoordinates,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { fmt$, fmt$$ } from '../lib/formatting';
 import type {
-  Bootstrap, EmployeeRecord, ExpenseRow, LaborRow, Section,
+  EmployeeRecord, ExpenseRow, LaborRow, Section,
 } from '../types/domain';
 import type { EditorAction, EditorState } from '../state/editorReducer';
 import type { SectionTotals } from '../lib/calc';
@@ -89,6 +105,33 @@ export default function FeeCalculator({ section, total, state, dispatch }: FeeCa
     patchExpense(i, patch);
   };
 
+  // Drag sensors: shared by labor + expense SortableContexts. 6px activation
+  // so click-to-edit inputs still works (input clicks don't move 6px).
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  function onLaborDragEnd(e: DragEndEvent) {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    const fromIndex = parseRowId('labor', active.id);
+    const toIndex   = parseRowId('labor', over.id);
+    if (fromIndex == null || toIndex == null) return;
+    dispatch({ type: 'REORDER_LABOR_ROWS', id: section.id, fromIndex, toIndex });
+  }
+  function onExpenseDragEnd(e: DragEndEvent) {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    const fromIndex = parseRowId('expense', active.id);
+    const toIndex   = parseRowId('expense', over.id);
+    if (fromIndex == null || toIndex == null) return;
+    dispatch({ type: 'REORDER_EXPENSES', id: section.id, fromIndex, toIndex });
+  }
+
+  const laborIds   = section.labor.map((_, i) => `labor-${i}`);
+  const expenseIds = section.expenses.map((_, i) => `expense-${i}`);
+
   return (
     <div style={{
       marginTop: 10, border: '1px solid var(--hair)', borderRadius: 8, overflow: 'hidden',
@@ -99,14 +142,18 @@ export default function FeeCalculator({ section, total, state, dispatch }: FeeCa
       {section.labor.length === 0 && (
         <EmptyRow text="No labor rows yet — add a role to build up the fee." />
       )}
-      {section.labor.map((r, i) => (
-        <LaborRowEditor key={i} row={r} emp={empByName[r.employee]}
-          onCategory={(v) => onCategoryChange(i, v)}
-          onEmployee={(v) => onEmployeeChange(i, v)}
-          onHours={(v) => patchLabor(i, { hrs: v })}
-          onRate={(v) => patchLabor(i, { rate: v })}
-          onRemove={() => removeLabor(i)} />
-      ))}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onLaborDragEnd}>
+        <SortableContext items={laborIds} strategy={verticalListSortingStrategy}>
+          {section.labor.map((r, i) => (
+            <LaborRowEditor key={i} index={i} row={r} emp={empByName[r.employee]}
+              onCategory={(v) => onCategoryChange(i, v)}
+              onEmployee={(v) => onEmployeeChange(i, v)}
+              onHours={(v) => patchLabor(i, { hrs: v })}
+              onRate={(v) => patchLabor(i, { rate: v })}
+              onRemove={() => removeLabor(i)} />
+          ))}
+        </SortableContext>
+      </DndContext>
 
       {/* Labor subtotal */}
       <div style={{
@@ -128,15 +175,19 @@ export default function FeeCalculator({ section, total, state, dispatch }: FeeCa
       {section.expenses.length === 0 && (
         <EmptyRow text="No expenses yet — add mileage, airfare, per diem, or a custom line." />
       )}
-      {section.expenses.map((e, i) => (
-        <ExpenseRowEditor key={i} row={e}
-          onItem={(v) => onExpenseItemChange(i, v)}
-          onQty={(v) => patchExpense(i, { qty: v })}
-          onUnit={(v) => patchExpense(i, { unit: v })}
-          onUnitCost={(v) => patchExpense(i, { unitCost: v })}
-          onMarkup={(v) => patchExpense(i, { markup: v })}
-          onRemove={() => removeExpense(i)} />
-      ))}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onExpenseDragEnd}>
+        <SortableContext items={expenseIds} strategy={verticalListSortingStrategy}>
+          {section.expenses.map((e, i) => (
+            <ExpenseRowEditor key={i} index={i} row={e}
+              onItem={(v) => onExpenseItemChange(i, v)}
+              onQty={(v) => patchExpense(i, { qty: v })}
+              onUnit={(v) => patchExpense(i, { unit: v })}
+              onUnitCost={(v) => patchExpense(i, { unitCost: v })}
+              onMarkup={(v) => patchExpense(i, { markup: v })}
+              onRemove={() => removeExpense(i)} />
+          ))}
+        </SortableContext>
+      </DndContext>
 
       {/* Footer */}
       <div style={{
@@ -217,6 +268,7 @@ function EmptyRow({ text }: { text: string }) {
 
 interface LaborRowEditorProps {
   row: LaborRow;
+  index: number;
   emp: EmployeeRecord | undefined;
   onCategory: (v: string) => void;
   onEmployee: (v: string) => void;
@@ -225,13 +277,21 @@ interface LaborRowEditorProps {
   onRemove: () => void;
 }
 
-function LaborRowEditor({ row, emp, onCategory, onEmployee, onHours, onRate, onRemove }: LaborRowEditorProps) {
+function LaborRowEditor({ row, index, emp, onCategory, onEmployee, onHours, onRate, onRemove }: LaborRowEditorProps) {
   const total = (Number(row.hrs) || 0) * (Number(row.rate) || 0);
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: `labor-${index}` });
   return (
-    <div style={{
+    <div ref={setNodeRef} {...attributes} {...listeners} style={{
       display: 'grid', gridTemplateColumns: '1.1fr 1.2fr 70px 80px 90px 28px',
       padding: '8px 12px', borderTop: '1px solid var(--line)', alignItems: 'center',
       fontSize: 12.5,
+      transform: CSS.Transform.toString(transform),
+      transition,
+      background: isDragging ? 'var(--canvas)' : undefined,
+      opacity: isDragging ? 0.85 : 1,
+      zIndex: isDragging ? 10 : undefined,
+      cursor: isDragging ? 'grabbing' : undefined,
     }}>
       <CellInput list="qq-rate-cats" value={row.category} onChange={onCategory} placeholder="Category" />
       <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0, padding: '0 7px' }}>
@@ -257,6 +317,7 @@ function LaborRowEditor({ row, emp, onCategory, onEmployee, onHours, onRate, onR
 
 interface ExpenseRowEditorProps {
   row: ExpenseRow;
+  index: number;
   onItem: (v: string) => void;
   onQty: (v: number) => void;
   onUnit: (v: string) => void;
@@ -265,13 +326,21 @@ interface ExpenseRowEditorProps {
   onRemove: () => void;
 }
 
-function ExpenseRowEditor({ row, onItem, onQty, onUnit, onUnitCost, onMarkup, onRemove }: ExpenseRowEditorProps) {
+function ExpenseRowEditor({ row, index, onItem, onQty, onUnit, onUnitCost, onMarkup, onRemove }: ExpenseRowEditorProps) {
   const total = (Number(row.qty) || 0) * (Number(row.unitCost) || 0) * (1 + (Number(row.markup) || 0) / 100);
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: `expense-${index}` });
   return (
-    <div style={{
+    <div ref={setNodeRef} {...attributes} {...listeners} style={{
       display: 'grid', gridTemplateColumns: '1.4fr 70px 70px 90px 70px 90px 28px',
       padding: '8px 12px', borderTop: '1px solid var(--line)', alignItems: 'center',
       fontSize: 12.5,
+      transform: CSS.Transform.toString(transform),
+      transition,
+      background: isDragging ? 'var(--canvas)' : undefined,
+      opacity: isDragging ? 0.85 : 1,
+      zIndex: isDragging ? 10 : undefined,
+      cursor: isDragging ? 'grabbing' : undefined,
     }}>
       <CellInput list="qq-expense-items" value={row.item} onChange={onItem}
         placeholder="Mileage, Per Diem, …" />
@@ -373,3 +442,12 @@ const removeBtnStyle: CSSProperties = {
   border: 'none', color: 'var(--subtle)', fontSize: 16, cursor: 'pointer',
   borderRadius: 4,
 };
+
+/** Parse a `labor-3` or `expense-7` sortable id back into its row index.
+ *  Returns null if the id doesn't match the expected prefix. */
+function parseRowId(prefix: 'labor' | 'expense', id: string | number): number | null {
+  const s = String(id);
+  if (!s.startsWith(`${prefix}-`)) return null;
+  const n = Number(s.slice(prefix.length + 1));
+  return Number.isFinite(n) ? n : null;
+}
