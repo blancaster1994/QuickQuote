@@ -1,7 +1,10 @@
-// Shared input primitives. Label-over-input pattern with muted uppercase
-// labels — direct port of QuickProp/ui/components/shared.jsx.
+// Shared input wrappers. Public signatures are stable so call sites in
+// HeaderCard, modals, etc. don't need to change; internally these delegate
+// to the unified primitives in components/ui so the app gets one consistent
+// input style.
 
 import type { ReactNode } from 'react';
+import { Input, Textarea } from './ui';
 
 interface FieldLabelProps {
   children: ReactNode;
@@ -10,8 +13,12 @@ interface FieldLabelProps {
 export function FieldLabel({ children }: FieldLabelProps) {
   return (
     <div style={{
-      fontSize: 10.5, letterSpacing: 0.6, color: 'var(--muted)',
-      fontWeight: 600, textTransform: 'uppercase', marginBottom: 5,
+      fontSize: 'var(--label-size, 12px)',
+      letterSpacing: 'var(--label-letter-spacing, 0.6px)',
+      color: 'var(--label-color, var(--muted))',
+      fontWeight: 'var(--label-weight, 600)' as React.CSSProperties['fontWeight'],
+      textTransform: 'uppercase',
+      marginBottom: 5,
     }}>{children}</div>
   );
 }
@@ -28,16 +35,11 @@ export function Field({ label, value, onChange, placeholder, type = 'text' }: Fi
   return (
     <div>
       <FieldLabel>{label}</FieldLabel>
-      <input
+      <Input
         type={type}
         value={value ?? ''}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        style={{
-          width: '100%', height: 32, border: '1px solid var(--hair)', borderRadius: 6,
-          padding: '0 10px', fontSize: 12.5, color: 'var(--ink)',
-          fontFamily: 'var(--sans)', background: 'var(--surface)', outline: 'none',
-        }}
       />
     </div>
   );
@@ -56,25 +58,17 @@ export function FieldMoney({ label, value, onChange }: FieldMoneyProps) {
   return (
     <div>
       <FieldLabel>{label}</FieldLabel>
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 4,
-        border: '1px solid var(--hair)', borderRadius: 6,
-        padding: '0 10px', height: 32, background: 'var(--surface)',
-      }}>
-        <span style={{ color: 'var(--muted)', fontSize: 11 }}>$</span>
-        <input
-          value={display}
-          onChange={(e) => {
-            const cleaned = e.target.value.replace(/[^0-9.]/g, '');
-            onChange(cleaned === '' ? 0 : parseFloat(cleaned));
-          }}
-          className="tabular"
-          style={{
-            flex: 1, border: 'none', outline: 'none', fontSize: 12.5,
-            fontWeight: 600, background: 'transparent', fontFamily: 'var(--sans)',
-          }}
-        />
-      </div>
+      <Input
+        type="text"
+        value={display}
+        onChange={(e) => {
+          const cleaned = e.target.value.replace(/[^0-9.]/g, '');
+          onChange(cleaned === '' ? 0 : parseFloat(cleaned));
+        }}
+        prefix="$"
+        className="tabular"
+        style={{ fontWeight: 600 }}
+      />
     </div>
   );
 }
@@ -88,16 +82,11 @@ interface TextAreaProps {
 
 export function TextArea({ value, onChange, minHeight = 70, placeholder }: TextAreaProps) {
   return (
-    <textarea
+    <Textarea
       value={value ?? ''}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
-      style={{
-        width: '100%', minHeight, border: '1px solid var(--hair)', borderRadius: 7,
-        padding: 10, fontSize: 13, lineHeight: 1.5, color: 'var(--body)',
-        fontFamily: 'var(--sans)', resize: 'vertical', background: 'var(--surface)',
-        outline: 'none',
-      }}
+      minHeight={minHeight}
     />
   );
 }
