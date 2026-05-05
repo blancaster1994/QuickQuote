@@ -53,6 +53,28 @@ export function StatusBadge({ status, size = 'md' }: StatusBadgeProps) {
 
 // ── status action bar ─────────────────────────────────────────────────────
 
+// Names that produce useless dashboard rows when used verbatim. Trimmed +
+// lowercased before comparison. Kept short on purpose — we want to nudge,
+// not block, so most names should pass.
+const GENERIC_NAMES: ReadonlySet<string> = new Set([
+  'new proposed residence',
+  'new project',
+  'new proposal',
+  'untitled',
+  'untitled proposal',
+  'tbd',
+  'test',
+  'project',
+  'proposal',
+]);
+
+function looksGeneric(rawName: string): boolean {
+  const n = rawName.trim().toLowerCase();
+  if (!n) return true;
+  if (n.length <= 2) return true;
+  return GENERIC_NAMES.has(n);
+}
+
 type LifecycleFn = 'mark_sent' | 'mark_won' | 'mark_lost' | 'mark_archived' | 'reopen' | 'add_note' | 'follow_up';
 
 interface StatusActionBarProps {
@@ -74,6 +96,8 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
   const [showFollowUp, setShowFollowUp] = useState(false);
   const [showInitProject, setShowInitProject] = useState(false);
   const [showSendClickUp, setShowSendClickUp] = useState(false);
+  const [nameWarn, setNameWarn] = useState<{ kind: 'generic' | 'dup'; dupName?: string } | null>(null);
+  const [nameWarnAck, setNameWarnAck] = useState(false);
   // ClickUp link + config status. Refreshed when project changes.
   const [clickUpEnabled, setClickUpEnabled] = useState(false);
   const [clickUpLinkUrl, setClickUpLinkUrl] = useState<string | null>(null);
@@ -117,16 +141,43 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
     }
   }
 
-  const buttons: Array<{ label: string; fn: string; kind: ButtonKind; click: () => void | Promise<void> }> = [];
+  // Mark Sent puts the proposal on the dashboard for follow-up tracking, so
+  // generic or duplicate names ("New Proposed Residence" × 15) make it
+  // unusable. Run a soft check before flipping; one acknowledgement per
+  // session avoids re-nagging.
+  async function handleMarkSentClick() {
+    if (!nameWarnAck) {
+      const trimmed = (proposal.name || '').trim();
+      if (looksGeneric(trimmed)) {
+        setNameWarn({ kind: 'generic' });
+        return;
+      }
+      try {
+        const all = await window.api.proposals.list();
+        const lower = trimmed.toLowerCase();
+        const currentLower = (state.projectName || '').toLowerCase();
+        const dup = all.find(n => n.toLowerCase() === lower && n.toLowerCase() !== currentLower);
+        if (dup) {
+          setNameWarn({ kind: 'dup', dupName: dup });
+          return;
+        }
+      } catch { /* if the list call fails, fall through and let Mark Sent proceed */ }
+    }
+    await dispatchLifecycle('mark_sent', async () =>
+      (await window.api.lifecycle.markSent(state.projectName!)) as any);
+  }
+
+  const buttons: Array<{ label: string; fn: string; kind: ButtonKind; title?: string; click: () => void | Promise<void> }> = [];
   if (status === 'draft') {
     buttons.push({
       label: 'Mark as Sent', fn: 'mark_sent', kind: 'primary',
-      click: () => dispatchLifecycle('mark_sent', async () =>
-        (await window.api.lifecycle.markSent(state.projectName!)) as any),
+      title: "Click only once you've actually sent the proposal to the client. Records the sent date and starts follow-up tracking.",
+      click: () => void handleMarkSentClick(),
     });
   } else if (status === 'sent') {
     buttons.push({
       label: 'Mark Won', fn: 'mark_won', kind: 'win',
+      title: 'Click once the client has accepted/signed. Opens the project initialization dialog (legal entity, department, iCore ID).',
       // Stage 4 intercepts the Mark Won button: instead of immediately
       // flipping status, open the InitializeProjectModal so the user can
       // pick legal_entity / department / iCore ID. The modal handles the
@@ -142,22 +193,26 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
     });
     buttons.push({
       label: 'Mark Lost', fn: 'mark_lost', kind: 'loss',
+      title: "Click if the client passed or chose another firm. You'll be asked for a reason.",
       click: () => setShowLost(true),
     });
   } else if (status === 'won' || status === 'lost') {
     buttons.push({
       label: 'Reopen', fn: 'reopen', kind: 'ghost',
+      title: 'Move this proposal back to Sent so you can change the outcome.',
       click: () => dispatchLifecycle('reopen', async () =>
         (await window.api.lifecycle.reopen(state.projectName!)) as any),
     });
     buttons.push({
       label: 'Archive', fn: 'mark_archived', kind: 'ghost',
+      title: 'Hide this proposal from the active dashboard. You can still find it under Archived.',
       click: () => dispatchLifecycle('mark_archived', async () =>
         (await window.api.lifecycle.markArchived(state.projectName!)) as any),
     });
   } else if (status === 'archived') {
     buttons.push({
       label: 'Reopen', fn: 'reopen', kind: 'ghost',
+      title: 'Restore this proposal to its previous status (Won/Lost/Sent).',
       click: () => dispatchLifecycle('reopen', async () =>
         (await window.api.lifecycle.reopen(state.projectName!)) as any),
     });
@@ -255,6 +310,7 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
 
         {buttons.map((b) => (
           <button key={b.label} disabled={!!busy} onClick={b.click}
+            title={b.title}
             style={btnStyle(b.kind, busy === b.fn)}>
             {busy === b.fn ? '…' : b.label}
           </button>
@@ -415,6 +471,59 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
             onReload?.();
           }}
         />
+      )}
+
+      {nameWarn && (
+        <Modal title="Consider a more specific name" onClose={() => setNameWarn(null)}>
+          <div style={{ fontSize: 13, color: 'var(--body)', lineHeight: 1.5 }}>
+            {nameWarn.kind === 'generic' ? (
+              <>
+                <p style={{ margin: '0 0 10px' }}>
+                  <strong>"{proposal.name || ''}"</strong> is a generic name. Once
+                  this proposal lands on the dashboard you'll have a hard time
+                  telling it apart from other proposals.
+                </p>
+                <p style={{ margin: '0 0 4px' }}>
+                  Try including the address, client, or job number — for
+                  example, <em>"123 Main St — Smith Residence"</em>.
+                </p>
+              </>
+            ) : (
+              <>
+                <p style={{ margin: '0 0 10px' }}>
+                  Another proposal named <strong>"{nameWarn.dupName}"</strong> already
+                  exists. Two rows with the same name on the dashboard are hard
+                  to tell apart.
+                </p>
+                <p style={{ margin: '0 0 4px' }}>
+                  Consider adding the address, client, or a date to
+                  distinguish — e.g., <em>"123 Main St — Smith Residence (rev 2)"</em>.
+                </p>
+              </>
+            )}
+          </div>
+          <ModalActions
+            onCancel={() => {
+              setNameWarn(null);
+              setTimeout(() => {
+                const el = document.getElementById('proposal-name-input') as HTMLInputElement | null;
+                if (el) {
+                  el.focus();
+                  el.select();
+                  el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                }
+              }, 0);
+            }}
+            cancelLabel="Rename"
+            onConfirm={async () => {
+              setNameWarn(null);
+              setNameWarnAck(true);
+              await dispatchLifecycle('mark_sent', async () =>
+                (await window.api.lifecycle.markSent(state.projectName!)) as any);
+            }}
+            confirmLabel="Continue anyway"
+          />
+        </Modal>
       )}
     </>
   );
@@ -1114,12 +1223,13 @@ interface ModalActionsProps {
   confirmLabel: string;
   confirmDisabled?: boolean;
   confirmKind?: ButtonKind;
+  cancelLabel?: string;
 }
 
-export function ModalActions({ onCancel, onConfirm, confirmLabel, confirmDisabled, confirmKind = 'primary' }: ModalActionsProps) {
+export function ModalActions({ onCancel, onConfirm, confirmLabel, confirmDisabled, confirmKind = 'primary', cancelLabel = 'Cancel' }: ModalActionsProps) {
   return (
     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18 }}>
-      <button onClick={onCancel} style={btnStyle('ghost', false)}>Cancel</button>
+      <button onClick={onCancel} style={btnStyle('ghost', false)}>{cancelLabel}</button>
       <button onClick={onConfirm} disabled={confirmDisabled}
         style={btnStyle(confirmKind, false, confirmDisabled)}>
         {confirmLabel}

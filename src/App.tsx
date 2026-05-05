@@ -33,7 +33,6 @@ import { ProjectEditor, ProjectModeToggle } from './components/project';
 import {
   ActivityTimeline, FirstRunIdentity, Modal, ModalActions, StatusActionBar,
 } from './components/StatusComponents';
-import { ConfirmDialog } from './components/ui';
 
 type VersionPromptState = null | 'pending' | 'dismissed';
 
@@ -41,6 +40,8 @@ interface PostGeneratePrompt {
   filename: string;
   path: string;
   reused: boolean;
+  format: GeneratedFormat;
+  copied: boolean;
 }
 
 export default function App() {
@@ -197,10 +198,25 @@ export default function App() {
         setVersionPrompt(null);
       }
       if (result.path) {
+        // PDFs go straight into emails most of the time, so auto-copy the
+        // file to the clipboard — the user can immediately Ctrl+V it into
+        // an Outlook/Gmail attachment area. DOCX files don't get this
+        // treatment (they're typically opened locally first).
+        let copied = false;
+        if (format === 'pdf') {
+          try {
+            await window.api.os.copyFileToClipboard(result.path);
+            copied = true;
+          } catch (e) {
+            console.warn('copyFileToClipboard failed', e);
+          }
+        }
         setPostGenerate({
           filename: result.filename,
           path: result.path,
           reused: !!result.reused,
+          format,
+          copied,
         });
       }
     } catch (e: any) {
@@ -296,30 +312,13 @@ export default function App() {
         )}
       </div>
 
-      <ConfirmDialog
-        open={!!postGenerate}
-        title={postGenerate?.reused ? 'Already generated' : 'Generated'}
-        body={postGenerate && (
-          <>
-            <div><strong>{postGenerate.filename}</strong></div>
-            <div style={{ marginTop: 6, color: 'var(--muted)', fontSize: 12.5 }}>
-              {postGenerate.reused
-                ? 'This file matches the current proposal — no changes since the last generation, so no new copy was made.'
-                : 'Saved to your Generated Proposals folder.'}
-            </div>
-          </>
-        )}
-        confirmLabel="Open"
-        onConfirm={async () => {
-          const target = postGenerate?.path;
-          setPostGenerate(null);
-          if (target) {
-            try { await window.api.os.openFile(target); }
-            catch (e: any) { alert(`Couldn't open file: ${e?.message || String(e)}`); }
-          }
-        }}
-        onCancel={() => setPostGenerate(null)}
-      />
+      {postGenerate && (
+        <PostGenerateDialog
+          prompt={postGenerate}
+          onClose={() => setPostGenerate(null)}
+          onMarkCopied={() => setPostGenerate((p) => p ? { ...p, copied: true } : p)}
+        />
+      )}
 
       {versionPrompt === 'pending' && state.projectName && (
         <VersionPromptModal
@@ -651,3 +650,90 @@ function ErrorScreen({ message }: { message: string }) {
     </div>
   );
 }
+
+interface PostGenerateDialogProps {
+  prompt: PostGeneratePrompt;
+  onClose: () => void;
+  onMarkCopied: () => void;
+}
+
+function PostGenerateDialog({ prompt, onClose, onMarkCopied }: PostGenerateDialogProps) {
+  const isPdf = prompt.format === 'pdf';
+  const title = prompt.reused ? 'Already generated' : 'Generated';
+  const folder = prompt.path.replace(/[\\/][^\\/]*$/, '');
+
+  async function open() {
+    onClose();
+    try { await window.api.os.openFile(prompt.path); }
+    catch (e: any) { alert(`Couldn't open file: ${e?.message || String(e)}`); }
+  }
+  async function reveal() {
+    try { await window.api.os.revealInExplorer(prompt.path); }
+    catch (e: any) { alert(`Couldn't open folder: ${e?.message || String(e)}`); }
+  }
+  async function copyFile() {
+    try {
+      await window.api.os.copyFileToClipboard(prompt.path);
+      onMarkCopied();
+    } catch (e: any) {
+      alert(`Couldn't copy to clipboard: ${e?.message || String(e)}`);
+    }
+  }
+
+  return (
+    <Modal title={title} onClose={onClose}>
+      <div style={{ fontSize: 13, color: 'var(--body)', lineHeight: 1.5 }}>
+        <div><strong>{prompt.filename}</strong></div>
+        <div style={{ marginTop: 6, color: 'var(--muted)', fontSize: 12.5 }}>
+          {prompt.reused
+            ? 'This file matches the current proposal — no changes since the last generation, so no new copy was made.'
+            : 'Saved to your Generated Proposals folder.'}
+        </div>
+        {isPdf && prompt.copied && (
+          <div style={{
+            marginTop: 10, padding: '8px 10px', borderRadius: 6,
+            background: 'var(--navy-tint)', color: 'var(--navy-deep)',
+            fontSize: 12, fontWeight: 600,
+          }}>
+            ✓ The PDF is on your clipboard — paste (Ctrl+V) into your email to attach.
+          </div>
+        )}
+        <div style={{
+          marginTop: 10, fontSize: 11, color: 'var(--muted)',
+          fontFamily: 'var(--sans)', wordBreak: 'break-all',
+        }}>
+          {folder}
+        </div>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18, flexWrap: 'wrap' }}>
+        <button onClick={onClose} style={ghostBtn}>Close</button>
+        {isPdf && (
+          <button onClick={() => void copyFile()} style={ghostBtn}
+            title="Place the file on the clipboard so you can paste it into an email as an attachment.">
+            {prompt.copied ? 'Copy again' : 'Copy file'}
+          </button>
+        )}
+        <button onClick={() => void reveal()} style={ghostBtn}
+          title="Show the file in File Explorer.">
+          Open folder
+        </button>
+        <button onClick={() => void open()} style={primaryBtn}>
+          Open
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+const ghostBtn = {
+  height: 30, padding: '0 12px', borderRadius: 6,
+  background: 'transparent', color: 'var(--body)',
+  border: '1px solid var(--hair)',
+  fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--sans)',
+} as const;
+
+const primaryBtn = {
+  height: 30, padding: '0 12px', borderRadius: 6,
+  background: 'var(--navy-deep)', color: '#fff', border: 'none',
+  fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--sans)',
+} as const;

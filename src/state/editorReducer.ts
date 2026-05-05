@@ -28,14 +28,15 @@ import type {
 
 export function emptySection(n = 1): Section {
   return {
-    id:       `s${n}`,
-    title:    '',
-    scope:    '',
-    billing:  'fixed',
-    fee:      0,
-    notes:    '',
-    labor:    [],
-    expenses: [],
+    id:         `s${n}`,
+    title:      '',
+    scope:      '',
+    exclusions: '',
+    billing:    'fixed',
+    fee:        0,
+    notes:      '',
+    labor:      [],
+    expenses:   [],
   };
 }
 
@@ -209,12 +210,21 @@ export function reducer(state: EditorState, action: EditorAction): EditorState {
     case 'SET_BOOTSTRAP':
       return { ...state, bootstrap: action.payload };
 
-    case 'LOAD_PROPOSAL':
+    case 'LOAD_PROPOSAL': {
+      // Normalize sections from older saves so newly-added required fields
+      // (e.g., exclusions) always carry a string default.
+      const normalized: Proposal = {
+        ...action.payload,
+        sections: (action.payload.sections || []).map((s) => ({
+          ...s,
+          exclusions: s.exclusions ?? '',
+        })),
+      };
       return {
         ...state,
-        proposal:          action.payload,
-        activeSection:     action.payload.sections[0]?.id || 's1',
-        projectName:       action.payload.name || null,
+        proposal:          normalized,
+        activeSection:     normalized.sections[0]?.id || 's1',
+        projectName:       normalized.name || null,
         autosaveStatus:    'saved',
         viewingVersion:    null,
         liveProposalCache: null,
@@ -224,6 +234,7 @@ export function reducer(state: EditorState, action: EditorAction): EditorState {
         project:           null,
         editorMode:        'proposal',
       };
+    }
 
     case 'NEW_PROPOSAL': {
       const p = emptyProposal();

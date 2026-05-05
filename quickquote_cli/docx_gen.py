@@ -6,6 +6,7 @@ the correct billing-mode fee sentence, and clones paragraphs for additional
 sections.
 """
 import os
+import re
 from copy import deepcopy
 
 from docx import Document
@@ -17,6 +18,12 @@ from .formatting import build_fee_text, format_fee_for_doc
 from .paths import PLACEHOLDERS, TEMPLATE_CONSULTING
 
 _XML_SPACE = "{http://www.w3.org/XML/1998/namespace}space"
+
+# Lightweight markdown markers for list rendering. Stripped from the line
+# text and converted to Word's built-in "List Bullet" / "List Number" styles
+# when present. Mirrors src/components/DocPreview.tsx parseRichText.
+_BULLET_RE = re.compile(r"^(\s*)[-*]\s+(.*)$")
+_NUMBER_RE = re.compile(r"^(\s*)\d+\.\s+(.*)$")
 
 
 # ── docx paragraph/run helpers ────────────────────────────────────────────────
@@ -88,12 +95,34 @@ def _replace_in_header_textboxes(hdr_element, replacements: dict) -> None:
                 t.text = ""
 
 
+def _set_paragraph_style(p_el, style_name: str) -> None:
+    """Force-set the Word paragraph style on a w:p element.
+
+    Replaces any existing w:pStyle inside w:pPr; creates the pPr/pStyle
+    elements if missing. Used to flip cloned scope paragraphs to "List
+    Bullet" / "List Number" when the source line carried a markdown marker.
+    """
+    pPr = p_el.find(qn("w:pPr"))
+    if pPr is None:
+        pPr = OxmlElement("w:pPr")
+        p_el.insert(0, pPr)
+    existing = pPr.find(qn("w:pStyle"))
+    if existing is not None:
+        pPr.remove(existing)
+    pStyle = OxmlElement("w:pStyle")
+    pStyle.set(qn("w:val"), style_name)
+    pPr.insert(0, pStyle)
+
+
 def _insert_scope_paragraphs(anchor_para, title_para, entries: list[tuple[str, object]]) -> None:
     """Insert real Word paragraphs after *anchor_para*.
 
     entries: list of (kind, value):
       ("title", text)   -- bold paragraph copying title_para formatting
-      ("scope", text)   -- plain paragraph copying anchor_para formatting
+      ("scope", text)   -- plain paragraph copying anchor_para formatting.
+                           Lines starting with "- " / "* " / "<n>. " switch
+                           to the matching List Bullet / List Number style;
+                           the marker is stripped from the run text.
       ("xml",   element)-- pre-built lxml element inserted as-is
     """
     parent    = anchor_para._p.getparent()
@@ -122,10 +151,25 @@ def _insert_scope_paragraphs(anchor_para, title_para, entries: list[tuple[str, o
             r.append(t)
             new_p.append(r)
         else:  # "scope"
+            list_style = None
+            text = value if isinstance(value, str) else ""
+            if isinstance(value, str):
+                m = _BULLET_RE.match(value)
+                if m:
+                    list_style = "List Bullet"
+                    text = m.group(2)
+                else:
+                    m = _NUMBER_RE.match(value)
+                    if m:
+                        list_style = "List Number"
+                        text = m.group(2)
+
             new_p = deepcopy(anchor_para._p)
             for r_el in new_p.findall(qn("w:r")):
                 new_p.remove(r_el)
-            if value:
+            if list_style:
+                _set_paragraph_style(new_p, list_style)
+            if text:
                 r = OxmlElement("w:r")
                 orig_runs = anchor_para._p.findall(qn("w:r"))
                 if orig_runs:
@@ -133,8 +177,8 @@ def _insert_scope_paragraphs(anchor_para, title_para, entries: list[tuple[str, o
                     if orig_rpr is not None:
                         r.append(deepcopy(orig_rpr))
                 t = OxmlElement("w:t")
-                t.text = value
-                if value != value.strip():
+                t.text = text
+                if text != text.strip():
                     t.set(_XML_SPACE, "preserve")
                 r.append(t)
                 new_p.append(r)
@@ -142,20 +186,44 @@ def _insert_scope_paragraphs(anchor_para, title_para, entries: list[tuple[str, o
         parent.insert(insert_at + i, new_p)
 
 
+def _exclusions_entries(exclusions: str) -> list[tuple[str, object]]:
+    """Build paragraph entries for an Exclusions block.
+
+    Renders as a bold "Scope specifically excluded:" heading followed by the
+    exclusions content, line-by-line. The line-by-line emission lets the
+    scope renderer detect markdown list markers and apply List Bullet /
+    List Number styles, the same way scope-of-work bullets work.
+    Empty/whitespace-only input emits nothing.
+    """
+    text = (exclusions or "").strip()
+    if not text:
+        return []
+    entries: list[tuple[str, object]] = [("title", "Scope specifically excluded:")]
+    for line in (exclusions or "").split("\n"):
+        entries.append(("scope", line))
+    return entries
+
+
 def _build_extra_section_entries(extra_sections, fee_xml_template, prop_fee_xml_template):
     """Build (kind, value) entries for additional scope sections in the Word doc."""
     entries: list[tuple[str, object]] = []
     for extra in extra_sections:
-        # Support both 3-tuple (legacy) and 5-tuple (with billing info).
-        if len(extra) == 5:
+        # Support 3-tuple (legacy), 5-tuple (with billing info), and 6-tuple
+        # (adds exclusions). Older saved payloads roundtrip through the
+        # shorter shapes, so default the missing fields.
+        if len(extra) >= 6:
+            title, scope, fee, bt, nte_flag, exclusions = extra[:6]
+        elif len(extra) == 5:
             title, scope, fee, bt, nte_flag = extra
+            exclusions = ""
         else:
             title, scope, fee = extra[:3]
-            bt, nte_flag = "fixed", False
+            bt, nte_flag, exclusions = "fixed", False, ""
         if title:
             entries.append(("title", f"{title}:"))
         for line in (scope or "").split("\n"):
             entries.append(("scope", line))
+        entries.extend(_exclusions_entries(exclusions))
         # Insert a copy of "PROPOSED FEE:" paragraph.
         if prop_fee_xml_template is not None:
             entries.append(("xml", deepcopy(prop_fee_xml_template)))
@@ -247,9 +315,13 @@ def generate_proposal(values: dict, output_dir: str,
             for run in fee_para.runs[1:]:
                 run.text = ""
 
-    # Phase 1: insert remaining scope lines for section 1 after scope_para.
+    # Phase 1: insert remaining scope lines for section 1 after scope_para,
+    # then the section-1 Exclusions block (if any) immediately under it.
     if scope_para is not None and scope_title_para is not None:
-        s1_entries = [("scope", line) for line in first_scope_lines[1:]]
+        s1_entries: list[tuple[str, object]] = [
+            ("scope", line) for line in first_scope_lines[1:]
+        ]
+        s1_entries.extend(_exclusions_entries(values.get("scope_excluded", "")))
         if s1_entries:
             _insert_scope_paragraphs(scope_para, scope_title_para, s1_entries)
 

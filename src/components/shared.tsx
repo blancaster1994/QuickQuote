@@ -22,13 +22,15 @@ interface FieldProps {
   onChange: (v: string) => void;
   placeholder?: string;
   type?: string;
+  id?: string;
 }
 
-export function Field({ label, value, onChange, placeholder, type = 'text' }: FieldProps) {
+export function Field({ label, value, onChange, placeholder, type = 'text', id }: FieldProps) {
   return (
     <div>
       <FieldLabel>{label}</FieldLabel>
       <input
+        id={id}
         type={type}
         value={value ?? ''}
         onChange={(e) => onChange(e.target.value)}

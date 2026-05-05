@@ -38,7 +38,7 @@ export default function HeaderCard({ proposal, dispatch, bootstrap }: HeaderCard
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 14px' }}>
         <div>
-          <Field label="Project Name" value={proposal.name} onChange={setField('name')} />
+          <Field id="proposal-name-input" label="Project Name" value={proposal.name} onChange={setField('name')} />
           {!(proposal.name && proposal.name.trim()) && (
             <div style={{
               marginTop: 4, fontSize: 10.5, color: 'var(--muted)',

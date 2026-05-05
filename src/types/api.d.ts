@@ -152,6 +152,9 @@ export interface QuickQuoteApi {
   os: {
     openFile(path: string): Promise<{ ok: true }>;
     revealInExplorer(path: string): Promise<{ ok: true }>;
+    /** Windows-only: place the file on the system clipboard as a file
+     *  reference so Ctrl+V in Outlook/Gmail/Explorer attaches/pastes it. */
+    copyFileToClipboard(path: string): Promise<{ ok: true }>;
   };
 
   // ── PM-mode admin (Stage 2) ─────────────────────────────────────────────
