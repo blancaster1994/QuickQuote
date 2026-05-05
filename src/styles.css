@@ -11,9 +11,10 @@
 
   --ink:         #1A1F2A;
   --body:        #3D4553;
-  --muted:       #6B7382;
+  --muted:       #5A6270;
   --subtle:      #A0A7B3;
   --hair:        #E4E6EA;
+  --hair-strong: #B8BEC8;
   --line:        #ECEDF0;
   --surface:     #FFFFFF;
   --canvas:      #F6F5F2;
@@ -49,6 +50,52 @@
   --sans:  "Inter Tight", "Helvetica Neue", Helvetica, Arial, sans-serif;
   --serif: "Source Serif 4", Georgia, serif;
   --mono:  "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Spacing scale — 4px base with 2/6 escapes for the 5/7 odd values still
+     in use in FeeCalculator + lookups. Migrate inline px values to these. */
+  --space-0: 2px;
+  --space-1: 4px;
+  --space-2: 6px;
+  --space-3: 8px;
+  --space-4: 10px;
+  --space-5: 12px;
+  --space-6: 14px;
+  --space-7: 16px;
+  --space-8: 20px;
+  --space-9: 24px;
+
+  /* Radius scale — introduced for new components. Existing call sites keep
+     their literals until a separate radius-unification pass. */
+  --radius-sm: 5px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 10px;
+
+  /* Control heights — sm for dense toolbars/lookups, md is the main editor
+     default, xs is FeeCalculator grid-cell density. */
+  --control-h-xs: 26px;
+  --control-h-sm: 28px;
+  --control-h-md: 32px;
+
+  /* Focus ring — driven through :focus-visible globally below. */
+  --ring-color: var(--navy);
+  --ring:       0 0 0 2px var(--navy-tint);
+
+  /* Field label spec — bumped from 10.5px so labels read above sub-pixel
+     rendering noise. */
+  --label-size:           12px;
+  --label-weight:         600;
+  --label-letter-spacing: 0.6px;
+  --label-color:          var(--muted);
+}
+
+/* Global focus-visible — keyboard-only focus ring on all interactive
+   elements. :where() keeps specificity at zero so component-level styles
+   still win. Subsumes the old .lookups-body input:focus rule. */
+:where(input, select, textarea, button, [role="button"]):focus-visible {
+  outline: none;
+  border-color: var(--ring-color);
+  box-shadow: var(--ring);
 }
 
 * { box-sizing: border-box; }

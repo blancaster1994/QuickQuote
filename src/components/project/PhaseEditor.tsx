@@ -270,7 +270,7 @@ export default function PhaseEditor({
                   {!disabled && (
                     <td style={{ padding: '4px 6px', textAlign: 'right' }}>
                       <button onClick={() => dispatch({ type: 'REMOVE_TASK', phaseIndex, taskIndex: ti })}
-                        title="Delete task"
+                        aria-label="Delete task"
                         style={{
                           width: 22, height: 22, padding: 0, borderRadius: 4,
                           background: 'transparent', color: 'var(--muted)',

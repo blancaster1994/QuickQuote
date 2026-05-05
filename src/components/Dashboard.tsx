@@ -4,6 +4,7 @@
 
 import { useCallback, useEffect, useState, type Dispatch } from 'react';
 import { Modal, ModalActions, StatusBadge, formatDate, isFollowUpOverdue } from './StatusComponents';
+import { Table, THead, TBody, TR, TH, TD } from './ui';
 import { STATUSES, STATUS_LABELS } from '../lib/lifecycle';
 import type { ProposalStatus } from '../types/domain';
 import type { EditorAction, EditorState } from '../state/editorReducer';
@@ -393,36 +394,29 @@ function ProposalList({ rows, onOpen, onDeleted }: ProposalListProps) {
       background: 'var(--surface)', border: '1px solid var(--hair)',
       borderRadius: 8, overflow: 'hidden',
     }}>
-      <table style={{
-        width: '100%', borderCollapse: 'collapse', fontSize: 12.5,
-        fontFamily: 'var(--sans)',
-      }}>
-        <thead>
-          <tr style={{
-            background: 'var(--canvas)', textAlign: 'left',
-            color: 'var(--muted)', fontSize: 10.5,
-            letterSpacing: 0.6, textTransform: 'uppercase',
-          }}>
-            <th style={{ padding: '8px 10px' }}>Name</th>
-            <th style={{ padding: '8px 10px' }}>Client</th>
-            <th style={{ padding: '8px 10px' }}>Status</th>
-            <th style={{ padding: '8px 10px', textAlign: 'right' }}>Value</th>
-            <th style={{ padding: '8px 10px' }}>Project Manager</th>
-            <th style={{ padding: '8px 10px', textAlign: 'right' }}>Age</th>
-            <th style={{ padding: '8px 10px', width: 40 }}></th>
-          </tr>
-        </thead>
-        <tbody>
+      <Table>
+        <THead>
+          <TR>
+            <TH>Name</TH>
+            <TH>Client</TH>
+            <TH>Status</TH>
+            <TH numeric>Value</TH>
+            <TH>Project Manager</TH>
+            <TH numeric>Age</TH>
+            <TH style={{ width: 40 }}></TH>
+          </TR>
+        </THead>
+        <TBody>
           {rows.map((r) => {
             const overdue = isFollowUpOverdue(r.follow_up_at, r.status);
             const rowBg = overdue ? '#FDF6F5' : (r.stale ? '#FFFBF1' : 'transparent');
             return (
-            <tr key={r.name} style={{
+            <TR key={r.name} style={{
               borderTop: '1px solid var(--line)',
               background: rowBg,
             }}>
-              <td onClick={() => onOpen(r.name)}
-                style={{ padding: '8px 10px', fontWeight: 600, color: 'var(--ink)', cursor: 'pointer' }}>
+              <TD onClick={() => onOpen(r.name)}
+                style={{ fontWeight: 600, color: 'var(--ink)', cursor: 'pointer' }}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                   {r.name || '(untitled)'}
                   {overdue && (
@@ -434,32 +428,26 @@ function ProposalList({ rows, onOpen, onDeleted }: ProposalListProps) {
                       }}>⚠ Follow-up</span>
                   )}
                 </span>
-              </td>
-              <td onClick={() => onOpen(r.name)}
-                style={{ padding: '8px 10px', color: 'var(--body)', cursor: 'pointer' }}>{r.client || '—'}</td>
-              <td onClick={() => onOpen(r.name)} style={{ padding: '8px 10px', cursor: 'pointer' }}>
+              </TD>
+              <TD onClick={() => onOpen(r.name)}
+                style={{ color: 'var(--body)', cursor: 'pointer' }}>{r.client || '—'}</TD>
+              <TD onClick={() => onOpen(r.name)} style={{ cursor: 'pointer' }}>
                 <StatusBadge status={r.status} size="sm" />
-              </td>
-              <td onClick={() => onOpen(r.name)}
-                style={{
-                  padding: '8px 10px', textAlign: 'right',
-                  fontVariantNumeric: 'tabular-nums', cursor: 'pointer',
-                }}>
+              </TD>
+              <TD numeric onClick={() => onOpen(r.name)} style={{ cursor: 'pointer' }}>
                 {localFmt$(r.value)}
-              </td>
-              <td onClick={() => onOpen(r.name)}
-                style={{ padding: '8px 10px', color: 'var(--body)', cursor: 'pointer' }}>{r.owner || '—'}</td>
-              <td onClick={() => onOpen(r.name)}
-                style={{
-                  padding: '8px 10px', textAlign: 'right', color: 'var(--muted)', cursor: 'pointer',
-                }}>
+              </TD>
+              <TD onClick={() => onOpen(r.name)}
+                style={{ color: 'var(--body)', cursor: 'pointer' }}>{r.owner || '—'}</TD>
+              <TD numeric onClick={() => onOpen(r.name)}
+                style={{ color: 'var(--muted)', cursor: 'pointer' }}>
                 {r.age_days == null ? '—' : `${r.age_days}d`}
-              </td>
-              <td style={{ padding: '6px 10px', textAlign: 'right' }}>
+              </TD>
+              <TD style={{ padding: '6px var(--space-4, 10px)', textAlign: 'right' }}>
                 {r.can_delete && (
                   <button
                     onClick={(e) => { e.stopPropagation(); setConfirming(r); }}
-                    title="Delete this proposal"
+                    aria-label="Delete this proposal"
                     style={{
                       width: 24, height: 24, padding: 0, borderRadius: 4,
                       background: 'transparent', border: '1px solid transparent',
@@ -481,12 +469,12 @@ function ProposalList({ rows, onOpen, onDeleted }: ProposalListProps) {
                     </svg>
                   </button>
                 )}
-              </td>
-            </tr>
+              </TD>
+            </TR>
             );
           })}
-        </tbody>
-      </table>
+        </TBody>
+      </Table>
 
       {confirming && (
         <Modal title="Delete proposal?" onClose={() => setConfirming(null)}>

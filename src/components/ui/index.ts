@@ -5,6 +5,10 @@ export { Button, IconButton } from './Button';
 export type { ButtonProps, ButtonVariant, ButtonSize, IconButtonProps } from './Button';
 export { ConfirmDialog } from './ConfirmDialog';
 export type { ConfirmDialogProps } from './ConfirmDialog';
+export { Input, Textarea, Select } from './Input';
+export type { InputProps, InputSize, InputVariant, TextareaProps, SelectProps } from './Input';
+export { Table, THead, TBody, TR, TH, TD } from './Table';
+export type { TableProps, TableDensity, THProps, TDProps } from './Table';
 // Modal/ModalActions still live in StatusComponents for now; re-export so
 // callers can do `import { Modal } from '../ui'` and not care about the
 // historical location.

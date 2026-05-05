@@ -1,7 +1,8 @@
 // Persistent left navigation rail. 200px wide, three primary destinations
-// (Dashboard, Proposals = editor, Lookups admin) plus a user-identity menu
-// in the footer. Replaces the Editor/Dashboard segmented control that lived
-// in TopBar before Stage 2.
+// (Dashboard, Editor = currently-open proposal, Lookups admin) plus a
+// user-identity menu in the footer. Dashboard is the canonical "find a
+// proposal" surface (search + filter + sort); the Editor link only opens
+// whatever proposal is already loaded.
 //
 // Visual decisions:
 //   · Active state is derived from (state.view, state.lookupsOpen) so the
@@ -56,7 +57,7 @@ export default function Sidebar({ state, dispatch }: SidebarProps) {
         <NavItem
           active={activeKey === 'proposals'}
           onClick={() => go('proposals')}
-          label="Proposals"
+          label="Editor"
           icon={<ProposalsIcon active={activeKey === 'proposals'} />}
         />
         <NavItem

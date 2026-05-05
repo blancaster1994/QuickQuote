@@ -82,12 +82,12 @@
 .lookups-body input,
 .lookups-body select {
   width: 100%;
-  height: 28px;
-  padding: 0 8px;
+  height: var(--control-h-sm, 28px);
+  padding: 0 var(--space-3, 8px);
   background: var(--surface);
   color: var(--ink);
   border: 1px solid var(--hair);
-  border-radius: 5px;
+  border-radius: var(--radius-sm, 5px);
   font-size: 12px;
   font-family: var(--sans);
 }
@@ -100,20 +100,13 @@
 
 .lookups-body input[type="number"] { text-align: right; font-variant-numeric: tabular-nums; }
 
-.lookups-body input:focus,
-.lookups-body select:focus {
-  outline: none;
-  border-color: var(--navy);
-  box-shadow: 0 0 0 2px var(--navy-tint);
-}
-
 .lookups-body button {
-  height: 28px;
-  padding: 0 12px;
+  height: var(--control-h-sm, 28px);
+  padding: 0 var(--space-5, 12px);
   background: var(--surface);
   color: var(--body);
   border: 1px solid var(--hair);
-  border-radius: 5px;
+  border-radius: var(--radius-sm, 5px);
   font-size: 11.5px;
   font-weight: 600;
   cursor: pointer;

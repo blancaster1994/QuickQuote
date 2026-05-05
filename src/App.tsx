@@ -28,12 +28,13 @@ import BidItemTabs from './components/BidItemTabs';
 import SectionEditor from './components/SectionEditor';
 import DocPreview from './components/DocPreview';
 import Dashboard from './components/Dashboard';
+import ShortcutsOverlay from './components/ShortcutsOverlay';
 import { LookupsPanel } from './components/lookups';
 import { ProjectEditor, ProjectModeToggle } from './components/project';
 import {
   ActivityTimeline, FirstRunIdentity, Modal, ModalActions, StatusActionBar,
 } from './components/StatusComponents';
-import { ConfirmDialog } from './components/ui';
+import { Button, ConfirmDialog } from './components/ui';
 
 type VersionPromptState = null | 'pending' | 'dismissed';
 
@@ -50,6 +51,7 @@ export default function App() {
   const [generating, setGenerating] = useState<GeneratedFormat | null>(null);
   const [versionPrompt, setVersionPrompt] = useState<VersionPromptState>(null);
   const [postGenerate, setPostGenerate] = useState<PostGeneratePrompt | null>(null);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   // Bootstrap on mount — config + current identity in one IPC call.
   useEffect(() => {
@@ -99,6 +101,11 @@ export default function App() {
     if (state.autosaveStatus !== 'idle') return;
     if (!state.proposal.name?.trim()) return;
     if (state.viewingVersion) return;
+    // Honor a per-machine "don't show again" preference for the version prompt.
+    if (isFrozen(state.proposal) && versionPrompt === null && versionPromptSuppressed()) {
+      setVersionPrompt('dismissed');
+      return;
+    }
     if (isFrozen(state.proposal) && versionPrompt !== 'dismissed') {
       if (versionPrompt === null) setVersionPrompt('pending');
       return;
@@ -212,7 +219,7 @@ export default function App() {
   }, [state.proposal, generating, state.viewingVersion]);
 
   // Keyboard shortcuts: Ctrl/⌘+G generate (last format), Ctrl/⌘+Shift+G
-  // format picker, Ctrl/⌘+D toggle dashboard.
+  // format picker, Ctrl/⌘+D toggle dashboard, ? open shortcuts overlay.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const mod = e.ctrlKey || e.metaKey;
@@ -226,6 +233,9 @@ export default function App() {
       } else if (mod && !e.shiftKey && key === 'd') {
         e.preventDefault();
         dispatch({ type: 'SET_VIEW', view: state.view === 'editor' ? 'dashboard' : 'editor' });
+      } else if (!mod && e.key === '?' && !isTextEditingTarget(e.target)) {
+        e.preventDefault();
+        setShortcutsOpen(true);
       }
     };
     window.addEventListener('keydown', onKey);
@@ -337,6 +347,10 @@ export default function App() {
             }
           }}
           onContinueWithoutVersioning={() => setVersionPrompt('dismissed')}
+          onDontShowAgain={() => {
+            setVersionPromptSuppressed(true);
+            setVersionPrompt('dismissed');
+          }}
         />
       )}
 
@@ -344,6 +358,10 @@ export default function App() {
           first open, then stays in DOM. Renders nothing until lookupsOpen
           first goes true. */}
       <LookupsPanel state={state} dispatch={dispatch} />
+
+      {shortcutsOpen && (
+        <ShortcutsOverlay onClose={() => setShortcutsOpen(false)} />
+      )}
     </div>
   );
 }
@@ -395,11 +413,19 @@ function EditorLayout({ state, dispatch, onReload }: EditorLayoutProps) {
             : undefined}
             aria-readonly={!!viewing}>
             <div style={{ padding: '20px 26px 0' }}>
-              {/* Mode toggle only when this proposal has a project. Lets the
-                  user flip back to the project view from proposal mode. */}
-              {state.project && (
+              {/* Mode toggle: shown unconditionally when the proposal exists,
+                  so users discover the Project workflow before they need it.
+                  Locked (Project tab disabled with tooltip) until the proposal
+                  is Marked Won + initialized. */}
+              {state.projectName && (
                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
-                  <ProjectModeToggle mode={state.editorMode} dispatch={dispatch} />
+                  <ProjectModeToggle mode={state.editorMode} dispatch={dispatch}
+                    locked={!state.project}
+                    lockedHint={
+                      getStatus(state.proposal) === 'won'
+                        ? 'Click "Initialize Project" in the status bar below to enable Project mode.'
+                        : 'Available after the proposal is marked Won and initialized.'
+                    } />
                 </div>
               )}
               {state.project && (
@@ -505,9 +531,10 @@ interface VersionPromptModalProps {
   proposal: Proposal;
   onSnapshot: () => void;
   onContinueWithoutVersioning: () => void;
+  onDontShowAgain: () => void;
 }
 
-function VersionPromptModal({ proposal, onSnapshot, onContinueWithoutVersioning }: VersionPromptModalProps) {
+function VersionPromptModal({ proposal, onSnapshot, onContinueWithoutVersioning, onDontShowAgain }: VersionPromptModalProps) {
   const status = getStatus(proposal);
   return (
     <Modal title={`Editing a ${STATUS_LABELS[status] || status} proposal`}
@@ -521,10 +548,48 @@ function VersionPromptModal({ proposal, onSnapshot, onContinueWithoutVersioning 
       <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 10 }}>
         Minor typo fixes and internal cleanups? It's fine to skip versioning.
       </div>
-      <ModalActions onCancel={onContinueWithoutVersioning} onConfirm={onSnapshot}
-        confirmLabel="Snapshot as new version" confirmKind="primary" />
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8, marginTop: 18,
+      }}>
+        <button type="button" onClick={onDontShowAgain}
+          style={{
+            background: 'transparent', border: 'none',
+            color: 'var(--muted)', fontSize: 11.5, fontWeight: 500,
+            cursor: 'pointer', fontFamily: 'var(--sans)',
+            padding: '4px 0', textDecoration: 'underline',
+          }}>
+          Don't show this again
+        </button>
+        <div style={{ flex: 1 }} />
+        <Button variant="ghost" onClick={onContinueWithoutVersioning}>Cancel</Button>
+        <Button variant="primary" onClick={onSnapshot}>Snapshot as new version</Button>
+      </div>
     </Modal>
   );
+}
+
+// True when the keyboard-event target is an editable input/textarea or a
+// contenteditable element — used to gate the ? shortcut so it doesn't fire
+// while the user is typing a question mark into a text field.
+function isTextEditingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+  if (target.isContentEditable) return true;
+  return false;
+}
+
+// LocalStorage helpers for the version-prompt "don't show again" preference.
+const VERSION_PROMPT_STORAGE_KEY = 'qq.versionPromptSuppressed';
+function versionPromptSuppressed(): boolean {
+  try { return window.localStorage.getItem(VERSION_PROMPT_STORAGE_KEY) === '1'; }
+  catch { return false; }
+}
+function setVersionPromptSuppressed(on: boolean): void {
+  try {
+    if (on) window.localStorage.setItem(VERSION_PROMPT_STORAGE_KEY, '1');
+    else    window.localStorage.removeItem(VERSION_PROMPT_STORAGE_KEY);
+  } catch { /* private browsing, etc. */ }
 }
 
 function PreviewColumn({ state }: { state: EditorState }) {

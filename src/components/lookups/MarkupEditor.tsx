@@ -43,7 +43,7 @@ export default function MarkupEditor() {
             <tr key={item.id}>
               <td>{formatPct(item.value)}</td>
               <td>
-                <button className="delete-x" onClick={() => setPendingDelete(item)} title="Delete">&times;</button>
+                <button className="delete-x" onClick={() => setPendingDelete(item)} aria-label="Delete">&times;</button>
               </td>
             </tr>
           ))}

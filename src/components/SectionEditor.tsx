@@ -25,11 +25,33 @@ export default function SectionEditor({ section, total, state, dispatch }: Secti
   const patch = (p: Partial<Section>) =>
     dispatch({ type: 'UPDATE_SECTION', id: section.id, patch: p });
 
+  // Empty-state hint for first-run users: only the default Bid Item 1 exists
+  // AND it has no content yet. Hides itself the moment the user types anything.
+  const isBlank = !section.title?.trim()
+    && !section.scope?.trim()
+    && !section.notes?.trim()
+    && (Number(section.fee) || 0) === 0
+    && (section.labor?.length || 0) === 0
+    && (section.expenses?.length || 0) === 0;
+  const isFirstSection = state.proposal.sections.length === 1;
+
   return (
     <div style={{
       background: 'var(--surface)', border: '1px solid var(--hair)', borderTop: 'none',
       borderRadius: '0 0 10px 10px', padding: 18,
     }}>
+      {isBlank && isFirstSection && (
+        <div style={{
+          marginBottom: 14, padding: '10px 12px',
+          background: 'var(--navy-tint)', borderRadius: 6,
+          fontSize: 12.5, color: 'var(--navy-deep)', lineHeight: 1.5,
+        }}>
+          <strong>Tip:</strong> name this bid item, describe the scope, and set a fee.
+          Use the <em>Fee calculator</em> below to build the fee from labor + expenses,
+          or click <em>+ Add bid item</em> above to scope a second piece of work.
+        </div>
+      )}
+
       <Field label="Section title" value={section.title}
         onChange={(v) => patch({ title: v })}
         placeholder="e.g. Site Inspection" />

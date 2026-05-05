@@ -29,6 +29,12 @@ const STATUS_COLORS: Record<ProposalStatus, { bg: string; fg: string }> = {
   archived: { bg: 'var(--status-archived-bg)', fg: 'var(--status-archived-fg)' },
 };
 
+// Single-letter monogram so the status is distinguishable without color
+// (colorblind-friendly, prints monochrome legibly).
+const STATUS_MONOGRAM: Record<ProposalStatus, string> = {
+  draft: 'D', sent: 'S', won: 'W', lost: 'L', archived: 'A',
+};
+
 interface StatusBadgeProps {
   status: ProposalStatus;
   size?: 'sm' | 'md';
@@ -37,15 +43,24 @@ interface StatusBadgeProps {
 export function StatusBadge({ status, size = 'md' }: StatusBadgeProps) {
   const colors = STATUS_COLORS[status] || STATUS_COLORS.draft;
   const label = STATUS_LABELS[status] || status;
+  const monogram = STATUS_MONOGRAM[status] || label.slice(0, 1).toUpperCase();
   const pad = size === 'sm' ? '2px 7px' : '3px 9px';
   const fs = size === 'sm' ? 10 : 11;
   return (
     <span style={{
-      display: 'inline-block', padding: pad, borderRadius: 10,
+      display: 'inline-flex', alignItems: 'center', gap: 5,
+      padding: pad, borderRadius: 10,
       background: colors.bg, color: colors.fg,
       fontSize: fs, fontWeight: 700, letterSpacing: 0.4,
       textTransform: 'uppercase', fontFamily: 'var(--sans)',
     }}>
+      <span aria-hidden="true" style={{
+        display: 'inline-grid', placeItems: 'center',
+        width: size === 'sm' ? 13 : 15, height: size === 'sm' ? 13 : 15,
+        borderRadius: '50%', background: colors.fg, color: colors.bg,
+        fontSize: size === 'sm' ? 8.5 : 9.5, fontWeight: 800,
+        letterSpacing: 0,
+      }}>{monogram}</span>
       {label}
     </span>
   );
@@ -77,6 +92,7 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
   // ClickUp link + config status. Refreshed when project changes.
   const [clickUpEnabled, setClickUpEnabled] = useState(false);
   const [clickUpLinkUrl, setClickUpLinkUrl] = useState<string | null>(null);
+  const [clickUpLastSyncedAt, setClickUpLastSyncedAt] = useState<string | null>(null);
   const currentPm = (proposal.lifecycle?.owner) || { email: '', name: '' };
   const followUpAt = proposal.lifecycle?.metadata?.follow_up_at || null;
   const followUpOverdue = isFollowUpOverdue(followUpAt, status);
@@ -92,10 +108,19 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
     })();
     if (state.project) {
       void window.api.clickup.getLink(state.project.id)
-        .then(link => { if (!cancelled) setClickUpLinkUrl(link?.list_url ?? null); })
-        .catch(() => { if (!cancelled) setClickUpLinkUrl(null); });
+        .then(link => {
+          if (cancelled) return;
+          setClickUpLinkUrl(link?.list_url ?? null);
+          setClickUpLastSyncedAt(link?.last_synced_at ?? null);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setClickUpLinkUrl(null);
+          setClickUpLastSyncedAt(null);
+        });
     } else {
       setClickUpLinkUrl(null);
+      setClickUpLastSyncedAt(null);
     }
     return () => { cancelled = true; };
   }, [state.project?.id, state.project]);
@@ -262,20 +287,30 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
 
         {/* Send to ClickUp — visible only in project mode AND when sync is
             enabled in Lookups → ClickUp. Already-linked projects show a
-            secondary "↗ ClickUp" chip + Unlink in the meta region. */}
+            secondary "↗ ClickUp" chip with last-synced timestamp + Unlink. */}
         {inProjectMode && clickUpEnabled && state.project && (
           <>
             {clickUpLinkUrl ? (
               <button onClick={() => void window.api.os.openFile(clickUpLinkUrl)}
-                title="Open the linked ClickUp list in your browser"
+                title={clickUpLastSyncedAt
+                  ? `Open in browser — last synced ${formatRelative(clickUpLastSyncedAt)}`
+                  : 'Open the linked ClickUp list in your browser'}
                 style={{
-                  height: 30, padding: '0 12px',
+                  height: 30, padding: '0 10px',
                   background: 'transparent', color: '#7c3aed',
                   border: '1px solid #DDD6FE', borderRadius: 6,
                   fontSize: 11.5, fontWeight: 600, cursor: 'pointer',
                   fontFamily: 'var(--sans)',
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
                 }}>
-                ↗ ClickUp
+                <span>↗ ClickUp</span>
+                {clickUpLastSyncedAt && (
+                  <span style={{
+                    fontSize: 10, color: 'var(--muted)', fontWeight: 500,
+                  }}>
+                    · synced {formatRelative(clickUpLastSyncedAt)}
+                  </span>
+                )}
               </button>
             ) : null}
             <button onClick={() => setShowSendClickUp(true)}
@@ -1176,6 +1211,22 @@ export function formatDateTime(iso: string): string {
     year: 'numeric', month: 'short', day: 'numeric',
     hour: 'numeric', minute: '2-digit',
   });
+}
+
+/** Coarse relative time for chip-style displays — "just now", "5m ago",
+ *  "3h ago", "2d ago", "Mar 5". */
+export function formatRelative(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  const diffMs = Date.now() - d.getTime();
+  const m = Math.round(diffMs / 60000);
+  if (m < 1)    return 'just now';
+  if (m < 60)   return `${m}m ago`;
+  const h = Math.round(m / 60);
+  if (h < 24)   return `${h}h ago`;
+  const days = Math.round(h / 24);
+  if (days < 7) return `${days}d ago`;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 export function reasonLabel(value: string): string {

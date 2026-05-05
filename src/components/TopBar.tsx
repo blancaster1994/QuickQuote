@@ -113,6 +113,14 @@ export default function TopBar({
           {previewOpen && <rect x="9" y="2" width="3.5" height="10" fill="var(--navy-deep)" opacity="0.18" />}
         </svg>
         Preview
+        {inProjectMode && (
+          <span style={{
+            fontSize: 10, color: 'var(--muted)', fontWeight: 500,
+            marginLeft: 1,
+          }}>
+            · proposals only
+          </span>
+        )}
       </button>
 
       {/* Split Generate button */}
