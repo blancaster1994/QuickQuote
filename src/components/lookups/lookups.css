@@ -100,13 +100,6 @@
 
 .lookups-body input[type="number"] { text-align: right; font-variant-numeric: tabular-nums; }
 
-.lookups-body input:focus,
-.lookups-body select:focus {
-  outline: none;
-  border-color: var(--navy);
-  box-shadow: 0 0 0 2px var(--navy-tint);
-}
-
 .lookups-body button {
   height: 28px;
   padding: 0 12px;

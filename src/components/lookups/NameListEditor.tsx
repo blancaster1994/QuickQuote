@@ -67,7 +67,7 @@ export default function NameListEditor({ table, label }: NameListEditorProps) {
                 />
               </td>
               <td>
-                <button className="delete-x" onClick={() => setPendingDelete(item)} title="Delete">&times;</button>
+                <button className="delete-x" onClick={() => setPendingDelete(item)} aria-label="Delete">&times;</button>
               </td>
             </tr>
           ))}

@@ -120,7 +120,7 @@ export default function RateCell({ task, categoryRate, disabled, currentUser, on
         <button
           type="button"
           onClick={reset}
-          title="Reset to category rate"
+          aria-label="Reset to category rate"
           style={{
             padding: '0 5px', height: 22, fontSize: 11,
             color: '#92400E', background: 'transparent',

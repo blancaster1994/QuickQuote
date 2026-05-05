@@ -250,7 +250,7 @@ function LaborRowEditor({ row, emp, onCategory, onEmployee, onHours, onRate, onR
       <div className="tabular" style={{ textAlign: 'right', fontWeight: 600, padding: '0 7px' }}>
         {fmt$(total)}
       </div>
-      <button type="button" onClick={onRemove} title="Remove role" style={removeBtnStyle}>×</button>
+      <button type="button" onClick={onRemove} aria-label="Remove role" style={removeBtnStyle}>×</button>
     </div>
   );
 }
@@ -282,7 +282,7 @@ function ExpenseRowEditor({ row, onItem, onQty, onUnit, onUnitCost, onMarkup, on
       <div className="tabular" style={{ textAlign: 'right', fontWeight: 600, padding: '0 7px' }}>
         {fmt$$(total)}
       </div>
-      <button type="button" onClick={onRemove} title="Remove expense" style={removeBtnStyle}>×</button>
+      <button type="button" onClick={onRemove} aria-label="Remove expense" style={removeBtnStyle}>×</button>
     </div>
   );
 }

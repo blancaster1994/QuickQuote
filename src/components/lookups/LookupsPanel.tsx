@@ -178,7 +178,7 @@ function TabHeader({ tab, onClose }: { tab: LookupsTab; onClose: () => void }) {
       </h2>
       <div style={{ flex: 1 }} />
       <button onClick={onClose}
-        title="Close panel (Esc)"
+        aria-label="Close panel (Esc)"
         style={{
           width: 28, height: 28, padding: 0, borderRadius: 6,
           background: 'transparent', color: 'var(--muted)',

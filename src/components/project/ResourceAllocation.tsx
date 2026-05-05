@@ -276,7 +276,7 @@ export default function ResourceAllocation({
                   {!disabled && (
                     <td style={{ padding: '4px 6px', textAlign: 'right' }}>
                       <button onClick={() => dispatch({ type: 'REMOVE_RESOURCE', index: idx })}
-                        title="Remove assignment"
+                        aria-label="Remove assignment"
                         style={{
                           width: 22, height: 22, padding: 0, borderRadius: 4,
                           background: 'transparent', color: 'var(--muted)',

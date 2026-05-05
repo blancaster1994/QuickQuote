@@ -459,7 +459,7 @@ function ProposalList({ rows, onOpen, onDeleted }: ProposalListProps) {
                 {r.can_delete && (
                   <button
                     onClick={(e) => { e.stopPropagation(); setConfirming(r); }}
-                    title="Delete this proposal"
+                    aria-label="Delete this proposal"
                     style={{
                       width: 24, height: 24, padding: 0, borderRadius: 4,
                       background: 'transparent', border: '1px solid transparent',

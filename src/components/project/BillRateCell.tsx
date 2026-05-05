@@ -123,7 +123,7 @@ export default function BillRateCell({ assignment: a, lookupRate, disabled, curr
         <button
           type="button"
           onClick={reset}
-          title="Reset to standard rate"
+          aria-label="Reset to standard rate"
           style={{
             padding: '0 5px', height: 22, fontSize: 11,
             color: '#92400E', background: 'transparent',

@@ -72,7 +72,7 @@ export default function PhaseTabs({ phases, activeIndex, budgets, dispatch, disa
         <button
           type="button"
           onClick={() => dispatch({ type: 'ADD_PHASE' })}
-          title="Add phase"
+          aria-label="Add phase"
           style={{
             padding: '10px 12px', border: 'none', background: 'transparent',
             fontSize: 18, color: 'var(--muted)', cursor: 'pointer',
