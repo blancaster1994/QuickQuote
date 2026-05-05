@@ -123,8 +123,9 @@ export default function LookupsPanel({ state, dispatch }: LookupsPanelProps) {
           overflow: 'auto',
         }}>
           <div style={{
-            fontSize: 10.5, fontWeight: 700, color: 'var(--muted)',
-            textTransform: 'uppercase', letterSpacing: 0.4,
+            fontSize: 'var(--label-size, 12px)',
+            fontWeight: 700, color: 'var(--label-color, var(--muted))',
+            textTransform: 'uppercase', letterSpacing: 'var(--label-letter-spacing, 0.4px)',
             padding: '4px 12px 8px',
           }}>Lookups</div>
           {TABS.map(t => {
@@ -133,6 +134,7 @@ export default function LookupsPanel({ state, dispatch }: LookupsPanelProps) {
               <button
                 key={t.key}
                 onClick={() => dispatch({ type: 'SET_LOOKUPS_TAB', tab: t.key })}
+                aria-current={active ? 'page' : undefined}
                 style={{
                   height: 32, padding: '0 12px',
                   background: active ? 'var(--navy-tint)' : 'transparent',
@@ -141,11 +143,27 @@ export default function LookupsPanel({ state, dispatch }: LookupsPanelProps) {
                   fontSize: 12, fontWeight: active ? 700 : 500,
                   cursor: 'pointer', textAlign: 'left',
                   fontFamily: 'var(--sans)',
+                  display: 'flex', alignItems: 'center', gap: 8,
                 }}>
-                {t.label}
+                <span style={{ flex: 1 }}>{t.label}</span>
+                {active && (
+                  <span aria-hidden="true" title="Reopens here next time"
+                    style={{
+                      fontSize: 9, color: 'var(--navy-deep)', opacity: 0.55,
+                      letterSpacing: 0,
+                    }}>↻</span>
+                )}
               </button>
             );
           })}
+          <div style={{ flex: 1 }} />
+          <div style={{
+            fontSize: 10.5, color: 'var(--muted)',
+            padding: '8px 12px 0', lineHeight: 1.4,
+            borderTop: '1px solid var(--hair)', marginTop: 8,
+          }}>
+            Lookups remembers your last tab — reopen to land back here.
+          </div>
         </nav>
 
         {/* Active tab body */}
