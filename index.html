@@ -4,8 +4,65 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>QuickQuote</title>
+    <style>
+      /* Pre-React splash. Visible from first paint until main.tsx removes it
+         on the frame after React's first render. Self-contained — no font
+         dependency (system serif fallback is acceptable for the few hundred
+         ms before the bundle parses). */
+      html, body { height: 100%; margin: 0; }
+      body { background: #F6F5F2; }
+      #qq-splash {
+        position: fixed; inset: 0; z-index: 9999;
+        background: #F6F5F2;
+        display: grid; place-items: center;
+        font-family: "Inter Tight", "Helvetica Neue", Helvetica, Arial, sans-serif;
+        transition: opacity .3s ease;
+      }
+      #qq-splash.qq-splash-out { opacity: 0; pointer-events: none; }
+      #qq-splash .qq-splash-stack { text-align: center; }
+      #qq-splash .qq-splash-tile {
+        width: 60px; height: 56px; margin: 0 auto 18px;
+        background: #0F2D4E; border-radius: 10px;
+        display: grid; place-items: center;
+        color: #fff; font-size: 16px; font-weight: 900; letter-spacing: 1px;
+        box-shadow: 0 4px 12px rgba(15,25,40,0.12);
+      }
+      #qq-splash .qq-splash-word {
+        font-family: "Source Serif 4", Georgia, serif;
+        font-size: 36px; line-height: 1; color: #1A1F2A; letter-spacing: -1px;
+      }
+      #qq-splash .qq-splash-word .a { font-style: italic; font-weight: 500; }
+      #qq-splash .qq-splash-word .b { color: #0F2D4E; font-weight: 800; }
+      #qq-splash .qq-splash-bar {
+        width: 90px; height: 1.5px; margin: 14px auto 0;
+        background: #B8BEC8; position: relative; overflow: hidden;
+      }
+      #qq-splash .qq-splash-bar::after {
+        content: ''; position: absolute; inset: 0; width: 40%;
+        background: #0F2D4E;
+        animation: qqSplashSlide 1.6s cubic-bezier(.4,0,.2,1) infinite;
+      }
+      #qq-splash .qq-splash-version {
+        margin-top: 14px; font-size: 11px; color: #5A6270;
+        font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      @keyframes qqSplashSlide {
+        0%   { transform: translateX(-100%); }
+        100% { transform: translateX(250%); }
+      }
+    </style>
   </head>
   <body>
+    <div id="qq-splash">
+      <div class="qq-splash-stack">
+        <div class="qq-splash-tile">CES</div>
+        <div class="qq-splash-word">
+          <span class="a">Quick</span><span class="b">Quote</span>
+        </div>
+        <div class="qq-splash-bar"></div>
+        <div class="qq-splash-version">v1.0.0</div>
+      </div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

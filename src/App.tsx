@@ -29,6 +29,7 @@ import SectionEditor from './components/SectionEditor';
 import DocPreview from './components/DocPreview';
 import Dashboard from './components/Dashboard';
 import ShortcutsOverlay from './components/ShortcutsOverlay';
+import CommandPalette from './components/CommandPalette';
 import { LookupsPanel } from './components/lookups';
 import { ProjectEditor, ProjectModeToggle } from './components/project';
 import {
@@ -54,6 +55,7 @@ export default function App() {
   const [versionPrompt, setVersionPrompt] = useState<VersionPromptState>(null);
   const [postGenerate, setPostGenerate] = useState<PostGeneratePrompt | null>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [cmdKOpen, setCmdKOpen] = useState(false);
 
   // Bootstrap on mount — config + current identity in one IPC call.
   useEffect(() => {
@@ -250,6 +252,9 @@ export default function App() {
       } else if (mod && !e.shiftKey && key === 'd') {
         e.preventDefault();
         dispatch({ type: 'SET_VIEW', view: state.view === 'editor' ? 'dashboard' : 'editor' });
+      } else if (mod && !e.shiftKey && key === 'k') {
+        e.preventDefault();
+        setCmdKOpen((o) => !o);
       } else if (!mod && e.key === '?' && !isTextEditingTarget(e.target)) {
         e.preventDefault();
         setShortcutsOpen(true);
@@ -296,7 +301,8 @@ export default function App() {
 
       {/* Rows 2-3, col 1: Sidebar (spans the import banner row + main row) */}
       <div style={{ gridRow: '2 / span 2', gridColumn: '1', minHeight: 0 }}>
-        <Sidebar state={state} dispatch={dispatch} />
+        <Sidebar state={state} dispatch={dispatch}
+          onOpenCommandPalette={() => setCmdKOpen(true)} />
       </div>
 
       {/* Row 2, col 2: optional import banner */}
@@ -362,6 +368,15 @@ export default function App() {
       {shortcutsOpen && (
         <ShortcutsOverlay onClose={() => setShortcutsOpen(false)} />
       )}
+
+      <CommandPalette
+        open={cmdKOpen}
+        onClose={() => setCmdKOpen(false)}
+        state={state}
+        dispatch={dispatch}
+        onSelectProject={handleSelectProject}
+        onNewProposal={handleNewProject}
+      />
     </div>
   );
 }
@@ -404,7 +419,13 @@ function EditorLayout({ state, dispatch, onReload }: EditorLayoutProps) {
               <StatusActionBar state={state} dispatch={dispatch}
                 onReload={onReload} onDeleted={onReload} />
             </div>
-            <ProjectEditor project={state.project} identity={state.identity} outerDispatch={dispatch} />
+            {state.activityOpen && (
+              <div style={{ padding: '14px 26px 0' }}>
+                <ActivityTimeline proposal={state.proposal} />
+              </div>
+            )}
+            <ProjectEditor project={state.project} proposal={state.proposal}
+              identity={state.identity} outerDispatch={dispatch} />
           </div>
         ) : (
           // Proposal mode — original sell-phase editor.
@@ -705,7 +726,51 @@ function ImportBanner({ state, onAfterImport }: ImportBannerProps) {
 }
 
 function LoadingScreen() {
-  return <div style={{ padding: 40, color: 'var(--muted)' }}>Loading bootstrap…</div>;
+  // Same visual language as the pre-React splash in index.html — keeps the
+  // brand on screen continuously while bootstrap completes (IPC handshake,
+  // projects fetch). Used post-mount; the index.html splash handles the
+  // pre-mount window.
+  return (
+    <div style={{
+      width: '100%', height: '100vh', background: 'var(--canvas)',
+      display: 'grid', placeItems: 'center',
+      fontFamily: 'var(--sans)',
+    }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{
+          width: 60, height: 56, margin: '0 auto 18px',
+          background: 'var(--navy-deep)', borderRadius: 10,
+          display: 'grid', placeItems: 'center',
+          color: '#fff', fontSize: 16, fontWeight: 900, letterSpacing: 1,
+          boxShadow: '0 4px 12px rgba(15,25,40,0.12)',
+        }}>CES</div>
+        <div style={{
+          fontFamily: 'var(--serif)', fontSize: 36, lineHeight: 1,
+          color: 'var(--ink)', letterSpacing: -1,
+        }}>
+          <span style={{ fontStyle: 'italic', fontWeight: 500 }}>Quick</span>
+          <span style={{ color: 'var(--navy-deep)', fontWeight: 800 }}>Quote</span>
+        </div>
+        <div style={{
+          width: 90, height: 1.5, margin: '14px auto 0',
+          background: 'var(--hair-strong)', position: 'relative', overflow: 'hidden',
+        }}>
+          <div style={{
+            position: 'absolute', inset: 0, width: '40%',
+            background: 'var(--navy-deep)',
+            animation: 'qqSplashSlide 1.6s cubic-bezier(.4,0,.2,1) infinite',
+          }} />
+        </div>
+        <div style={{
+          marginTop: 14, fontSize: 11, color: 'var(--muted)',
+          fontFamily: 'var(--mono)',
+        }}>
+          v1.0.0
+        </div>
+      </div>
+      <style>{`@keyframes qqSplashSlide{0%{transform:translateX(-100%)}100%{transform:translateX(250%)}}`}</style>
+    </div>
+  );
 }
 
 function ErrorScreen({ message }: { message: string }) {

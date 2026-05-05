@@ -219,6 +219,7 @@ export default function ResourceAllocation({
               textTransform: 'uppercase', letterSpacing: 0.4,
             }}>
               <th style={{ padding: '6px 8px' }}>Resource</th>
+              <th style={{ padding: '6px 8px', width: 180 }}>Task</th>
               <th style={{ padding: '6px 8px', width: 80, textAlign: 'right' }}>Hrs</th>
               <th style={{ padding: '6px 8px', width: 120, textAlign: 'right' }}>Bill rate</th>
               <th style={{ padding: '6px 8px', width: 110, textAlign: 'right' }}>Amount</th>
@@ -246,6 +247,24 @@ export default function ResourceAllocation({
                       <EmployeeAvatar name={r.resource_name} size={22} />
                       <span style={{ fontSize: 12, fontWeight: 600 }}>{r.resource_name}</span>
                     </span>
+                  </td>
+                  <td style={{ padding: '4px 8px' }}>
+                    <select
+                      value={r.task_no || 0}
+                      disabled={disabled}
+                      title="Link this resource's hours to a specific task. Drives the Amount column on the task row above."
+                      onChange={(e) => dispatch({
+                        type: 'UPDATE_RESOURCE', index: idx,
+                        patch: { task_no: parseInt(e.target.value, 10) || 0 },
+                      })}
+                      style={cellInputStyle}>
+                      <option value={0}>— no specific task —</option>
+                      {phase.tasks.map(t => (
+                        <option key={t.task_no} value={t.task_no}>
+                          {t.task_no}. {t.name || `Task ${t.task_no}`}
+                        </option>
+                      ))}
+                    </select>
                   </td>
                   <td style={{ padding: '4px 8px', textAlign: 'right' }}>
                     <input type="number" min={0} step="0.25" value={r.hours} disabled={disabled}
