@@ -159,12 +159,15 @@ export type EditorAction =
   | { type: 'UPDATE_SECTION'; id: string; patch: Partial<Section> }
   | { type: 'ADD_SECTION' }
   | { type: 'REMOVE_SECTION'; id: string }
+  | { type: 'REORDER_SECTIONS'; fromIndex: number; toIndex: number }
   | { type: 'ADD_LABOR_ROW'; id: string }
   | { type: 'UPDATE_LABOR_ROW'; id: string; index: number; patch: Partial<LaborRow> }
   | { type: 'REMOVE_LABOR_ROW'; id: string; index: number }
+  | { type: 'REORDER_LABOR_ROWS'; id: string; fromIndex: number; toIndex: number }
   | { type: 'ADD_EXPENSE'; id: string }
   | { type: 'UPDATE_EXPENSE'; id: string; index: number; patch: Partial<ExpenseRow> }
   | { type: 'REMOVE_EXPENSE'; id: string; index: number }
+  | { type: 'REORDER_EXPENSES'; id: string; fromIndex: number; toIndex: number }
   | { type: 'TOGGLE_FEE_BUILDER' }
   | { type: 'TOGGLE_PREVIEW' }
   | { type: 'SET_GEN_MENU'; open: boolean }
@@ -191,10 +194,23 @@ export type EditorAction =
 /** Action types that mutate proposal *content* — dropped silently while
  *  viewing a snapshot so historical versions stay read-only. */
 const CONTENT_MUTATIONS: ReadonlySet<EditorAction['type']> = new Set([
-  'SET_FIELD', 'UPDATE_SECTION', 'ADD_SECTION', 'REMOVE_SECTION',
-  'ADD_LABOR_ROW', 'UPDATE_LABOR_ROW', 'REMOVE_LABOR_ROW',
-  'ADD_EXPENSE', 'UPDATE_EXPENSE', 'REMOVE_EXPENSE',
+  'SET_FIELD', 'UPDATE_SECTION', 'ADD_SECTION', 'REMOVE_SECTION', 'REORDER_SECTIONS',
+  'ADD_LABOR_ROW', 'UPDATE_LABOR_ROW', 'REMOVE_LABOR_ROW', 'REORDER_LABOR_ROWS',
+  'ADD_EXPENSE', 'UPDATE_EXPENSE', 'REMOVE_EXPENSE', 'REORDER_EXPENSES',
 ]);
+
+/** Pure-functional array reorder. Returns a new array with the element at
+ *  fromIndex moved to toIndex; out-of-range / equal indices return the input
+ *  unchanged so the autosave gate doesn't fire on no-op drags. */
+function arrayMove<T>(arr: readonly T[], fromIndex: number, toIndex: number): T[] {
+  if (fromIndex === toIndex) return arr.slice();
+  if (fromIndex < 0 || fromIndex >= arr.length) return arr.slice();
+  if (toIndex < 0 || toIndex >= arr.length) return arr.slice();
+  const next = arr.slice();
+  const [moved] = next.splice(fromIndex, 1);
+  next.splice(toIndex, 0, moved);
+  return next;
+}
 
 // ── reducer ─────────────────────────────────────────────────────────────────
 
@@ -343,6 +359,16 @@ export function reducer(state: EditorState, action: EditorAction): EditorState {
       };
     }
 
+    case 'REORDER_SECTIONS': {
+      if (action.fromIndex === action.toIndex) return state;
+      const sections = arrayMove(state.proposal.sections, action.fromIndex, action.toIndex);
+      return {
+        ...state,
+        proposal: { ...state.proposal, sections },
+        autosaveStatus: 'idle',
+      };
+    }
+
     case 'ADD_LABOR_ROW': {
       const sections = state.proposal.sections.map((s) =>
         s.id === action.id
@@ -372,6 +398,16 @@ export function reducer(state: EditorState, action: EditorAction): EditorState {
       return { ...state, proposal: { ...state.proposal, sections }, autosaveStatus: 'idle' };
     }
 
+    case 'REORDER_LABOR_ROWS': {
+      if (action.fromIndex === action.toIndex) return state;
+      const sections = state.proposal.sections.map((s) =>
+        s.id === action.id
+          ? { ...s, labor: arrayMove(s.labor, action.fromIndex, action.toIndex) }
+          : s,
+      );
+      return { ...state, proposal: { ...state.proposal, sections }, autosaveStatus: 'idle' };
+    }
+
     case 'ADD_EXPENSE': {
       const sections = state.proposal.sections.map((s) =>
         s.id === action.id
@@ -396,6 +432,16 @@ export function reducer(state: EditorState, action: EditorAction): EditorState {
       const sections = state.proposal.sections.map((s) =>
         s.id === action.id
           ? { ...s, expenses: s.expenses.filter((_, i) => i !== action.index) }
+          : s,
+      );
+      return { ...state, proposal: { ...state.proposal, sections }, autosaveStatus: 'idle' };
+    }
+
+    case 'REORDER_EXPENSES': {
+      if (action.fromIndex === action.toIndex) return state;
+      const sections = state.proposal.sections.map((s) =>
+        s.id === action.id
+          ? { ...s, expenses: arrayMove(s.expenses, action.fromIndex, action.toIndex) }
           : s,
       );
       return { ...state, proposal: { ...state.proposal, sections }, autosaveStatus: 'idle' };
