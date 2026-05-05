@@ -42,11 +42,13 @@ export type ProjectEditorAction =
 
   | { type: 'ADD_PHASE' }
   | { type: 'REMOVE_PHASE'; index: number }
+  | { type: 'REORDER_PHASES'; fromIndex: number; toIndex: number }
   | { type: 'UPDATE_PHASE'; index: number; patch: Partial<ProjectPhase> }
 
   | { type: 'ADD_TASK'; phaseIndex: number }
   | { type: 'UPDATE_TASK'; phaseIndex: number; taskIndex: number; patch: Partial<ProjectTask> }
   | { type: 'REMOVE_TASK'; phaseIndex: number; taskIndex: number }
+  | { type: 'REORDER_TASKS'; phaseIndex: number; fromIndex: number; toIndex: number }
 
   | { type: 'ADD_EXPENSE'; phaseIndex: number }
   | { type: 'UPDATE_EXPENSE'; phaseIndex: number; expenseIndex: number; patch: Partial<ProjectExpense> }
@@ -67,8 +69,8 @@ export type ProjectEditorAction =
  *  Header-only changes use a separate save (project.updateHeader) handled
  *  by callers, so they don't enter this set. */
 const PAYLOAD_MUTATIONS = new Set<ProjectEditorAction['type']>([
-  'ADD_PHASE', 'REMOVE_PHASE', 'UPDATE_PHASE',
-  'ADD_TASK', 'UPDATE_TASK', 'REMOVE_TASK',
+  'ADD_PHASE', 'REMOVE_PHASE', 'UPDATE_PHASE', 'REORDER_PHASES',
+  'ADD_TASK', 'UPDATE_TASK', 'REMOVE_TASK', 'REORDER_TASKS',
   'ADD_EXPENSE', 'UPDATE_EXPENSE', 'REMOVE_EXPENSE',
   'ADD_RESOURCE', 'UPDATE_RESOURCE', 'REMOVE_RESOURCE',
 ]);
@@ -147,6 +149,38 @@ function step(state: ProjectEditorState, action: ProjectEditorAction): ProjectEd
       return mergePayload(state, { phases });
     }
 
+    case 'REORDER_PHASES': {
+      if (action.fromIndex === action.toIndex) return state;
+      const original = state.project.payload.phases;
+      if (action.fromIndex < 0 || action.fromIndex >= original.length) return state;
+      if (action.toIndex < 0 || action.toIndex >= original.length) return state;
+      // 1) Move the phase. phase_no values are still the OLD values here.
+      const moved = original.slice();
+      const [pulled] = moved.splice(action.fromIndex, 1);
+      moved.splice(action.toIndex, 0, pulled);
+      // 2) Map old phase_no → new phase_no based on new position, then renumber.
+      const phaseNoMap = new Map<number, number>();
+      moved.forEach((p, i) => { phaseNoMap.set(p.phase_no, i + 1); });
+      const phases = moved.map((p, i) => ({ ...p, phase_no: i + 1 }));
+      // 3) Resources reference phase by phase_no — translate.
+      const resources = state.project.payload.resources.map((r) => ({
+        ...r,
+        phase_no: phaseNoMap.get(r.phase_no) ?? r.phase_no,
+      }));
+      // 4) Keep activePhaseIndex tracking the same logical phase if it moved.
+      let newActive = state.activePhaseIndex;
+      if (state.activePhaseIndex === action.fromIndex) {
+        newActive = action.toIndex;
+      } else {
+        const lo = Math.min(action.fromIndex, action.toIndex);
+        const hi = Math.max(action.fromIndex, action.toIndex);
+        if (state.activePhaseIndex >= lo && state.activePhaseIndex <= hi) {
+          newActive = state.activePhaseIndex + (action.fromIndex < action.toIndex ? -1 : 1);
+        }
+      }
+      return mergePayload(state, { phases, resources }, { activePhaseIndex: newActive });
+    }
+
     case 'ADD_TASK': {
       const phases = state.project.payload.phases.map((p, i) => {
         if (i !== action.phaseIndex) return p;
@@ -180,6 +214,21 @@ function step(state: ProjectEditorState, action: ProjectEditorAction): ProjectEd
         const tasks = p.tasks
           .filter((_, ti) => ti !== action.taskIndex)
           .map((t, ti) => ({ ...t, task_no: ti + 1 }));
+        return { ...p, tasks };
+      });
+      return mergePayload(state, { phases });
+    }
+
+    case 'REORDER_TASKS': {
+      if (action.fromIndex === action.toIndex) return state;
+      const phases = state.project.payload.phases.map((p, i) => {
+        if (i !== action.phaseIndex) return p;
+        if (action.fromIndex < 0 || action.fromIndex >= p.tasks.length) return p;
+        if (action.toIndex < 0 || action.toIndex >= p.tasks.length) return p;
+        const moved = p.tasks.slice();
+        const [pulled] = moved.splice(action.fromIndex, 1);
+        moved.splice(action.toIndex, 0, pulled);
+        const tasks = moved.map((t, ti) => ({ ...t, task_no: ti + 1 }));
         return { ...p, tasks };
       });
       return mergePayload(state, { phases });
