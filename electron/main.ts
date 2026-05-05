@@ -1,6 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
+import { spawn } from 'node:child_process';
 import BetterSqlite3 from 'better-sqlite3';
 import { migrate } from './db/schema';
 import {
@@ -501,6 +502,38 @@ function registerIpc(): void {
   ipcMain.handle(IPC.OS_REVEAL_IN_EXPLORER, async (_e, p: string) => {
     if (!fs.existsSync(p)) throw new Error(`File not found: ${p}`);
     shell.showItemInFolder(p);
+    return { ok: true as const };
+  });
+
+  // Put a *file* on the Windows clipboard (CF_HDROP) so the user can paste
+  // (Ctrl+V) it as an attachment in Outlook/Gmail/Explorer — exactly like
+  // Ctrl+C from File Explorer. Electron's built-in clipboard module only
+  // does text/image, so we shell out to PowerShell's Set-Clipboard, which
+  // supports -LiteralPath natively. Encoded as base64 UTF-16LE to bypass
+  // PowerShell's argument-parsing quirks (paths with apostrophes, &, etc.).
+  ipcMain.handle(IPC.OS_COPY_FILE_TO_CLIPBOARD, async (_e, p: string) => {
+    if (process.platform !== 'win32') {
+      throw new Error('Copy-file-to-clipboard is only supported on Windows.');
+    }
+    if (!fs.existsSync(p)) throw new Error(`File not found: ${p}`);
+    // -LiteralPath is single-quoted; double any embedded single quotes per
+    // PowerShell quoting rules.
+    const escaped = p.replace(/'/g, "''");
+    const psCommand = `Set-Clipboard -LiteralPath '${escaped}'`;
+    const encoded = Buffer.from(psCommand, 'utf16le').toString('base64');
+    await new Promise<void>((resolve, reject) => {
+      const ps = spawn('powershell.exe', [
+        '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+        '-EncodedCommand', encoded,
+      ], { windowsHide: true });
+      let stderr = '';
+      ps.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
+      ps.on('error', reject);
+      ps.on('close', (code) => {
+        if (code === 0) resolve();
+        else reject(new Error(`powershell exited ${code}: ${stderr.trim() || 'no stderr'}`));
+      });
+    });
     return { ok: true as const };
   });
 }

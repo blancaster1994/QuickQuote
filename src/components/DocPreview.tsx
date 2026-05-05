@@ -174,12 +174,16 @@ function SectionBlock({ section, index, isActive }: { section: Section; index: n
       </div>
 
       {section.scope && (
-        <div style={{
-          fontSize: 12, textAlign: 'justify',
-          marginBottom: 12, whiteSpace: 'pre-wrap',
-        }}>
-          {section.scope}
-        </div>
+        <RichText text={section.scope} />
+      )}
+
+      {section.exclusions && section.exclusions.trim() && (
+        <>
+          <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+            Scope specifically excluded:
+          </div>
+          <RichText text={section.exclusions} />
+        </>
       )}
 
       <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
@@ -206,5 +210,66 @@ function GrandTotal({ sum }: { sum: number }) {
         {fmt$(sum)}
       </div>
     </div>
+  );
+}
+
+// Mirror of the DOCX-side list rendering: lines starting with "- " or "* "
+// group into a <ul>; "1. " / "2. " etc. group into an <ol>; everything else
+// renders as a justified paragraph block. Keeps the editor and the generated
+// document in visual sync.
+type RichTextBlock =
+  | { kind: 'ul'; items: string[] }
+  | { kind: 'ol'; items: string[] }
+  | { kind: 'p'; lines: string[] };
+
+function parseRichText(text: string): RichTextBlock[] {
+  const blocks: RichTextBlock[] = [];
+  for (const raw of text.split('\n')) {
+    const bul = /^\s*[-*]\s+(.*)$/.exec(raw);
+    const num = /^\s*\d+\.\s+(.*)$/.exec(raw);
+    const last = blocks[blocks.length - 1];
+    if (bul) {
+      if (last && last.kind === 'ul') last.items.push(bul[1]);
+      else blocks.push({ kind: 'ul', items: [bul[1]] });
+    } else if (num) {
+      if (last && last.kind === 'ol') last.items.push(num[1]);
+      else blocks.push({ kind: 'ol', items: [num[1]] });
+    } else {
+      if (last && last.kind === 'p') last.lines.push(raw);
+      else blocks.push({ kind: 'p', lines: [raw] });
+    }
+  }
+  return blocks;
+}
+
+function RichText({ text }: { text: string }) {
+  const blocks = parseRichText(text);
+  return (
+    <>
+      {blocks.map((b, i) => {
+        if (b.kind === 'ul') {
+          return (
+            <ul key={i} style={{ fontSize: 12, margin: '0 0 12px 0', paddingLeft: 22 }}>
+              {b.items.map((it, j) => <li key={j} style={{ textAlign: 'justify' }}>{it}</li>)}
+            </ul>
+          );
+        }
+        if (b.kind === 'ol') {
+          return (
+            <ol key={i} style={{ fontSize: 12, margin: '0 0 12px 0', paddingLeft: 22 }}>
+              {b.items.map((it, j) => <li key={j} style={{ textAlign: 'justify' }}>{it}</li>)}
+            </ol>
+          );
+        }
+        return (
+          <div key={i} style={{
+            fontSize: 12, textAlign: 'justify',
+            marginBottom: 12, whiteSpace: 'pre-wrap',
+          }}>
+            {b.lines.join('\n')}
+          </div>
+        );
+      })}
+    </>
   );
 }

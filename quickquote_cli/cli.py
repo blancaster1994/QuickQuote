@@ -21,13 +21,16 @@ Input shape (Electron builds this from a proposal + signer lookup):
        "client_contact": "...", "client_address": "...",
        "client_city": "...",  // {{CLIENT_CITY_STATE_ZIP}} placeholder
        "scope_title": "...", "scope_of_work": "...",
+       "scope_excluded": "...",  // optional; renders as
+                                  // "Scope specifically excluded: ..." paragraph
+                                  // under the scope of work
        "signer_name": "...", "signer_title": "..."
     },
     "section1_fee": "<numeric string or empty>",
     "section1_billing_type": "fixed" | "tm",
     "section1_nte": false,
     "extra_sections": [
-       [title, scope, fee, billing_type, nte_flag], ...
+       [title, scope, fee, billing_type, nte_flag, exclusions], ...
     ]
   }
 

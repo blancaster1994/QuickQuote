@@ -4,8 +4,8 @@
 //
 // Direct port of QuickProp's SectionEditor.jsx.
 
-import { useState, type Dispatch } from 'react';
-import { Field, FieldLabel, FieldMoney, SegmentedControl, TextArea } from './shared';
+import { useRef, useState, type Dispatch } from 'react';
+import { Field, FieldLabel, FieldMoney, SegmentedControl } from './shared';
 import { ConfirmDialog } from './ui';
 import FeeCalculator from './FeeCalculator';
 import { fmt$ } from '../lib/formatting';
@@ -59,9 +59,16 @@ export default function SectionEditor({ section, total, state, dispatch }: Secti
       <div style={{ height: 10 }} />
 
       <FieldLabel>Scope of work</FieldLabel>
-      <TextArea value={section.scope}
+      <RichScopeEditor value={section.scope}
         onChange={(v) => patch({ scope: v })}
         placeholder="Describe the work this bid item covers…" />
+
+      <div style={{ height: 10 }} />
+
+      <FieldLabel>Exclusions</FieldLabel>
+      <RichScopeEditor value={section.exclusions}
+        onChange={(v) => patch({ exclusions: v })}
+        placeholder="What's NOT covered. Will be prefixed with 'Scope specifically excluded:' in the proposal." />
 
       <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr 1fr', gap: 12, marginTop: 12 }}>
         <div>
@@ -135,6 +142,113 @@ export default function SectionEditor({ section, total, state, dispatch }: Secti
           dispatch({ type: 'REMOVE_SECTION', id: section.id });
         }}
         onCancel={() => setConfirmRemove(false)}
+      />
+    </div>
+  );
+}
+
+// ── Rich-ish scope editor ───────────────────────────────────────────────────
+// Plain-text storage with two list-marker toggles. The user types regular
+// text; clicking Bullet adds "- " to the current/selected lines, Number
+// renumbers them. The preview and DOCX renderers detect the markers and
+// render proper lists. No third-party rich-text dependency.
+
+interface RichScopeEditorProps {
+  value: string | null | undefined;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  minHeight?: number;
+}
+
+function RichScopeEditor({ value, onChange, placeholder, minHeight = 90 }: RichScopeEditorProps) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  function applyToLines(transform: (lines: string[]) => string[]) {
+    const ta = ref.current;
+    if (!ta) return;
+    const v = ta.value;
+    const ss = ta.selectionStart;
+    const se = ta.selectionEnd;
+    // Expand selection to whole lines.
+    const lineStart = v.lastIndexOf('\n', ss - 1) + 1;
+    const afterEnd = v.indexOf('\n', se);
+    const lineEnd = afterEnd === -1 ? v.length : afterEnd;
+    const block = v.slice(lineStart, lineEnd);
+    const newBlock = transform(block.split('\n')).join('\n');
+    const next = v.slice(0, lineStart) + newBlock + v.slice(lineEnd);
+    onChange(next);
+    requestAnimationFrame(() => {
+      const t = ref.current;
+      if (t) {
+        t.focus();
+        t.setSelectionRange(lineStart, lineStart + newBlock.length);
+      }
+    });
+  }
+
+  function toggleBullet() {
+    applyToLines((lines) => {
+      const nonEmpty = lines.filter(l => l.trim() !== '');
+      const allBulleted = nonEmpty.length > 0 && nonEmpty.every(l => /^\s*[-*]\s+/.test(l));
+      if (allBulleted) {
+        return lines.map(l => l.replace(/^(\s*)[-*]\s+/, '$1'));
+      }
+      return lines.map((l) => {
+        if (l.trim() === '') return l;
+        if (/^\s*[-*]\s+/.test(l)) return l;
+        const stripped = l.replace(/^(\s*)\d+\.\s+/, '$1');
+        return stripped.replace(/^(\s*)/, '$1- ');
+      });
+    });
+  }
+
+  function toggleNumbers() {
+    applyToLines((lines) => {
+      const nonEmpty = lines.filter(l => l.trim() !== '');
+      const allNumbered = nonEmpty.length > 0 && nonEmpty.every(l => /^\s*\d+\.\s+/.test(l));
+      if (allNumbered) {
+        return lines.map(l => l.replace(/^(\s*)\d+\.\s+/, '$1'));
+      }
+      let n = 1;
+      return lines.map((l) => {
+        if (l.trim() === '') return l;
+        const stripped = l.replace(/^(\s*)[-*]\s+/, '$1').replace(/^(\s*)\d+\.\s+/, '$1');
+        return stripped.replace(/^(\s*)/, `$1${n++}. `);
+      });
+    });
+  }
+
+  const tbBtn = {
+    height: 24, padding: '0 8px', borderRadius: 5,
+    background: 'var(--canvas)', color: 'var(--ink)',
+    border: '1px solid var(--hair)',
+    fontSize: 11, fontWeight: 600, cursor: 'pointer',
+    fontFamily: 'var(--sans)',
+  } as const;
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 4, marginBottom: 4 }}>
+        <button type="button" onClick={toggleBullet} style={tbBtn}
+          title="Bullet list — toggles '- ' on the current line(s).">
+          • Bullet
+        </button>
+        <button type="button" onClick={toggleNumbers} style={tbBtn}
+          title="Numbered list — renumbers the current line(s) as 1., 2., 3., …">
+          1. Number
+        </button>
+      </div>
+      <textarea
+        ref={ref}
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        style={{
+          width: '100%', minHeight, border: '1px solid var(--hair)', borderRadius: 7,
+          padding: 10, fontSize: 13, lineHeight: 1.5, color: 'var(--body)',
+          fontFamily: 'var(--sans)', resize: 'vertical', background: 'var(--surface)',
+          outline: 'none',
+        }}
       />
     </div>
   );

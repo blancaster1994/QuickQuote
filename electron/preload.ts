@@ -103,8 +103,9 @@ const api = {
 
   // ── OS integration ────────────────────────────────────────────────────────
   os: {
-    openFile:         (path: string) => ipcRenderer.invoke('os:openFile', path),
-    revealInExplorer: (path: string) => ipcRenderer.invoke('os:revealInExplorer', path),
+    openFile:             (path: string) => ipcRenderer.invoke('os:openFile', path),
+    revealInExplorer:     (path: string) => ipcRenderer.invoke('os:revealInExplorer', path),
+    copyFileToClipboard:  (path: string) => ipcRenderer.invoke('os:copyFileToClipboard', path),
   },
 
   // ── PM-mode admin (Stage 2) ───────────────────────────────────────────────
