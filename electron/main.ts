@@ -454,15 +454,15 @@ function registerIpc(): void {
     const db = requireDb();
     const actor = actorFromIdentity();
     const proposal = Q.loadProposal(db, payload.proposalName);
-    let phases = sectionsToPhases(proposal.sections || [],
-      payload.header.rate_table || proposal.rateTable || '');
+    const defaultRateTable = payload.header.rate_table || proposal.rateTable || '';
+    let phases = sectionsToPhases(proposal.sections || [], defaultRateTable);
     if (payload.template?.name) {
       const tplRows = Lookups.listTemplatePhases(db, {
         legal_entity: payload.header.legal_entity,
         department:   payload.header.department,
         template:     payload.template.name,
       });
-      phases = applyPhaseTemplate(phases, tplRows, payload.template.mode);
+      phases = applyPhaseTemplate(phases, tplRows, payload.template.mode, defaultRateTable);
     }
     return Project.initializeProject(
       db,

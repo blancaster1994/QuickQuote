@@ -257,6 +257,10 @@ export interface RateRow {
   id?: number;
   legal_entity: string;
   rate_table: string;
+  /** Legacy v1 column — empty for rows entered through the v2 editor, but
+   *  still populated for rows imported from QuickProp. Surfaced in the
+   *  editor so admins can see what's actually there. */
+  rate_key?: string;
   category: string;
   resource_id: string | null;
   price: number;
@@ -270,9 +274,21 @@ export function listRates(
 ): RateRow[] {
   const where: string[] = [];
   const args: unknown[] = [];
-  if (filters.legal_entity) { where.push('legal_entity=?'); args.push(filters.legal_entity); }
-  if (filters.rate_table)   { where.push('rate_table=?');   args.push(filters.rate_table); }
-  const sql = `SELECT id, legal_entity, rate_table, category, resource_id, price, effective_date, end_date FROM rate_entry ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY legal_entity, rate_table, category, resource_id`;
+  if (filters.legal_entity) {
+    // Inclusive filter: a project tagged 'CES' should still see rates that
+    // apply globally (legal_entity=''). Strict equality hid every legacy
+    // QuickProp-imported row.
+    where.push("(legal_entity=? COLLATE NOCASE OR legal_entity='')");
+    args.push(filters.legal_entity);
+  }
+  if (filters.rate_table) {
+    // rate_table casing is inconsistent across data sources (v1 imports use
+    // lowercase 'structural'/'consulting'; the v2 editor lets you type any
+    // case). NOCASE keeps both filterable from the same dropdown.
+    where.push('rate_table=? COLLATE NOCASE');
+    args.push(filters.rate_table);
+  }
+  const sql = `SELECT id, legal_entity, rate_table, rate_key, category, resource_id, price, effective_date, end_date FROM rate_entry ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY legal_entity, rate_table, category, resource_id`;
   return db.prepare(sql).all(...args) as RateRow[];
 }
 
@@ -298,44 +314,86 @@ export function lookupRate(
   // the lookup instead). Without the fallback, a project with
   // legal_entity='CES' never matches anything imported from QuickProp.
   // Priority: v2 strict > v2 empty-entity > v1 fallback.
+  // Treat empty-string resource_id the same as NULL — QuickProp imports
+  // historically left blank cells as '' rather than NULL, and SQL `=` against
+  // NULL is always false so the strict tiers would silently miss those rows.
+  const ridNullish = rid == null || rid === '' ? null : rid;
+  // Note on COLLATE NOCASE:
+  //   v1 imports (QuickProp) write rate_table values like 'structural' /
+  //   'consulting' (lowercase). The v2 editor lets users pick any casing
+  //   from the rate_table lookup table — typically capitalized 'Structural'.
+  //   SQL `=` is case-sensitive by default, so without NOCASE collation a
+  //   project on 'Structural' silently misses every 'structural' rate row.
+  // The "flat rate" tiers (2, 4, 6, 8) match rows where category='' meaning
+  // "no category — applies as a flat rate". v1 QuickProp rows ALSO have
+  // category='' but they aren't flat rates — they're keyed by rate_key. We
+  // must exclude v1 rows (rate_key set) from those tiers, otherwise the
+  // first v1 row sorted by effective_date wins for every employee and
+  // tier 9 (the proper v1 fallback) never gets to run.
   const sql = `
     SELECT price, priority, effective_date FROM (
       -- v2: strict entity, exact category + resource
       SELECT price, 1 AS priority, effective_date FROM rate_entry
-        WHERE legal_entity=? AND rate_table=? AND category=? AND resource_id=?
+        WHERE legal_entity=? AND rate_table=? COLLATE NOCASE AND category=? AND COALESCE(resource_id,'')=?
       UNION ALL
       SELECT price, 2, effective_date FROM rate_entry
-        WHERE legal_entity=? AND rate_table=? AND category='' AND resource_id=?
+        WHERE legal_entity=? AND rate_table=? COLLATE NOCASE AND category='' AND COALESCE(rate_key,'')='' AND COALESCE(resource_id,'')=?
       UNION ALL
       SELECT price, 3, effective_date FROM rate_entry
-        WHERE legal_entity=? AND rate_table=? AND category=? AND resource_id IS NULL
+        WHERE legal_entity=? AND rate_table=? COLLATE NOCASE AND category=? AND (resource_id IS NULL OR resource_id='')
       UNION ALL
       SELECT price, 4, effective_date FROM rate_entry
-        WHERE legal_entity=? AND rate_table=? AND category='' AND resource_id IS NULL
+        WHERE legal_entity=? AND rate_table=? COLLATE NOCASE AND category='' AND COALESCE(rate_key,'')='' AND (resource_id IS NULL OR resource_id='')
       UNION ALL
       -- v2 entity-less fallback: QuickProp imports landed with
       -- legal_entity=''. If the strict-entity tiers miss, try again
-      -- without filtering on entity.
+      -- without filtering on entity. Cover all four (category,resource_id)
+      -- permutations so per-employee imported rates also match.
       SELECT price, 5, effective_date FROM rate_entry
-        WHERE legal_entity='' AND rate_table=? AND category=? AND resource_id IS NULL
+        WHERE legal_entity='' AND rate_table=? COLLATE NOCASE AND category=? AND COALESCE(resource_id,'')=?
+      UNION ALL
+      SELECT price, 6, effective_date FROM rate_entry
+        WHERE legal_entity='' AND rate_table=? COLLATE NOCASE AND category='' AND COALESCE(rate_key,'')='' AND COALESCE(resource_id,'')=?
+      UNION ALL
+      SELECT price, 7, effective_date FROM rate_entry
+        WHERE legal_entity='' AND rate_table=? COLLATE NOCASE AND category=? AND (resource_id IS NULL OR resource_id='')
+      UNION ALL
+      SELECT price, 8, effective_date FROM rate_entry
+        WHERE legal_entity='' AND rate_table=? COLLATE NOCASE AND category='' AND COALESCE(rate_key,'')='' AND (resource_id IS NULL OR resource_id='')
       UNION ALL
       -- v1 fallback: QuickProp shape — category_mapping maps the
       -- employee_category string to a rate_key, then rate_entry's
       -- rate_key + rate_table give the price. Only fires for legacy
       -- rows (legal_entity='') so it doesn't shadow v2-imported data.
-      SELECT re.price, 6, re.effective_date FROM rate_entry re
+      SELECT re.price, 9, re.effective_date FROM rate_entry re
         JOIN category_mapping cm ON cm.rate_key = re.rate_key
-        WHERE re.legal_entity='' AND re.rate_table=? AND cm.employee_category=?
+        WHERE re.legal_entity='' AND re.rate_table=? COLLATE NOCASE AND cm.employee_category=?
+      UNION ALL
+      -- Last-resort entity-agnostic fallback: when nothing above matched,
+      -- try (rate_table, category) regardless of legal_entity. Covers
+      -- rates whose legal_entity is set but doesn't equal the project's
+      -- (e.g. spelling/casing differences, multi-entity shared rate
+      -- tables). Case-insensitive on category to also catch typo skew.
+      -- Excludes v1 rows (rate_key set) so a category='' lookup doesn't
+      -- accidentally pick up a legacy row.
+      SELECT price, 10, effective_date FROM rate_entry
+        WHERE rate_table=? COLLATE NOCASE AND LOWER(TRIM(category))=LOWER(TRIM(?))
+              AND COALESCE(rate_key,'')=''
+              AND (resource_id IS NULL OR resource_id='')
     )
     ORDER BY priority, effective_date DESC
     LIMIT 1`;
   const row = db.prepare(sql).get(
-    legalEntity, rateTable, cat, rid ?? '',
-    legalEntity, rateTable, rid ?? '',
-    legalEntity, rateTable, cat,
-    legalEntity, rateTable,
-    rateTable, cat,
-    rateTable, cat,
+    legalEntity, rateTable, cat, ridNullish ?? '',     // 1
+    legalEntity, rateTable, ridNullish ?? '',          // 2
+    legalEntity, rateTable, cat,                       // 3
+    legalEntity, rateTable,                            // 4
+    rateTable, cat, ridNullish ?? '',                  // 5
+    rateTable, ridNullish ?? '',                       // 6
+    rateTable, cat,                                    // 7
+    rateTable,                                         // 8
+    rateTable, cat,                                    // 9
+    rateTable, cat,                                    // 10
   ) as { price: number } | undefined;
   return row?.price ?? null;
 }

@@ -1,20 +1,7 @@
-// Persistent left navigation rail. 200px wide, three primary destinations
-// (Dashboard, Editor = currently-open proposal, Lookups admin) plus a
-// user-identity menu in the footer. Dashboard is the canonical "find a
-// proposal" surface (search + filter + sort); the Editor link only opens
-// whatever proposal is already loaded.
-//
-// Visual decisions:
-//   · Active state is derived from (state.view, state.lookupsOpen) so the
-//     three buttons are mutually exclusive in lit-up appearance.
-//   · Clicking Lookups dispatches SET_LOOKUPS_OPEN(true) — it overlays the
-//     main area, doesn't replace it. The active "Proposals/Dashboard" item
-//     keeps its visual state under the panel so closing the panel feels
-//     coherent.
-//   · Clicking Dashboard or Proposals while lookups is open closes the panel
-//     and switches view in one dispatch chain.
-//   · Footer renders the identity popover (lifted from TopBar). Anchors above
-//     the avatar so it doesn't fall off the bottom of the viewport.
+// Persistent left navigation rail. 200px wide, two primary destinations
+// (Dashboard, Editor = currently-open proposal) plus a user-identity menu
+// in the footer. Lookups now lives in TopBar's gear icon — it's an admin
+// surface, not a peer of the proposal pipeline.
 
 import { useState, type Dispatch } from 'react';
 import type { EditorAction, EditorState } from '../state/editorReducer';
@@ -27,15 +14,10 @@ interface SidebarProps {
 export default function Sidebar({ state, dispatch }: SidebarProps) {
   const { view, lookupsOpen } = state;
 
-  // Visual lit-up rule: Lookups wins when open; otherwise it follows view.
-  const activeKey: 'dashboard' | 'proposals' | 'lookups' =
-    lookupsOpen ? 'lookups' : (view === 'dashboard' ? 'dashboard' : 'proposals');
+  const activeKey: 'dashboard' | 'proposals' =
+    view === 'dashboard' ? 'dashboard' : 'proposals';
 
-  function go(key: 'dashboard' | 'proposals' | 'lookups') {
-    if (key === 'lookups') {
-      dispatch({ type: 'SET_LOOKUPS_OPEN', open: !lookupsOpen });
-      return;
-    }
+  function go(key: 'dashboard' | 'proposals') {
     if (lookupsOpen) dispatch({ type: 'SET_LOOKUPS_OPEN', open: false });
     dispatch({ type: 'SET_VIEW', view: key === 'dashboard' ? 'dashboard' : 'editor' });
   }
@@ -59,12 +41,6 @@ export default function Sidebar({ state, dispatch }: SidebarProps) {
           onClick={() => go('proposals')}
           label="Editor"
           icon={<ProposalsIcon active={activeKey === 'proposals'} />}
-        />
-        <NavItem
-          active={activeKey === 'lookups'}
-          onClick={() => go('lookups')}
-          label="Lookups"
-          icon={<LookupsIcon active={activeKey === 'lookups'} />}
         />
       </div>
 
@@ -213,17 +189,6 @@ function ProposalsIcon({ active }: { active: boolean }) {
       <line x1="4.5" y1="7.5" x2="9.5" y2="7.5" stroke={c} strokeWidth="1.2" />
       <line x1="4.5" y1="9.5" x2="9.5" y2="9.5" stroke={c} strokeWidth="1.2" />
       <line x1="4.5" y1="11.5" x2="7.5" y2="11.5" stroke={c} strokeWidth="1.2" />
-    </svg>
-  );
-}
-
-function LookupsIcon({ active }: { active: boolean }) {
-  const c = active ? 'var(--navy-deep)' : 'var(--muted)';
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-      <rect x="1.5" y="2.5" width="11" height="9" rx="1" stroke={c} strokeWidth="1.3" />
-      <line x1="1.5" y1="5.5" x2="12.5" y2="5.5" stroke={c} strokeWidth="1.2" />
-      <line x1="5.5" y1="2.5" x2="5.5" y2="11.5" stroke={c} strokeWidth="1.2" />
     </svg>
   );
 }

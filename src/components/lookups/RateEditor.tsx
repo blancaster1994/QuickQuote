@@ -13,7 +13,11 @@ import type { RateEntry } from '../../types/domain';
 
 type PendingImport = { rows: Array<Omit<RateEntry, 'id'>>; filePath: string };
 
-export default function RateEditor() {
+interface RateEditorProps {
+  disabled?: boolean;
+}
+
+export default function RateEditor({ disabled }: RateEditorProps = {}) {
   const [rows, setRows] = useState<RateEntry[]>([]);
   const [rateTables, setRateTables] = useState<string[]>([]);
   const [legalEntities, setLegalEntities] = useState<string[]>([]);
@@ -110,7 +114,7 @@ export default function RateEditor() {
     <div className="card">
       <h3>Rate Table</h3>
       <p className="muted">
-        Lookup priority: (category + resource) → (resource-only flat) → (category only) → (rate-table flat). Leave Category blank for a flat rate; set Resource ID to override for one employee.
+        Lookup priority: (category + resource) → (resource-only flat) → (category only) → (rate-table flat). Leave Category blank for a flat rate; set Resource ID to override for one employee. Rows with a <strong>Rate Key</strong> instead of Category are legacy QuickProp imports — they still resolve via the employee category mapping. Filtering by Legal Entity also includes blank-entity rows so legacy rates stay visible.
       </p>
       <div className="toolbar">
         <label>Legal Entity:</label>
@@ -130,52 +134,80 @@ export default function RateEditor() {
           style={{ flex: 1, maxWidth: 280 }}
         />
         <div className="spacer" />
-        <button onClick={() => void addBlank()}>+ Add Row</button>
-        <button className="primary" onClick={() => void importFile()}>Import from File…</button>
+        <button onClick={() => void addBlank()} disabled={disabled}>+ Add Row</button>
+        <button className="primary" onClick={() => void importFile()} disabled={disabled}>Import from File…</button>
       </div>
       {importMsg && <div className="success">{importMsg}</div>}
       <div style={{ maxHeight: 500, overflow: 'auto' }}>
         <table>
           <thead>
             <tr>
-              <th>Legal Entity</th><th>Rate Table</th><th>Category</th><th>Resource ID</th>
+              <th>Legal Entity</th><th>Rate Table</th><th>Category</th><th>Rate Key</th><th>Resource ID</th>
               <th className="num">Price</th><th>Effective</th><th>End</th><th style={{ width: 40 }}></th>
             </tr>
           </thead>
           <tbody>
-            {filtered.map(r => (
-              <tr key={r.id}>
-                <td>
-                  <select defaultValue={r.legal_entity} onChange={(e) => void save(r, { legal_entity: e.target.value })}>
-                    {legalEntities.map(n => <option key={n} value={n}>{n}</option>)}
-                  </select>
-                </td>
-                <td>
-                  <select defaultValue={r.rate_table} onChange={(e) => void save(r, { rate_table: e.target.value })}>
-                    {rateTables.map(n => <option key={n} value={n}>{n}</option>)}
-                  </select>
-                </td>
-                <td>
-                  <input
-                    defaultValue={r.category}
-                    placeholder="(flat)"
-                    onBlur={(e) => void save(r, { category: e.target.value })}
-                    title={r.category === '' ? 'No category — applies as a flat rate' : ''}
-                  />
-                </td>
-                <td>
-                  <input
-                    defaultValue={r.resource_id ?? ''}
-                    placeholder="(any employee)"
-                    onBlur={(e) => void save(r, { resource_id: e.target.value.trim() || null })}
-                  />
-                </td>
-                <td className="num"><input type="number" step="0.01" defaultValue={r.price} onBlur={(e) => void save(r, { price: parseFloat(e.target.value) || 0 })} /></td>
-                <td><input type="date" defaultValue={r.effective_date ?? ''} onBlur={(e) => void save(r, { effective_date: e.target.value || null })} /></td>
-                <td><input type="date" defaultValue={r.end_date ?? ''} onBlur={(e) => void save(r, { end_date: e.target.value || null })} /></td>
-                <td><button className="delete-x" onClick={() => setPendingDelete(r)}>&times;</button></td>
-              </tr>
-            ))}
+            {filtered.map(r => {
+              const isLegacy = !r.category && !!r.rate_key;
+              return (
+                <tr key={r.id} style={isLegacy ? { background: '#FFFBEB' } : undefined}>
+                  <td>
+                    <select defaultValue={r.legal_entity} disabled={disabled} onChange={(e) => void save(r, { legal_entity: e.target.value })}>
+                      {/* Allow blank legal_entity for legacy/global rates so the dropdown
+                          can render the value imported rows actually carry. */}
+                      <option value="">(any/legacy)</option>
+                      {legalEntities.map(n => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                  </td>
+                  <td>
+                    <select defaultValue={r.rate_table} disabled={disabled} onChange={(e) => void save(r, { rate_table: e.target.value })}>
+                      {/* Include the row's actual value even if it's not in the
+                          rate_table lookup list (e.g. lowercase 'structural' from v1
+                          imports vs 'Structural' in the lookup). Otherwise it would
+                          render blank and a blur would clobber the data. */}
+                      {!rateTables.some(n => n.toLowerCase() === r.rate_table.toLowerCase()) && r.rate_table && (
+                        <option value={r.rate_table}>{r.rate_table} (legacy)</option>
+                      )}
+                      {rateTables.map(n => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                  </td>
+                  <td>
+                    <input
+                      defaultValue={r.category}
+                      placeholder={isLegacy ? '(uses rate key →)' : '(flat)'}
+                      disabled={disabled}
+                      onBlur={(e) => void save(r, { category: e.target.value })}
+                      title={isLegacy
+                        ? 'Legacy QuickProp row — resolves via Rate Key + category_mapping. Type a category here to migrate it to v2.'
+                        : (r.category === '' ? 'No category — applies as a flat rate' : '')}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      defaultValue={r.rate_key ?? ''}
+                      placeholder="—"
+                      readOnly
+                      title={isLegacy
+                        ? `Legacy lookup key. Bill rates pull via category_mapping[employee.category] → ${r.rate_key}.`
+                        : 'Read-only — only legacy v1 rows use rate_key.'}
+                      style={{ background: 'var(--canvas)', color: 'var(--muted)', fontFamily: 'var(--mono)', fontSize: 11 }}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      defaultValue={r.resource_id ?? ''}
+                      placeholder="(any employee)"
+                      disabled={disabled}
+                      onBlur={(e) => void save(r, { resource_id: e.target.value.trim() || null })}
+                    />
+                  </td>
+                  <td className="num"><input type="number" step="0.01" defaultValue={r.price} disabled={disabled} onBlur={(e) => void save(r, { price: parseFloat(e.target.value) || 0 })} /></td>
+                  <td><input type="date" defaultValue={r.effective_date ?? ''} disabled={disabled} onBlur={(e) => void save(r, { effective_date: e.target.value || null })} /></td>
+                  <td><input type="date" defaultValue={r.end_date ?? ''} disabled={disabled} onBlur={(e) => void save(r, { end_date: e.target.value || null })} /></td>
+                  <td><button className="delete-x" onClick={() => setPendingDelete(r)} disabled={disabled}>&times;</button></td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

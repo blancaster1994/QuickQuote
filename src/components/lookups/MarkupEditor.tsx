@@ -6,7 +6,11 @@ import { useEffect, useState } from 'react';
 import { ConfirmDialog } from '../ui';
 import type { MarkupPct } from '../../types/domain';
 
-export default function MarkupEditor() {
+interface MarkupEditorProps {
+  disabled?: boolean;
+}
+
+export default function MarkupEditor({ disabled }: MarkupEditorProps = {}) {
   const [items, setItems] = useState<MarkupPct[]>([]);
   const [newValue, setNewValue] = useState('');
   const [pendingDelete, setPendingDelete] = useState<MarkupPct | null>(null);
@@ -43,7 +47,7 @@ export default function MarkupEditor() {
             <tr key={item.id}>
               <td>{formatPct(item.value)}</td>
               <td>
-                <button className="delete-x" onClick={() => setPendingDelete(item)} aria-label="Delete">&times;</button>
+                <button className="delete-x" onClick={() => setPendingDelete(item)} aria-label="Delete" disabled={disabled}>&times;</button>
               </td>
             </tr>
           ))}
@@ -53,11 +57,12 @@ export default function MarkupEditor() {
         <input
           placeholder="New markup (e.g. 15 or 0.15)..."
           value={newValue}
+          disabled={disabled}
           onChange={(e) => setNewValue(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') void add(); }}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !disabled) void add(); }}
           style={{ flex: 1 }}
         />
-        <button className="primary" onClick={() => void add()}>Add</button>
+        <button className="primary" onClick={() => void add()} disabled={disabled}>Add</button>
       </div>
 
       <ConfirmDialog

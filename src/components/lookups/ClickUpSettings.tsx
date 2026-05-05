@@ -16,10 +16,12 @@ import type { ClickUpStatus, Identity } from '../../types/domain';
 
 interface ClickUpSettingsProps {
   identity: Identity | null;
+  disabled?: boolean;
 }
 
-export default function ClickUpSettings({ identity }: ClickUpSettingsProps) {
+export default function ClickUpSettings({ identity, disabled }: ClickUpSettingsProps) {
   const isAdmin = canDo(identity?.role, 'manage');
+  const lock = !!disabled;
 
   const [status, setStatus] = useState<ClickUpStatus | null>(null);
   const [tokenInput, setTokenInput] = useState('');
@@ -104,7 +106,7 @@ export default function ClickUpSettings({ identity }: ClickUpSettingsProps) {
             ? <span style={{ color: '#047857', fontWeight: 600 }}>enabled</span>
             : <span style={{ color: '#92400e', fontWeight: 600 }}>disabled</span>
         } extra={status.configured && (
-          <button onClick={() => void toggleEnabled()} disabled={busy === 'toggle'} style={{ marginLeft: 8 }}>
+          <button onClick={() => void toggleEnabled()} disabled={lock || busy === 'toggle'} style={{ marginLeft: 8 }}>
             {status.enabled ? 'Disable sync' : 'Enable sync'}
           </button>
         )} />
@@ -114,7 +116,7 @@ export default function ClickUpSettings({ identity }: ClickUpSettingsProps) {
         <Row label="Last updated"          value={status.updated_at ? new Date(status.updated_at).toLocaleString() : '—'} />
 
         <div style={{ marginTop: 14, display: 'flex', gap: 8, alignItems: 'center' }}>
-          <button onClick={() => void testConnection()} disabled={busy === 'test' || !status.configured} className="primary">
+          <button onClick={() => void testConnection()} disabled={lock || busy === 'test' || !status.configured} className="primary">
             {busy === 'test' ? 'Testing…' : 'Test connection'}
           </button>
           {testResult && (
@@ -147,6 +149,7 @@ export default function ClickUpSettings({ identity }: ClickUpSettingsProps) {
             type="password"
             placeholder="pk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
             value={tokenInput}
+            disabled={lock}
             onChange={(e) => setTokenInput(e.target.value)}
             autoComplete="off"
             spellCheck={false}
@@ -156,14 +159,14 @@ export default function ClickUpSettings({ identity }: ClickUpSettingsProps) {
         <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
           <button
             onClick={() => void rotateToken()}
-            disabled={busy === 'rotate' || !tokenInput.trim() || !/^pk_/.test(tokenInput.trim())}
+            disabled={lock || busy === 'rotate' || !tokenInput.trim() || !/^pk_/.test(tokenInput.trim())}
             className="primary"
           >
             {busy === 'rotate' ? 'Saving…' : 'Save token'}
           </button>
           <button
             onClick={() => setTokenInput('')}
-            disabled={busy === 'rotate' || !tokenInput}
+            disabled={lock || busy === 'rotate' || !tokenInput}
           >Clear</button>
         </div>
         {tokenInput && !/^pk_/.test(tokenInput.trim()) && (

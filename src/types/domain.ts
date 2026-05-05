@@ -364,6 +364,10 @@ export interface RateEntry {
   id: ID;
   legal_entity: string;
   rate_table: string;
+  /** Legacy v1 lookup key — populated for QuickProp-imported rows where
+   *  category is empty. The lookup falls back to category_mapping when this
+   *  is set. Read-only in the editor; new rows use category instead. */
+  rate_key?: string;
   category: string;
   resource_id: string | null;
   price: number;

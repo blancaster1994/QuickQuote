@@ -88,6 +88,30 @@ export default function TopBar({
 
       <AutosavePill status={autosaveStatus} />
 
+      {/* Lookups gear — opens the slide-out admin panel. Lives here instead
+          of the sidebar so the left rail stays focused on Dashboard / Editor. */}
+      <button
+        onClick={() => dispatch({ type: 'SET_LOOKUPS_OPEN', open: !state.lookupsOpen })}
+        title="Lookups & settings"
+        aria-label="Open lookups"
+        style={{
+          width: 32, height: 30, padding: 0,
+          background: state.lookupsOpen ? 'var(--navy-tint)' : 'transparent',
+          color: state.lookupsOpen ? 'var(--navy-deep)' : 'var(--body)',
+          border: `1px solid ${state.lookupsOpen ? 'transparent' : 'var(--hair)'}`,
+          borderRadius: 6, cursor: 'pointer',
+          display: 'grid', placeItems: 'center',
+        }}>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+          <circle cx="7" cy="7" r="2.2"
+            stroke={state.lookupsOpen ? 'var(--navy-deep)' : 'var(--muted)'} strokeWidth="1.3" />
+          <path
+            d="M7 1.5v1.6 M7 10.9v1.6 M1.5 7h1.6 M10.9 7h1.6 M3.1 3.1l1.13 1.13 M9.77 9.77l1.13 1.13 M10.9 3.1l-1.13 1.13 M4.23 9.77l-1.13 1.13"
+            stroke={state.lookupsOpen ? 'var(--navy-deep)' : 'var(--muted)'} strokeWidth="1.3"
+            strokeLinecap="round" />
+        </svg>
+      </button>
+
       {/* Preview toggle — disabled in project mode (the doc preview is for
           proposals only; project mode hides it). */}
       <button onClick={() => !inProjectMode && dispatch({ type: 'TOGGLE_PREVIEW' })}

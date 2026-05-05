@@ -10,7 +10,11 @@ import { useEffect, useState } from 'react';
 import { ConfirmDialog } from '../ui';
 import type { PhaseDef, TaskDef } from '../../types/domain';
 
-export default function PhaseTaskEditor() {
+interface PhaseTaskEditorProps {
+  disabled?: boolean;
+}
+
+export default function PhaseTaskEditor({ disabled }: PhaseTaskEditorProps = {}) {
   const [departments, setDepartments] = useState<string[]>([]);
   const [dept, setDept] = useState<string>('');
   const [phases, setPhases] = useState<PhaseDef[]>([]);
@@ -106,8 +110,8 @@ export default function PhaseTaskEditor() {
             {phases.map(p => (
               <tr key={p.id}>
                 <td>{p.sort_order}</td>
-                <td><input defaultValue={p.name} onBlur={(e) => void renamePhase(p.id, p.name, e.target.value)} /></td>
-                <td><button className="delete-x" onClick={() => setPendingPhaseDelete(p)}>&times;</button></td>
+                <td><input defaultValue={p.name} disabled={disabled} onBlur={(e) => void renamePhase(p.id, p.name, e.target.value)} /></td>
+                <td><button className="delete-x" onClick={() => setPendingPhaseDelete(p)} disabled={disabled}>&times;</button></td>
               </tr>
             ))}
           </tbody>
@@ -116,11 +120,12 @@ export default function PhaseTaskEditor() {
           <input
             placeholder="New phase..."
             value={newPhase}
+            disabled={disabled}
             onChange={(e) => setNewPhase(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') void addPhase(); }}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !disabled) void addPhase(); }}
             style={{ flex: 1 }}
           />
-          <button className="primary" onClick={() => void addPhase()} disabled={!dept}>Add Phase</button>
+          <button className="primary" onClick={() => void addPhase()} disabled={disabled || !dept}>Add Phase</button>
         </div>
       </div>
 
@@ -143,8 +148,8 @@ export default function PhaseTaskEditor() {
                   {phaseTasks.map(t => (
                     <tr key={t.id}>
                       <td>{t.sort_order}</td>
-                      <td><input defaultValue={t.name} onBlur={(e) => void renameTask(t.id, e.target.value)} /></td>
-                      <td><button className="delete-x" onClick={() => setPendingTaskDelete(t)}>&times;</button></td>
+                      <td><input defaultValue={t.name} disabled={disabled} onBlur={(e) => void renameTask(t.id, e.target.value)} /></td>
+                      <td><button className="delete-x" onClick={() => setPendingTaskDelete(t)} disabled={disabled}>&times;</button></td>
                     </tr>
                   ))}
                 </tbody>
@@ -154,18 +159,19 @@ export default function PhaseTaskEditor() {
         })}
 
         <div style={{ marginTop: 16, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <select value={newTaskPhase} onChange={(e) => setNewTaskPhase(e.target.value)} style={{ width: 220 }}>
+          <select value={newTaskPhase} disabled={disabled} onChange={(e) => setNewTaskPhase(e.target.value)} style={{ width: 220 }}>
             <option value="">-- select phase --</option>
             {phases.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
           </select>
           <input
             placeholder="New task..."
             value={newTaskName}
+            disabled={disabled}
             onChange={(e) => setNewTaskName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') void addTask(); }}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !disabled) void addTask(); }}
             style={{ flex: 1, minWidth: 200 }}
           />
-          <button className="primary" onClick={() => void addTask()} disabled={!dept || !newTaskPhase}>Add Task</button>
+          <button className="primary" onClick={() => void addTask()} disabled={disabled || !dept || !newTaskPhase}>Add Task</button>
         </div>
       </div>
 

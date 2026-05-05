@@ -124,18 +124,23 @@ function expenseToProjectExpense(row: ExpenseRow): ProjectExpense {
  *    phases verbatim. The user's per-section scope and labor are gone.
  *  - mode='append'  : keep the auto-converted phases, append the template's
  *    phases at the end (renumbered). Useful when the template represents
- *    a "post-deliverable" set of phases like internal review / closeout. */
+ *    a "post-deliverable" set of phases like internal review / closeout.
+ *
+ *  defaultRateTable substitutes whenever a template row's rate_table is
+ *  empty — without it, those phases ship with rate_table='' and the
+ *  resource-allocation lookup misses every category. */
 export function applyPhaseTemplate(
   phases: ProjectPhase[],
   template: TemplatePhase[],
   mode: 'append' | 'replace',
+  defaultRateTable = '',
 ): ProjectPhase[] {
   const tplPhases: ProjectPhase[] = [...template]
     .sort((a, b) => a.sort_order - b.sort_order)
     .map((t, idx): ProjectPhase => ({
       phase_no: idx + 1,
       name:     t.phase_name,
-      rate_table: t.rate_table,
+      rate_table: t.rate_table || defaultRateTable,
       project_type: 'FF',                      // template rows don't carry
                                                // billing type; default FF
                                                // (user can flip per-phase
