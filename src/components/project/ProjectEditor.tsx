@@ -13,21 +13,29 @@ import { initialProjectState, projectReducer } from '../../state/projectReducer'
 import PhaseTabs from './PhaseTabs';
 import PhaseEditor from './PhaseEditor';
 import ResourceAllocation from './ResourceAllocation';
+import LockedBidItemsRow from './LockedBidItemsRow';
+import ICoreBadge from './ICoreBadge';
 import type { EditorAction } from '../../state/editorReducer';
-import type { AutosaveStatus, Identity, Project } from '../../types/domain';
+import type { AutosaveStatus, Identity, Project, Proposal } from '../../types/domain';
 import { fmt$ } from '../../lib/formatting';
+import { calcProposal } from '../../lib/calc';
+import { computePhaseAllocated, computeProjectAllocated } from '../../lib/projectTotals';
+import { getStatus } from '../../lib/lifecycle';
 
 interface ProjectEditorProps {
   /** Project from outer state. We seed local reducer state from this on
    *  mount and on identity-of-project change (e.g. user switched proposals). */
   project: Project;
+  /** The originating proposal — needed for the locked Bid Items row and the
+   *  Budgeted side of the Budget‑vs‑Allocated rollup. */
+  proposal: Proposal;
   identity: Identity | null;
   /** Outer dispatch — used to push autosave results back so the outer
    *  state.project tracks the latest server snapshot. */
   outerDispatch: Dispatch<EditorAction>;
 }
 
-export default function ProjectEditor({ project, identity, outerDispatch }: ProjectEditorProps) {
+export default function ProjectEditor({ project, proposal, identity, outerDispatch }: ProjectEditorProps) {
   const [state, dispatch] = useReducer(projectReducer, project, initialProjectState);
 
   // Re-seed when the OUTER project changes identity (different proposal /
@@ -71,31 +79,45 @@ export default function ProjectEditor({ project, identity, outerDispatch }: Proj
       .catch(() => setRateTables([]));
   }, []);
 
-  // Per-phase budget rollup — sum of task hours × effective rate. We don't
-  // have per-task category rates fetched at this level, so the budget here
-  // is just hours × rate_override (when set) — close enough for the tab
-  // strip; PhaseEditor renders its own precise number with rate-map lookup.
-  const budgets = useMemo(() => state.project.payload.phases.map(p => {
-    let sum = 0;
-    for (const t of p.tasks) {
-      const r = (t.rate_override != null && Number.isFinite(t.rate_override))
-        ? Number(t.rate_override) : 0;
-      sum += (Number(t.hours) || 0) * r;
-    }
-    return sum;
-  }), [state.project.payload.phases]);
+  // Per-phase allocated rollup — Σ resource hrs × bill_rate per phase. Used
+  // to render the dollar amount in each phase tab and in the header card's
+  // overall comparison. Source of truth is resources (Issue 2).
+  const phaseBudgets = useMemo(
+    () => state.project.payload.phases.map(p =>
+      computePhaseAllocated(state.project.payload.resources, p.phase_no)),
+    [state.project.payload.phases, state.project.payload.resources],
+  );
+
+  const allocatedTotal = useMemo(
+    () => computeProjectAllocated(state.project),
+    [state.project],
+  );
+
+  const budgetedTotal = useMemo(() => calcProposal(proposal).sum, [proposal]);
+  const proposalTotals = useMemo(() => calcProposal(proposal).totals, [proposal]);
 
   const activeIndex = state.activePhaseIndex;
   const activePhase = state.project.payload.phases[activeIndex];
 
   return (
     <div style={{ padding: '20px 26px' }}>
-      <ProjectHeaderCard project={state.project} autosaveStatus={state.autosaveStatus} autosaveError={state.autosaveError} />
+      <ProjectHeaderCard
+        project={state.project}
+        proposal={proposal}
+        budgeted={budgetedTotal}
+        allocated={allocatedTotal}
+        autosaveStatus={state.autosaveStatus}
+        autosaveError={state.autosaveError}
+      />
+
+      <LockedBidItemsRow sections={proposal.sections} totals={proposalTotals} />
+
+      <ProjectPhasesLabelRow />
 
       <PhaseTabs
         phases={state.project.payload.phases}
         activeIndex={activeIndex}
-        budgets={budgets}
+        budgets={phaseBudgets}
         dispatch={dispatch}
       />
 
@@ -132,60 +154,179 @@ export default function ProjectEditor({ project, identity, outerDispatch }: Proj
 
 interface ProjectHeaderCardProps {
   project: Project;
+  proposal: Proposal;
+  budgeted: number;
+  allocated: number;
   autosaveStatus: AutosaveStatus;
   autosaveError: string | null;
 }
 
-function ProjectHeaderCard({ project, autosaveStatus, autosaveError }: ProjectHeaderCardProps) {
-  const totalBudget = useMemo(() => {
-    let sum = 0;
-    for (const p of project.payload.phases) {
-      for (const t of p.tasks) {
-        const r = (t.rate_override != null && Number.isFinite(t.rate_override))
-          ? Number(t.rate_override) : 0;
-        sum += (Number(t.hours) || 0) * r;
-      }
-      for (const r of project.payload.resources) {
-        if (r.phase_no !== p.phase_no) continue;
-        sum += (Number(r.hours) || 0) * (Number(r.bill_rate) || 0);
-      }
-    }
-    return sum;
-  }, [project.payload]);
+function ProjectHeaderCard({
+  project, proposal, budgeted, allocated, autosaveStatus, autosaveError,
+}: ProjectHeaderCardProps) {
+  const variance = allocated - budgeted;
+  const overBudget = variance > 0;
+  const variancePct = budgeted > 0 ? (variance / budgeted) * 100 : 0;
+  const won = getStatus(proposal) === 'won';
 
   return (
     <div style={{
       background: 'var(--surface)', border: '1px solid var(--hair)',
       borderRadius: 8, padding: 14,
-      display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap',
     }}>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--ink)' }}>
-          {project.name}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 18, flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: 280 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--ink)' }}>
+              {project.name}
+            </div>
+            <AutosavePill status={autosaveStatus} error={autosaveError} />
+          </div>
+          <div style={{
+            fontSize: 11.5, color: 'var(--muted)', marginTop: 4,
+            display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
+          }}>
+            <span>{project.legal_entity}</span>
+            <span>·</span>
+            <span>{project.department}</span>
+            <span>·</span>
+            <span>iCore</span>
+            <ICoreBadge id={project.icore_project_id} locked={won} />
+            {project.current_pm_name && <>
+              <span>·</span>
+              <span>PM {project.current_pm_name}</span>
+            </>}
+          </div>
         </div>
-        <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>
-          {project.legal_entity} · {project.department}
-          {project.icore_project_id && <> · iCore {project.icore_project_id}</>}
-          {project.current_pm_name && <> · PM {project.current_pm_name}</>}
-        </div>
+        <BudgetVsAllocatedStats
+          phases={project.payload.phases.length}
+          sections={proposal.sections.length}
+          budgeted={budgeted}
+          allocated={allocated}
+          variance={variance}
+          variancePct={variancePct}
+          overBudget={overBudget}
+        />
       </div>
-      <Stat label="Phases"   value={String(project.payload.phases.length)} />
-      <Stat label="Budget"   value={fmt$(totalBudget)} />
-      <AutosavePill status={autosaveStatus} error={autosaveError} />
+      <BudgetBar budgeted={budgeted} allocated={allocated} />
     </div>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+interface BudgetVsAllocatedStatsProps {
+  phases: number;
+  sections: number;
+  budgeted: number;
+  allocated: number;
+  variance: number;
+  variancePct: number;
+  overBudget: boolean;
+}
+
+function BudgetVsAllocatedStats({
+  phases, sections, budgeted, allocated, variance, variancePct, overBudget,
+}: BudgetVsAllocatedStatsProps) {
+  const tone = overBudget ? 'danger' : 'win';
+  const variancePrefix = variance >= 0 ? '+' : '−';
+  const varianceLabel = `${variancePrefix}${fmt$(Math.abs(variance))}`;
+  const pctLabel = `${Math.abs(variancePct).toFixed(1)}% ${overBudget ? 'over' : 'under'}`;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+      <Stat label="Phases" value={String(phases)} />
+      <div style={{ width: 1, height: 36, background: 'var(--hair)' }} />
+      <Stat label="Budgeted (proposal)" value={fmt$(budgeted)}
+        sub={`${sections} bid item${sections === 1 ? '' : 's'}`} />
+      <Stat label="Allocated (project)" value={fmt$(allocated)} tone={tone}
+        sub={budgeted === 0 ? undefined : (overBudget ? 'over' : 'tracking')} />
+      <Stat label="Variance" value={varianceLabel} tone={tone}
+        sub={budgeted === 0 ? '—' : pctLabel} />
+    </div>
+  );
+}
+
+function BudgetBar({ budgeted, allocated }: { budgeted: number; allocated: number }) {
+  if (budgeted <= 0) return null;
+  const pct = Math.min(100, (allocated / budgeted) * 100);
+  const over = allocated > budgeted;
+  return (
+    <div style={{ marginTop: 12 }}>
+      <div style={{
+        position: 'relative', height: 8, borderRadius: 4,
+        background: 'var(--canvas-deep)', overflow: 'hidden',
+      }}>
+        <div style={{
+          position: 'absolute', left: 0, top: 0, bottom: 0,
+          width: `${pct}%`,
+          background: over ? 'var(--action-danger)' : 'var(--action-success)',
+          transition: 'width .3s',
+        }} />
+      </div>
+      <div style={{
+        display: 'flex', justifyContent: 'space-between',
+        fontSize: 10.5, color: 'var(--muted)', marginTop: 4,
+      }}>
+        <span>{fmt$(0)}</span>
+        <span className="tabular">{Math.round(pct)}% allocated</span>
+        <span>{fmt$(budgeted)}</span>
+      </div>
+    </div>
+  );
+}
+
+function ProjectPhasesLabelRow() {
+  return (
+    <div style={{
+      background: 'var(--canvas)',
+      border: '1px solid var(--hair)',
+      borderTop: '1px dashed var(--hair-strong)',
+      borderBottom: 'none',
+      padding: '8px 12px 0',
+      display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+    }}>
+      <span style={{
+        fontSize: 9.5, fontWeight: 700, letterSpacing: 0.6,
+        color: 'var(--navy-deep)', textTransform: 'uppercase',
+      }}>Project phases</span>
+      <span style={{
+        fontSize: 9.5, fontWeight: 600, color: 'var(--muted)',
+        padding: '1px 6px', border: '1px solid var(--hair)', borderRadius: 9,
+        letterSpacing: 0.4, background: 'var(--surface)',
+      }}>
+        How you're running the work
+      </span>
+      <div style={{ flex: 1 }} />
+      <span style={{ fontSize: 10.5, color: 'var(--muted)' }}>
+        Phases rarely match bid items 1:1 — that's expected
+      </span>
+    </div>
+  );
+}
+
+interface StatProps {
+  label: string;
+  value: string;
+  tone?: 'ink' | 'win' | 'danger';
+  sub?: string;
+}
+
+function Stat({ label, value, tone = 'ink', sub }: StatProps) {
+  const colors: Record<NonNullable<StatProps['tone']>, string> = {
+    ink:    'var(--ink)',
+    win:    'var(--action-success)',
+    danger: 'var(--action-danger)',
+  };
   return (
     <div>
       <div style={{
         fontSize: 10.5, letterSpacing: 0.4, fontWeight: 600,
         color: 'var(--muted)', textTransform: 'uppercase',
       }}>{label}</div>
-      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>
-        {value}
-      </div>
+      <div className="tabular" style={{
+        fontSize: 14, fontWeight: 700, color: colors[tone],
+      }}>{value}</div>
+      {sub && (
+        <div style={{ fontSize: 10.5, color: 'var(--muted)', marginTop: 1 }}>{sub}</div>
+      )}
     </div>
   );
 }

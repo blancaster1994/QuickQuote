@@ -2,21 +2,17 @@
 //
 // Header fields: name, due_date, project_type (FF/T&M), rate_table,
 // scope_text (multi-line), notes (single line).
-// Tasks: per-row category (text), hours (number), rate (RateCell with
-// override audit), Add Task button + per-row × delete.
-//
-// Rate lookup: when a task has a non-empty category, fetch the standard
-// rate via window.api.rates.lookup(legal_entity, rate_table, category,
-// resource_id?) and pass it to RateCell as the categoryRate prop. The
-// component caches the lookup per (rateTable, category) so re-renders
-// don't re-fire IPC.
+// Tasks: name + category only. Per-task Amount is derived from resources
+// whose task_no matches — there's no per-task hours/rate input. Hours and
+// rates live exclusively on resources (see ResourceAllocation), so the
+// task and resource totals can never disagree.
 
-import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch } from 'react';
-import RateCell from './RateCell';
+import { useMemo, useState, type Dispatch } from 'react';
 import { ConfirmDialog } from '../ui';
 import type { Identity, Project, ProjectPhase } from '../../types/domain';
 import type { ProjectEditorAction } from '../../state/projectReducer';
 import { fmt$ } from '../../lib/formatting';
+import { computePhaseAllocated, computeTaskAmount } from '../../lib/projectTotals';
 
 interface PhaseEditorProps {
   project: Project;
@@ -29,52 +25,18 @@ interface PhaseEditorProps {
 }
 
 export default function PhaseEditor({
-  project, phase, phaseIndex, identity, rateTables, dispatch, disabled,
+  project, phase, phaseIndex, identity: _identity, rateTables, dispatch, disabled,
 }: PhaseEditorProps) {
-  // Category-rate cache. Keyed by `${rate_table}||${category}`. Filled lazily
-  // on demand; clears when the rate table changes.
-  const [rateMap, setRateMap] = useState<Map<string, number>>(new Map());
-  const inflight = useRef<Set<string>>(new Set());
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  // phase.rate_table can land empty when a phase template's row had no
-  // rate_table set. Fall back to the project header's rate_table so the
-  // category lookups hit real rate_entry rows.
-  const effectiveRateTable = phase.rate_table || project.rate_table || '';
-
-  const lookupCategoryRate = useCallback(async (rateTable: string, category: string) => {
-    const key = `${rateTable}||${category}`;
-    if (rateMap.has(key)) return;
-    if (inflight.current.has(key)) return;
-    if (!rateTable || !category) return;
-    inflight.current.add(key);
-    try {
-      const v = await window.api.rates.lookup(project.legal_entity, rateTable, category, null);
-      setRateMap(m => new Map(m).set(key, Number(v) || 0));
-    } catch (e) {
-      console.warn('rates.lookup failed', e);
-    } finally {
-      inflight.current.delete(key);
-    }
-  }, [rateMap, project.legal_entity]);
-
-  // Trigger lookups for any visible task whose category we don't have yet.
-  useEffect(() => {
-    for (const t of phase.tasks) {
-      if (t.category) void lookupCategoryRate(effectiveRateTable, t.category);
-    }
-  }, [phase.tasks, effectiveRateTable, lookupCategoryRate]);
-
-  function rateFor(category: string): number {
-    return rateMap.get(`${effectiveRateTable}||${category}`) ?? 0;
-  }
-
-  const taskBudget = useMemo(() => phase.tasks.reduce((sum, t) => {
-    const rate = (t.rate_override != null && Number.isFinite(t.rate_override))
-      ? Number(t.rate_override)
-      : rateFor(t.category);
-    return sum + (Number(t.hours) || 0) * rate;
-  }, 0), [phase.tasks, rateMap]);
+  // Phase budget is the sum of allocated resource cost for this phase
+  // (Σ resource.hrs × bill_rate). Tasks no longer carry hours/rate of
+  // their own — that lives on resources only, with each resource linked
+  // to a specific task via task_no. See projectTotals.ts.
+  const taskBudget = useMemo(
+    () => computePhaseAllocated(project.payload.resources, phase.phase_no),
+    [project.payload.resources, phase.phase_no],
+  );
 
   return (
     <div style={{
@@ -123,7 +85,6 @@ export default function PhaseEditor({
               disabled={disabled}
               onChange={(e) => {
                 dispatch({ type: 'UPDATE_PHASE', index: phaseIndex, patch: { rate_table: e.target.value } });
-                setRateMap(new Map());                       // invalidate cache
               }}
               style={inputStyle}>
               <option value="">—</option>
@@ -196,7 +157,7 @@ export default function PhaseEditor({
           Tasks
         </h4>
         <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
-          {phase.tasks.length} task{phase.tasks.length === 1 ? '' : 's'} · budget {fmt$(taskBudget)}
+          {phase.tasks.length} task{phase.tasks.length === 1 ? '' : 's'} · {fmt$(taskBudget)} from resources
         </span>
         <div style={{ flex: 1 }} />
         {!disabled && (
@@ -229,18 +190,15 @@ export default function PhaseEditor({
               <th style={{ padding: '6px 8px', width: 40 }}>#</th>
               <th style={{ padding: '6px 8px' }}>Name</th>
               <th style={{ padding: '6px 8px', width: 200 }}>Category</th>
-              <th style={{ padding: '6px 8px', width: 80, textAlign: 'right' }}>Hours</th>
-              <th style={{ padding: '6px 8px', width: 110, textAlign: 'right' }}>Rate</th>
-              <th style={{ padding: '6px 8px', width: 110, textAlign: 'right' }}>Budget</th>
+              <th style={{ padding: '6px 8px', width: 130, textAlign: 'right' }}>Amount</th>
               {!disabled && <th style={{ width: 36 }}></th>}
             </tr>
           </thead>
           <tbody>
             {phase.tasks.map((t, ti) => {
-              const cRate = rateFor(t.category);
-              const eff = (t.rate_override != null && Number.isFinite(t.rate_override))
-                ? Number(t.rate_override) : cRate;
-              const budget = (Number(t.hours) || 0) * eff;
+              const amount = computeTaskAmount(
+                project.payload.resources, phase.phase_no, t.task_no,
+              );
               return (
                 <tr key={ti} style={{ borderTop: '1px solid var(--line)' }}>
                   <td style={{ padding: '6px 8px', color: 'var(--muted)', fontVariantNumeric: 'tabular-nums' }}>
@@ -259,24 +217,18 @@ export default function PhaseEditor({
                       style={cellInputStyle}
                     />
                   </td>
-                  <td style={{ padding: '4px 8px', textAlign: 'right' }}>
-                    <input type="number" value={t.hours} disabled={disabled}
-                      step="0.25" min={0}
-                      onChange={(e) => dispatch({ type: 'UPDATE_TASK', phaseIndex, taskIndex: ti, patch: { hours: parseFloat(e.target.value) || 0 } })}
-                      style={{ ...cellInputStyle, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
-                    />
-                  </td>
-                  <td style={{ padding: '4px 8px' }}>
-                    <RateCell
-                      task={t}
-                      categoryRate={cRate}
-                      disabled={disabled}
-                      currentUser={identity ? { email: identity.email, name: identity.name } : null}
-                      onChange={(patch) => dispatch({ type: 'UPDATE_TASK', phaseIndex, taskIndex: ti, patch })}
-                    />
-                  </td>
-                  <td style={{ padding: '6px 8px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
-                    {fmt$(budget)}
+                  <td style={{
+                    padding: '6px 8px', textAlign: 'right',
+                    fontVariantNumeric: 'tabular-nums', fontWeight: 600,
+                  }}>
+                    {amount > 0 ? (
+                      fmt$(amount)
+                    ) : (
+                      <span title="Amount is the sum of resources assigned to this task. Assign a resource below and pick this task."
+                        style={{ color: 'var(--subtle)', fontWeight: 500 }}>
+                        —
+                      </span>
+                    )}
                   </td>
                   {!disabled && (
                     <td style={{ padding: '4px 6px', textAlign: 'right' }}>

@@ -33,6 +33,11 @@ const SHORTCUTS: Shortcut[] = [
     label: 'Toggle Dashboard / Editor',
   },
   {
+    keys: ['Ctrl', 'K'],
+    label: 'Open command palette',
+    hint: 'Fuzzy-search projects + actions. Same as the Sidebar "Jump to…" tile.',
+  },
+  {
     keys: ['Esc'],
     label: 'Close panel or modal',
     hint: 'Lookups panel, modals, dropdowns.',
