@@ -13,6 +13,7 @@
     "dist": "npm run build && electron-builder --win portable --x64",
     "dist:nsis": "npm run build && electron-builder --win nsis --x64",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p electron/tsconfig.json --noEmit",
+    "seed:demo": "npm run build:electron && electron dist-electron/scripts/seedDemo.js",
     "postinstall": "electron-rebuild -f -w better-sqlite3"
   },
   "build": {
