@@ -99,6 +99,11 @@ export default function ProjectEditor({ project, proposal, identity, outerDispat
   const activeIndex = state.activePhaseIndex;
   const activePhase = state.project.payload.phases[activeIndex];
 
+  // Phases + tasks lock once the project has been pushed to iCore. The data
+  // is now mirrored upstream, and editing it would create drift. Resource
+  // allocation stays editable — that's PM-side bookkeeping, not iCore data.
+  const phasesLocked = !!state.project.icore_project_id?.trim();
+
   return (
     <div style={{ padding: '20px 26px' }}>
       <ProjectHeaderCard
@@ -114,11 +119,27 @@ export default function ProjectEditor({ project, proposal, identity, outerDispat
 
       <ProjectPhasesLabelRow />
 
+      {phasesLocked && (
+        <div style={{
+          marginTop: 8, padding: '8px 12px',
+          background: 'var(--canvas)', border: '1px dashed var(--hair-strong)',
+          borderRadius: 6,
+          fontSize: 12, color: 'var(--muted)',
+          display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          <span style={{ fontSize: 13 }}>🔒</span>
+          Phases and tasks are locked because this project is linked to
+          iCore ({state.project.icore_project_id}). Resource allocation
+          stays editable.
+        </div>
+      )}
+
       <PhaseTabs
         phases={state.project.payload.phases}
         activeIndex={activeIndex}
         budgets={phaseBudgets}
         dispatch={dispatch}
+        disabled={phasesLocked}
       />
 
       {activePhase ? (
@@ -130,6 +151,7 @@ export default function ProjectEditor({ project, proposal, identity, outerDispat
             identity={identity}
             rateTables={rateTables}
             dispatch={dispatch}
+            disabled={phasesLocked}
           />
           <ResourceAllocation
             project={state.project}

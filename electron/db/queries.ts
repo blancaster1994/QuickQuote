@@ -145,6 +145,8 @@ interface HeaderRow {
   project_address: string | null;
   project_city_state_zip: string | null;
   proposal_date: string | null;
+  legal_entity: string | null;
+  department: string | null;
 }
 
 function extractHeaders(proposal: any): HeaderRow {
@@ -170,6 +172,8 @@ function extractHeaders(proposal: any): HeaderRow {
     project_address:        proposal?.address || null,
     project_city_state_zip: proposal?.cityStateZip || null,
     proposal_date:          proposal?.date || null,
+    legal_entity:           (proposal?.legal_entity || '').trim() || null,
+    department:             (proposal?.department || '').trim() || null,
   };
 }
 
@@ -242,6 +246,7 @@ export function saveProposal(
           follow_up_at, icore_project_id,
           client_name, client_contact, client_address, client_city_state_zip,
           project_address, project_city_state_zip, proposal_date,
+          legal_entity, department,
           updated_at
         ) VALUES (
           ?, ?, ?,
@@ -252,6 +257,7 @@ export function saveProposal(
           ?, ?,
           ?, ?, ?, ?,
           ?, ?, ?,
+          ?, ?,
           datetime('now')
         )
       `);
@@ -267,6 +273,7 @@ export function saveProposal(
         headers.client_address, headers.client_city_state_zip,
         headers.project_address, headers.project_city_state_zip,
         headers.proposal_date,
+        headers.legal_entity, headers.department,
       );
       const proposalId = Number(result.lastInsertRowid);
 
@@ -303,6 +310,7 @@ export function saveProposal(
           client_address = ?, client_city_state_zip = ?,
           project_address = ?, project_city_state_zip = ?,
           proposal_date = ?,
+          legal_entity = ?, department = ?,
           updated_at = datetime('now')
         WHERE id = ?
       `).run(
@@ -317,6 +325,7 @@ export function saveProposal(
         headers.client_address, headers.client_city_state_zip,
         headers.project_address, headers.project_city_state_zip,
         headers.proposal_date,
+        headers.legal_entity, headers.department,
         row.id,
       );
 

@@ -7,7 +7,7 @@
 // SortableContext. Drag commits a REORDER_SECTIONS action on drop only —
 // no intermediate states fire through autosave.
 
-import type { Dispatch } from 'react';
+import { useState, type Dispatch } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -24,16 +24,18 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { Section } from '../types/domain';
+import type { Proposal, Section } from '../types/domain';
 import type { EditorAction } from '../state/editorReducer';
 import type { SectionTotalsRow } from '../lib/calc';
 import { fmt$ } from '../lib/formatting';
+import BidItemTemplatePicker from './BidItemTemplatePicker';
 
 export interface BidItemTabsProps {
   sections: Section[];
   totals: SectionTotalsRow[];
   activeSection: string;
   dispatch: Dispatch<EditorAction>;
+  proposal: Proposal;
 }
 
 function shortTitle(s: Section, i: number): string {
@@ -41,13 +43,14 @@ function shortTitle(s: Section, i: number): string {
   return raw || `Bid Item ${i + 1}`;
 }
 
-export default function BidItemTabs({ sections, totals, activeSection, dispatch }: BidItemTabsProps) {
+export default function BidItemTabs({ sections, totals, activeSection, dispatch, proposal }: BidItemTabsProps) {
   // 6px movement before drag starts so single-clicks (tab switching) still
   // work normally — only deliberate drags trigger reorder.
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -58,42 +61,71 @@ export default function BidItemTabs({ sections, totals, activeSection, dispatch 
     dispatch({ type: 'REORDER_SECTIONS', fromIndex, toIndex });
   }
 
+  const scopeReady = !!proposal.legal_entity?.trim() && !!proposal.department?.trim();
+
   return (
-    <div style={{
-      display: 'flex', alignItems: 'stretch', gap: 4,
-      borderBottom: '1px solid var(--hair)', overflowX: 'auto',
-    }}>
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <SortableContext items={sections.map(s => s.id)} strategy={horizontalListSortingStrategy}>
-          {sections.map((s, i) => (
-            <SortableTab
-              key={s.id}
-              section={s}
-              index={i}
-              totals={totals}
-              active={s.id === activeSection}
-              onClick={() => dispatch({ type: 'SET_ACTIVE_SECTION', id: s.id })}
-            />
-          ))}
-        </SortableContext>
-      </DndContext>
-      <button
-        type="button"
-        onClick={() => dispatch({ type: 'ADD_SECTION' })}
-        title="Add a new bid item"
-        style={{
-          padding: '8px 12px', border: 'none', background: 'transparent',
-          fontSize: 12, fontWeight: 600, color: 'var(--navy-deep)', cursor: 'pointer',
-          alignSelf: 'center', lineHeight: 1,
-          fontFamily: 'var(--sans)',
-          display: 'inline-flex', alignItems: 'center', gap: 4,
-        }}>
-        <span style={{ fontSize: 14, lineHeight: 1 }}>+</span>
-        Add bid item
-      </button>
-    </div>
+    <>
+      <div style={{
+        display: 'flex', alignItems: 'stretch', gap: 4,
+        borderBottom: '1px solid var(--hair)', overflowX: 'auto',
+      }}>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={sections.map(s => s.id)} strategy={horizontalListSortingStrategy}>
+            {sections.map((s, i) => (
+              <SortableTab
+                key={s.id}
+                section={s}
+                index={i}
+                totals={totals}
+                active={s.id === activeSection}
+                onClick={() => dispatch({ type: 'SET_ACTIVE_SECTION', id: s.id })}
+              />
+            ))}
+          </SortableContext>
+        </DndContext>
+        <button
+          type="button"
+          onClick={() => dispatch({ type: 'ADD_SECTION' })}
+          title="Add a new bid item"
+          style={addButtonStyle}>
+          <span style={{ fontSize: 14, lineHeight: 1 }}>+</span>
+          Add bid item
+        </button>
+        <button
+          type="button"
+          onClick={() => setPickerOpen(true)}
+          disabled={!scopeReady}
+          title={scopeReady
+            ? 'Apply a saved bid item template (replace or append)'
+            : 'Set the legal entity + department in the header before applying a template.'}
+          style={{
+            ...addButtonStyle,
+            color: scopeReady ? 'var(--navy-deep)' : 'var(--muted)',
+            cursor: scopeReady ? 'pointer' : 'not-allowed',
+            opacity: scopeReady ? 1 : 0.55,
+          }}>
+          Apply template
+        </button>
+      </div>
+
+      {pickerOpen && (
+        <BidItemTemplatePicker
+          proposal={proposal}
+          dispatch={dispatch}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
+    </>
   );
 }
+
+const addButtonStyle: React.CSSProperties = {
+  padding: '8px 12px', border: 'none', background: 'transparent',
+  fontSize: 12, fontWeight: 600, color: 'var(--navy-deep)', cursor: 'pointer',
+  alignSelf: 'center', lineHeight: 1,
+  fontFamily: 'var(--sans)',
+  display: 'inline-flex', alignItems: 'center', gap: 4,
+};
 
 interface SortableTabProps {
   section: Section;

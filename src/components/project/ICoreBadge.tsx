@@ -7,8 +7,8 @@
 //     integration ships, swap the disabled stub for a real URL builder
 //     (e.g., `https://icore.example.com/project/${id}`) — no other changes.
 //
-// Visual-only for now. The ID itself continues to be set in
-// InitializeProjectModal at "Mark Won" time.
+// Visual-only for now. The ID itself is set in SendProposalModal at
+// "Mark Sent" time.
 
 import { useState } from 'react';
 

@@ -5,7 +5,7 @@ export { default as LookupsPanel } from './LookupsPanel';
 export { default as NameListEditor } from './NameListEditor';
 export { default as MarkupEditor } from './MarkupEditor';
 export { default as PhaseTaskEditor } from './PhaseTaskEditor';
-export { default as TemplateEditor } from './TemplateEditor';
+export { default as BidItemTemplateEditor } from './BidItemTemplateEditor';
 export { default as EmployeeEditor } from './EmployeeEditor';
 export { default as RateEditor } from './RateEditor';
 export { default as ClickUpSettings } from './ClickUpSettings';

@@ -14,7 +14,8 @@ import type {
   VersionRecord,
 } from '../types/domain';
 import type { EditorState, EditorAction } from '../state/editorReducer';
-import InitializeProjectModal from './InitializeProjectModal';
+import SendProposalModal from './SendProposalModal';
+import MarkWonModal from './MarkWonModal';
 import SendToClickUpModal from './clickup/SendToClickUpModal';
 
 // ── status badge ──────────────────────────────────────────────────────────
@@ -109,7 +110,8 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
   const [showDelete, setShowDelete] = useState(false);
   const [showReassign, setShowReassign] = useState(false);
   const [showFollowUp, setShowFollowUp] = useState(false);
-  const [showInitProject, setShowInitProject] = useState(false);
+  const [showSendProposal, setShowSendProposal] = useState(false);
+  const [showMarkWon, setShowMarkWon] = useState(false);
   const [showSendClickUp, setShowSendClickUp] = useState(false);
   const [nameWarn, setNameWarn] = useState<{ kind: 'generic' | 'dup'; dupName?: string } | null>(null);
   const [nameWarnAck, setNameWarnAck] = useState(false);
@@ -166,11 +168,20 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
     }
   }
 
-  // Mark Sent puts the proposal on the dashboard for follow-up tracking, so
-  // generic or duplicate names ("New Proposed Residence" × 15) make it
-  // unusable. Run a soft check before flipping; one acknowledgement per
-  // session avoids re-nagging.
+  // Mark Sent puts the proposal on the dashboard for follow-up tracking AND
+  // creates the project record (bid items become phases). Run a name check
+  // first; on success, open SendProposalModal to confirm + create.
   async function handleMarkSentClick() {
+    if (!saved || !state.projectName) {
+      alert('Save the proposal first (autosave will kick in once you give it a name).');
+      return;
+    }
+    const legalEntity = (proposal.legal_entity || '').trim();
+    const department  = (proposal.department || '').trim();
+    if (!legalEntity || !department) {
+      alert('Set the legal entity and department in the proposal header before sending. They tell the project where to roll up.');
+      return;
+    }
     if (!nameWarnAck) {
       const trimmed = (proposal.name || '').trim();
       if (looksGeneric(trimmed)) {
@@ -186,10 +197,9 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
           setNameWarn({ kind: 'dup', dupName: dup });
           return;
         }
-      } catch { /* if the list call fails, fall through and let Mark Sent proceed */ }
+      } catch { /* if the list call fails, fall through and let Send proceed */ }
     }
-    await dispatchLifecycle('mark_sent', async () =>
-      (await window.api.lifecycle.markSent(state.projectName!)) as any);
+    setShowSendProposal(true);
   }
 
   const buttons: Array<{ label: string; fn: string; kind: ButtonKind; title?: string; click: () => void | Promise<void> }> = [];
@@ -202,18 +212,13 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
   } else if (status === 'sent') {
     buttons.push({
       label: 'Mark Won', fn: 'mark_won', kind: 'win',
-      title: 'Click once the client has accepted/signed. Opens the project initialization dialog (legal entity, department, iCore ID).',
-      // Stage 4 intercepts the Mark Won button: instead of immediately
-      // flipping status, open the InitializeProjectModal so the user can
-      // pick legal_entity / department / iCore ID. The modal handles the
-      // markWon + project.initialize chain on submit, and leaves the
-      // proposal in 'sent' state if the user cancels.
+      title: 'Click once the client has accepted/signed. This will send the project to iCore and record the Won date.',
       click: () => {
         if (!saved || !state.projectName) {
           alert('Save the proposal first (autosave will kick in once you give it a name).');
           return;
         }
-        setShowInitProject(true);
+        setShowMarkWon(true);
       },
     });
     buttons.push({
@@ -477,22 +482,31 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
         />
       )}
 
-      {showInitProject && (
-        <InitializeProjectModal
+      {showSendProposal && (
+        <SendProposalModal
           proposal={state.proposal}
-          onClose={() => setShowInitProject(false)}
-          onCommitted={async (project: Project) => {
-            setShowInitProject(false);
-            // Project's already saved on the main side. Reload the proposal
-            // so the lifecycle reflects "won" status, then load the project
-            // into reducer state so editorMode flips to 'project'.
-            try {
-              const fresh = (await window.api.proposals.load(state.projectName!)) as Proposal;
-              dispatch({ type: 'LOAD_PROPOSAL', payload: fresh });
-            } catch (e: any) {
-              console.warn('reload proposal after initialize failed', e);
-            }
+          onClose={() => setShowSendProposal(false)}
+          onCommitted={({ proposal: updated, project }) => {
+            setShowSendProposal(false);
+            // Project already saved on the main side. Mirror the updated
+            // proposal (now in Sent status) into reducer state and load the
+            // project so editorMode flips to 'project'.
+            dispatch({ type: 'REPLACE_PROPOSAL', proposal: updated });
             dispatch({ type: 'LOAD_PROJECT', project });
+            onReload?.();
+          }}
+        />
+      )}
+
+      {showMarkWon && (
+        <MarkWonModal
+          proposal={state.proposal}
+          project={state.project}
+          onClose={() => setShowMarkWon(false)}
+          onCommitted={({ proposal: updated, project }) => {
+            setShowMarkWon(false);
+            dispatch({ type: 'REPLACE_PROPOSAL', proposal: updated });
+            if (project) dispatch({ type: 'LOAD_PROJECT', project });
             onReload?.();
           }}
         />
@@ -566,11 +580,10 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
               }, 0);
             }}
             cancelLabel="Rename"
-            onConfirm={async () => {
+            onConfirm={() => {
               setNameWarn(null);
               setNameWarnAck(true);
-              await dispatchLifecycle('mark_sent', async () =>
-                (await window.api.lifecycle.markSent(state.projectName!)) as any);
+              setShowSendProposal(true);
             }}
             confirmLabel="Continue anyway"
           />

@@ -637,7 +637,8 @@ function SectionsRegion({ state, dispatch }: { state: EditorState; dispatch: Dis
   return (
     <>
       <BidItemTabs sections={state.proposal.sections} totals={totals}
-        activeSection={state.activeSection} dispatch={dispatch} />
+        activeSection={state.activeSection} dispatch={dispatch}
+        proposal={state.proposal} />
       <SectionEditor section={section} total={total} state={state} dispatch={dispatch} />
     </>
   );

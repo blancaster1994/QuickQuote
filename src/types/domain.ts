@@ -40,7 +40,7 @@ export type EditorMode = 'proposal' | 'project';
 export type LookupsTab =
   | 'basic'
   | 'phases-tasks'
-  | 'templates'
+  | 'bid-item-templates'
   | 'employees'
   | 'rates'
   | 'legal-departments'
@@ -118,6 +118,16 @@ export interface ExpenseRow {
   markup: number;
 }
 
+/** A named work item on a bid item / phase. Tasks are name-only — they are
+ *  for iCore / ClickUp tracking. Category and hours are NOT attributed to
+ *  a task; those live on the section's `labor` rows. Multiple labor
+ *  categories may be working on a single task. */
+export interface SectionTask {
+  id: string;
+  name: string;
+  sort_order: number;
+}
+
 export interface Section {
   id: string;
   title: string;
@@ -131,6 +141,10 @@ export interface Section {
   notes: string;
   labor: LaborRow[];
   expenses: ExpenseRow[];
+  /** Named work items for iCore / ClickUp tracking. Persisted to project
+   *  phase tasks at Send time. Empty array when no template has been
+   *  applied and the user hasn't added any manually. */
+  tasks?: SectionTask[];
 }
 
 // ── lifecycle ───────────────────────────────────────────────────────────────
@@ -205,6 +219,12 @@ export interface Proposal {
   clientAddress: string;
   clientCityStateZip: string;
   rateTable: RateTableName;
+  /** Legal entity the project will roll up to. Required before Send (because
+   *  bid item templates are scoped by legal entity + department and the
+   *  Send action creates the project). */
+  legal_entity?: string;
+  /** Department within the legal entity. Required before Send. */
+  department?: string;
   sections: Section[];
   lifecycle: Lifecycle;
 }
@@ -329,15 +349,25 @@ export interface TaskDef {
   sort_order: number;
 }
 
-/** A single phase-row of a phase template. (legal_entity, department, template)
- *  is the addressing tuple; multiple rows make up one named template. */
-export interface TemplatePhase {
-  id: ID;
+/** A bid item template — phases + name-only tasks per phase. Scoped by
+ *  (legal_entity, department). Applied in the proposal editor; each
+ *  template phase becomes a Section, each template task becomes a
+ *  SectionTask. Replaces the legacy `TemplatePhase` system. */
+export interface BidItemTemplate {
   legal_entity: string;
   department: string;
-  template: string;
+  name: string;
+  phases: BidItemTemplatePhase[];
+}
+
+export interface BidItemTemplatePhase {
   phase_name: string;
-  rate_table: string;
+  sort_order: number;
+  tasks: BidItemTemplateTaskName[];
+}
+
+export interface BidItemTemplateTaskName {
+  name: string;
   sort_order: number;
 }
 
@@ -383,11 +413,23 @@ export type ProjectType = string;
 
 export type PhaseType = 'labor' | 'expenses';
 
+/** A named work item on a phase. Tasks are name-only — they exist for
+ *  iCore / ClickUp tracking. Multiple labor categories may work on the
+ *  same task. Category, hours, and rate fields live on `ProjectLabor`
+ *  instead, scoped at the phase level. */
 export interface ProjectTask {
   task_no: number;
   name: string;
+}
+
+/** Labor budget on a phase: category × hours, with optional rate
+ *  override. Resource actuals (the people doing the work) live on
+ *  ResourceAssignment; ProjectLabor is the *budget* line. */
+export interface ProjectLabor {
+  labor_no: number;
   category: string;
   hours: number;
+  employee?: string | null;
   rate_override?: number | null;
   rate_baseline?: number | null;
   rate_override_by_email?: string | null;
@@ -418,6 +460,10 @@ export interface ProjectPhase {
    *  fee. Computed budget continues to be hours × rate; this is the "PM
    *  agreed $X" reference. */
   target_budget?: number | null;
+  /** Labor budget on the phase (category × hours). Replaces the
+   *  category/hours that previously lived on each ProjectTask. */
+  labor: ProjectLabor[];
+  /** Named work items, for iCore / ClickUp. Name-only — see ProjectTask. */
   tasks: ProjectTask[];
   expenses: ProjectExpense[];
 }
@@ -594,17 +640,20 @@ export interface ClickUpPhaseLink {
 // ── PM-mode helpers ────────────────────────────────────────────────────────
 
 /** Resolve the effective phase_type for any phase — explicit field if set,
- *  otherwise infer from legacy data. */
-export function effectivePhaseType(p: Pick<ProjectPhase, 'phase_type' | 'name' | 'tasks' | 'expenses'>): PhaseType {
+ *  otherwise infer from data. A phase is "expenses" when its name is
+ *  literally "Expenses" or when it has no labor/tasks but does have
+ *  expenses. */
+export function effectivePhaseType(p: Pick<ProjectPhase, 'phase_type' | 'name' | 'labor' | 'tasks' | 'expenses'>): PhaseType {
   if (p.phase_type === 'expenses' || p.phase_type === 'labor') return p.phase_type;
   if (/^expenses?$/i.test((p.name || '').trim())) return 'expenses';
+  const nLabor = p.labor?.length ?? 0;
   const nTasks = p.tasks?.length ?? 0;
   const nExp = p.expenses?.length ?? 0;
-  if (nTasks === 0 && nExp > 0) return 'expenses';
+  if (nLabor === 0 && nTasks === 0 && nExp > 0) return 'expenses';
   return 'labor';
 }
 
-export function isExpensePhase(p: Pick<ProjectPhase, 'phase_type' | 'name' | 'tasks' | 'expenses'>): boolean {
+export function isExpensePhase(p: Pick<ProjectPhase, 'phase_type' | 'name' | 'labor' | 'tasks' | 'expenses'>): boolean {
   return effectivePhaseType(p) === 'expenses';
 }
 

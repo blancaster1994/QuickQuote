@@ -77,6 +77,21 @@ const api = {
       ipcRenderer.invoke('lifecycle:reassign', name, newPmEmail, note ?? ''),
     setFollowUp:  (name: string, whenIso: string | null, note?: string) =>
       ipcRenderer.invoke('lifecycle:setFollowUp', name, whenIso, note ?? ''),
+    /** Mark Sent + create the project in one transaction. Returns
+     *  { proposal, project }. Throws if legal_entity / department aren't
+     *  set on the proposal. */
+    sendAndInitialize: (payload: {
+      proposalName: string;
+      rateTableOverride?: string | null;
+      icoreProjectId?: string | null;
+      note?: string;
+    }) => ipcRenderer.invoke('lifecycle:sendAndInitialize', payload),
+    /** Mark Won + stamp the iCore project ID on the project row. Returns
+     *  { proposal, project }. */
+    markWonAndSync: (payload: {
+      proposalName: string;
+      icoreProjectId: string;
+    }) => ipcRenderer.invoke('lifecycle:markWonAndSync', payload),
   },
 
   // ── versioning (snapshots) ────────────────────────────────────────────────
@@ -151,15 +166,19 @@ const api = {
     remove: (id: number) => ipcRenderer.invoke('taskDef:delete', id),
   },
 
-  /** Phase templates. `importBulk` replaces the whole table per the bulk
-   *  semantics in electron/db/lookups.ts. */
-  templates: {
-    list:           (filters?: any) => ipcRenderer.invoke('templatePhase:list', filters),
-    listForContext: (legalEntity: string, department: string) =>
-      ipcRenderer.invoke('templatePhase:listForContext', legalEntity, department),
-    save:           (row: any) => ipcRenderer.invoke('templatePhase:save', row),
-    remove:         (id: number) => ipcRenderer.invoke('templatePhase:delete', id),
-    importBulk:     (rows: any[]) => ipcRenderer.invoke('templatePhase:bulkReplace', rows),
+  /** Bid item templates — phases (with nested name-only tasks) scoped per
+   *  (legal_entity, department). Applied in the proposal editor; replaces
+   *  the legacy `templates.*` (template_phase) API. */
+  bidItemTemplates: {
+    list: (legalEntity: string, department: string) =>
+      ipcRenderer.invoke('bidItemTemplate:list', legalEntity, department),
+    get: (legalEntity: string, department: string, name: string) =>
+      ipcRenderer.invoke('bidItemTemplate:get', legalEntity, department, name),
+    save: (template: any) => ipcRenderer.invoke('bidItemTemplate:save', template),
+    remove: (legalEntity: string, department: string, name: string) =>
+      ipcRenderer.invoke('bidItemTemplate:delete', legalEntity, department, name),
+    rename: (legalEntity: string, department: string, oldName: string, newName: string) =>
+      ipcRenderer.invoke('bidItemTemplate:rename', legalEntity, department, oldName, newName),
   },
 
   /** Employees (extended). */

@@ -28,7 +28,7 @@ type ActiveKey = 'home' | 'projects' | 'people' | 'templates' | null;
 function activeKeyFor(state: EditorState): ActiveKey {
   if (state.lookupsOpen) {
     if (state.lookupsTab === 'employees' || state.lookupsTab === 'rates') return 'people';
-    if (state.lookupsTab === 'templates') return 'templates';
+    if (state.lookupsTab === 'bid-item-templates') return 'templates';
     return null;
   }
   return state.view === 'dashboard' ? 'home' : 'projects';
@@ -87,8 +87,8 @@ export default function Sidebar({ state, dispatch, onOpenCommandPalette }: Sideb
         />
         <NavItem
           active={active === 'templates'}
-          onClick={() => goLookups('templates')}
-          label="Templates"
+          onClick={() => goLookups('bid-item-templates')}
+          label="Bid Item Templates"
           icon={<TemplatesIcon active={active === 'templates'} />}
         />
       </div>

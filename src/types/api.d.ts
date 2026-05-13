@@ -6,6 +6,7 @@
 // the domain types from QuickProp's reducer). Tighten in Step 4.
 
 import type {
+  BidItemTemplate,
   ClickUpConfigPatch,
   ClickUpExecuteDecisions,
   ClickUpLink,
@@ -28,13 +29,15 @@ import type {
   ProjectHeader,
   ProjectPayload,
   ProjectTypeDef,
+  Proposal,
   RateEntry,
   RateTable,
   TaskDef,
-  TemplatePhase,
 } from './domain';
 
-/** Header fields the user fills in `InitializeProjectModal`. */
+/** Header fields for the fallback `project.initialize` call (legacy data
+ *  rescue). New code uses `lifecycle.sendAndInitialize` which derives these
+ *  from the proposal itself. */
 interface ProjectInitializeHeader {
   legal_entity: string;
   department: string;
@@ -46,14 +49,37 @@ interface ProjectInitializeHeader {
   current_pm_name?: string | null;
 }
 
-/** Payload for `window.api.project.initialize`. Bundles the proposal name,
- *  the header, and the optional template overlay so the IPC is one call. */
 interface ProjectInitializePayload {
   proposalName: string;
   header: ProjectInitializeHeader;
-  /** When set, overlay the named phase template on top of (or instead of)
-   *  the auto-converted sections. */
-  template?: { name: string; mode: 'append' | 'replace' } | null;
+}
+
+/** Payload for `lifecycle.sendAndInitialize` — runs Mark Sent + creates the
+ *  project in one transaction. legal_entity and department come from the
+ *  proposal itself (set in the header card before clicking Send). */
+interface SendAndInitializePayload {
+  proposalName: string;
+  /** Override the proposal's rateTable for the new project (optional). */
+  rateTableOverride?: string | null;
+  /** Optional iCore project ID, alphanumeric + `_` / `-`. */
+  icoreProjectId?: string | null;
+  /** Optional note attached to the Mark Sent activity entry. */
+  note?: string;
+}
+
+interface SendAndInitializeResult {
+  proposal: Proposal;
+  project: Project;
+}
+
+interface MarkWonAndSyncPayload {
+  proposalName: string;
+  icoreProjectId: string;
+}
+
+interface MarkWonAndSyncResult {
+  proposal: Proposal;
+  project: Project | null;
 }
 
 interface ProjectListFilters {
@@ -132,6 +158,10 @@ export interface QuickQuoteApi {
     addNote(name: string, note: string): Promise<unknown>;
     reassign(name: string, newPmEmail: string, note?: string): Promise<unknown>;
     setFollowUp(name: string, whenIso: string | null, note?: string): Promise<unknown>;
+    /** Mark Sent + initialize the project in one transaction. */
+    sendAndInitialize(payload: SendAndInitializePayload): Promise<SendAndInitializeResult>;
+    /** Mark Won + stamp the iCore project ID on the project row. */
+    markWonAndSync(payload: MarkWonAndSyncPayload): Promise<MarkWonAndSyncResult>;
   };
 
   versions: {
@@ -196,13 +226,18 @@ export interface QuickQuoteApi {
     remove(id: number): Promise<{ ok: true }>;
   };
 
-  /** Phase templates (legal_entity + department-scoped bundles). */
-  templates: {
-    list(filters?: { legal_entity?: string; department?: string; template?: string }): Promise<TemplatePhase[]>;
-    listForContext(legalEntity: string, department: string): Promise<string[]>;
-    save(row: Omit<TemplatePhase, 'id'> & { id?: number }): Promise<number>;
-    remove(id: number): Promise<{ ok: true }>;
-    importBulk(rows: Array<Omit<TemplatePhase, 'id'>>): Promise<{ ok: true; count: number }>;
+  /** Bid item templates — phases (with nested name-only tasks) scoped per
+   *  (legal_entity, department). Applied in the proposal editor. */
+  bidItemTemplates: {
+    /** List template names for a (legal_entity, department) pair. */
+    list(legalEntity: string, department: string): Promise<string[]>;
+    /** Load a full template (phases + nested tasks). */
+    get(legalEntity: string, department: string, name: string): Promise<BidItemTemplate | null>;
+    /** Upsert a full template. Replaces all phase + task rows for the
+     *  (legal_entity, department, name) tuple in one transaction. */
+    save(template: BidItemTemplate): Promise<{ ok: true }>;
+    remove(legalEntity: string, department: string, name: string): Promise<{ ok: true }>;
+    rename(legalEntity: string, department: string, oldName: string, newName: string): Promise<{ ok: true }>;
   };
 
   /** Employees (extended). Used for resource allocation, PM picker, ClickUp. */

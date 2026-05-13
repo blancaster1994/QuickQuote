@@ -44,6 +44,12 @@ export const IPC = {
   LIFECYCLE_ADD_NOTE:      'lifecycle:addNote',
   LIFECYCLE_REASSIGN:      'lifecycle:reassign',
   LIFECYCLE_SET_FOLLOW_UP: 'lifecycle:setFollowUp',
+  /** Mark Sent + initialize the project in one transaction. Returns
+   *  `{ proposal, project }`. Replaces the old Mark-Won init flow. */
+  LIFECYCLE_SEND_AND_INITIALIZE: 'lifecycle:sendAndInitialize',
+  /** Mark Won + stamp the iCore project ID on the project row in one
+   *  transaction. Returns `{ proposal, project }`. */
+  LIFECYCLE_MARK_WON_AND_SYNC: 'lifecycle:markWonAndSync',
 
   // ── versioning (snapshots) ────────────────────────────────────────────────
   VERSION_CREATE:          'version:create',
@@ -81,12 +87,14 @@ export const IPC = {
   TASK_DEF_LIST:           'taskDef:list',
   TASK_DEF_SAVE:           'taskDef:save',
   TASK_DEF_DELETE:         'taskDef:delete',
-  // Phase templates (legal_entity + department-scoped bundles).
-  TEMPLATE_PHASE_LIST:     'templatePhase:list',
-  TEMPLATE_PHASE_LIST_FOR_CONTEXT: 'templatePhase:listForContext',
-  TEMPLATE_PHASE_SAVE:     'templatePhase:save',
-  TEMPLATE_PHASE_DELETE:   'templatePhase:delete',
-  TEMPLATE_PHASE_BULK_REPLACE: 'templatePhase:bulkReplace',
+  // Bid item templates: phases + nested name-only tasks, scoped per
+  // (legal_entity, department). Applied in the proposal editor — each
+  // template phase becomes a Section, each task becomes a SectionTask.
+  BID_ITEM_TEMPLATE_LIST:    'bidItemTemplate:list',
+  BID_ITEM_TEMPLATE_GET:     'bidItemTemplate:get',
+  BID_ITEM_TEMPLATE_SAVE:    'bidItemTemplate:save',
+  BID_ITEM_TEMPLATE_DELETE:  'bidItemTemplate:delete',
+  BID_ITEM_TEMPLATE_RENAME:  'bidItemTemplate:rename',
   // Employees (extended — used for resource allocation, PM picker, ClickUp).
   EMPLOYEE_LIST:           'employee:list',
   EMPLOYEE_SAVE:           'employee:save',

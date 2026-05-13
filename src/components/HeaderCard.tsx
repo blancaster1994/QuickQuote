@@ -4,17 +4,17 @@
 // toolbars let the engineer recall a saved bundle (Client Template / Project
 // Type Template) — both scoped per CES identity email.
 
-import { useState, type Dispatch, type ReactNode } from 'react';
+import { useEffect, useState, type Dispatch, type ReactNode } from 'react';
 import { Field, FieldLabel } from './shared';
 import { Modal, ModalActions } from './StatusComponents';
 import { Button, Input, Select } from './ui';
-import type { ClientTemplateRecord, Proposal, ProjectTemplateRecord } from '../types/domain';
+import type { ClientTemplateRecord, Proposal } from '../types/domain';
 import type { EditorAction } from '../state/editorReducer';
 
 interface HeaderCardProps {
   proposal: Proposal;
   dispatch: Dispatch<EditorAction>;
-  bootstrap: { client_templates?: string[]; project_templates?: string[] } | null;
+  bootstrap: { client_templates?: string[] } | null;
 }
 
 export default function HeaderCard({ proposal, dispatch, bootstrap }: HeaderCardProps) {
@@ -33,8 +33,6 @@ export default function HeaderCard({ proposal, dispatch, bootstrap }: HeaderCard
       <ClientTemplateBar proposal={proposal} dispatch={dispatch}
         templates={bootstrap?.client_templates || []}
         onAfterLoad={() => setAddrOpen(true)} />
-      <ProjectTemplateBar proposal={proposal} dispatch={dispatch}
-        templates={bootstrap?.project_templates || []} />
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 14px' }}>
         <div>
@@ -52,6 +50,8 @@ export default function HeaderCard({ proposal, dispatch, bootstrap }: HeaderCard
         <Field label="Client"       value={proposal.client}  onChange={setField('client')} />
         <Field label="Attention"    value={proposal.contact} onChange={setField('contact')} />
       </div>
+
+      <ScopeRow proposal={proposal} dispatch={dispatch} />
 
       <AddressFieldsToggle
         open={addrOpen}
@@ -99,6 +99,53 @@ function AddressFieldsToggle({ open, onToggle }: { open: boolean; onToggle: () =
         Address fields {open ? '' : '(optional)'}
       </span>
     </button>
+  );
+}
+
+// ── Legal entity + department picker ───────────────────────────────────────
+//
+// Both are required before the user can click Mark Sent (project init reads
+// them from the proposal). Inline dropdowns sourced from the lookup tables.
+
+function ScopeRow({ proposal, dispatch }: {
+  proposal: Proposal;
+  dispatch: Dispatch<EditorAction>;
+}) {
+  const [legalEntities, setLegalEntities] = useState<string[]>([]);
+  const [departments,   setDepartments]   = useState<string[]>([]);
+
+  useEffect(() => {
+    void window.api.lookups.list('legal_entity').then(rs => setLegalEntities(rs.map(r => r.name)));
+    void window.api.lookups.list('department').then(rs => setDepartments(rs.map(r => r.name)));
+  }, []);
+
+  const legalEntity = proposal.legal_entity || '';
+  const department  = proposal.department  || '';
+
+  return (
+    <div style={{
+      display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 14px',
+      marginTop: 8,
+    }}>
+      <div>
+        <FieldLabel>Legal Entity</FieldLabel>
+        <Select size="sm" strongBorder value={legalEntity}
+          onChange={(e) => dispatch({ type: 'SET_LEGAL_ENTITY', legalEntity: e.target.value })}
+          style={{ width: '100%' }}>
+          <option value="">— Select —</option>
+          {legalEntities.map(n => <option key={n} value={n}>{n}</option>)}
+        </Select>
+      </div>
+      <div>
+        <FieldLabel>Department</FieldLabel>
+        <Select size="sm" strongBorder value={department}
+          onChange={(e) => dispatch({ type: 'SET_DEPARTMENT', department: e.target.value })}
+          style={{ width: '100%' }}>
+          <option value="">— Select —</option>
+          {departments.map(n => <option key={n} value={n}>{n}</option>)}
+        </Select>
+      </div>
+    </div>
   );
 }
 
@@ -168,91 +215,6 @@ function ClientTemplateBar({ proposal, dispatch, templates, onAfterLoad }: Clien
             setPicked('');
           }}
         />
-      )}
-    </ToolbarRow>
-  );
-}
-
-// ── Project Type Template toolbar ──────────────────────────────────────────
-
-interface ProjectTemplateBarProps {
-  proposal: Proposal;
-  dispatch: Dispatch<EditorAction>;
-  templates: string[];
-}
-
-function ProjectTemplateBar({ proposal, dispatch, templates }: ProjectTemplateBarProps) {
-  const [picked, setPicked] = useState('');
-  const [saveOpen, setSaveOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [confirmReplace, setConfirmReplace] = useState(false);
-
-  async function refreshList(): Promise<string[]> {
-    const names = (await window.api.projectTemplates.list()) as string[];
-    dispatch({ type: 'SET_PROJECT_TEMPLATES', templates: names });
-    return names;
-  }
-
-  async function apply() {
-    try {
-      const t = (await window.api.projectTemplates.load(picked)) as ProjectTemplateRecord;
-      dispatch({ type: 'APPLY_PROJECT_TEMPLATE', template: t });
-    } catch (e: any) {
-      alert(`Couldn't load template "${picked}": ${e?.message || String(e)}`);
-    }
-  }
-
-  async function onLoad() {
-    if (!picked) return;
-    if (hasContentfulSections(proposal)) {
-      setConfirmReplace(true);
-    } else {
-      await apply();
-    }
-  }
-
-  return (
-    <ToolbarRow label="Project Type Template" picked={picked} setPicked={setPicked}
-      templates={templates} onLoad={onLoad}
-      onSaveClick={() => setSaveOpen(true)}
-      onDeleteClick={() => setDeleteOpen(true)}>
-      {saveOpen && (
-        <SaveTemplateModal title="Save Project Type Template"
-          description="Save the current bid item titles and scope of work as a reusable project type. Fees, billing, labor, and expenses are not saved."
-          initialName={picked || ''}
-          placeholder="e.g. Single Family Residence"
-          onClose={() => setSaveOpen(false)}
-          onSubmit={async (name) => {
-            const res = (await window.api.projectTemplates.save(name, proposal.sections || [])) as { name?: string };
-            setSaveOpen(false);
-            const names = await refreshList();
-            const saved = res.name || name;
-            if (names.includes(saved)) setPicked(saved);
-          }}
-        />
-      )}
-      {deleteOpen && (
-        <DeleteTemplateModal kind="Project Type" name={picked}
-          onClose={() => setDeleteOpen(false)}
-          onSubmit={async () => {
-            await window.api.projectTemplates.remove(picked);
-            setDeleteOpen(false);
-            await refreshList();
-            setPicked('');
-          }}
-        />
-      )}
-      {confirmReplace && (
-        <Modal title="Replace Bid Items?" onClose={() => setConfirmReplace(false)}>
-          <div style={{ fontSize: 13, color: 'var(--body)', lineHeight: 1.5 }}>
-            Loading <strong>{picked}</strong> will replace every bid item in this
-            proposal — including any titles, scope, fees, labor, and expenses
-            you've already entered.
-          </div>
-          <ModalActions onCancel={() => setConfirmReplace(false)}
-            onConfirm={async () => { setConfirmReplace(false); await apply(); }}
-            confirmLabel="Replace" confirmKind="loss" />
-        </Modal>
       )}
     </ToolbarRow>
   );
@@ -377,22 +339,6 @@ function DeleteTemplateModal({ kind, name, onClose, onSubmit }: DeleteTemplateMo
         confirmLabel={busy ? 'Deleting…' : 'Delete'}
         confirmDisabled={busy} confirmKind="loss" />
     </Modal>
-  );
-}
-
-// ── helpers ────────────────────────────────────────────────────────────────
-
-function hasContentfulSections(proposal: Proposal): boolean {
-  const sections = proposal?.sections || [];
-  if (sections.length > 1) return true;
-  const s = sections[0];
-  if (!s) return false;
-  return Boolean(
-    (s.title && s.title.trim()) ||
-    (s.scope && s.scope.trim()) ||
-    (s.labor && s.labor.length) ||
-    (s.expenses && s.expenses.length) ||
-    (s.fee && Number(s.fee) !== 0),
   );
 }
 

@@ -1,0 +1,200 @@
+[
+  { "legal_entity": "CES", "department": "Consulting", "name": "Standard",
+    "phases": [
+      { "phase_name": "Site Visit",            "sort_order": 0,
+        "tasks": [
+          { "name": "Site Visit",  "sort_order": 0 },
+          { "name": "Engineering", "sort_order": 1 },
+          { "name": "Drafting",    "sort_order": 2 }
+        ] },
+      { "phase_name": "Construction Documents", "sort_order": 1,
+        "tasks": [
+          { "name": "Site Visit",  "sort_order": 0 },
+          { "name": "Engineering", "sort_order": 1 },
+          { "name": "Drafting",    "sort_order": 2 }
+        ] },
+      { "phase_name": "Contract Administration", "sort_order": 2,
+        "tasks": [
+          { "name": "Site Visit",  "sort_order": 0 },
+          { "name": "Engineering", "sort_order": 1 },
+          { "name": "Drafting",    "sort_order": 2 }
+        ] }
+    ]
+  },
+  { "legal_entity": "CES", "department": "Operations", "name": "Standard",
+    "phases": [
+      { "phase_name": "Site Visit",            "sort_order": 0,
+        "tasks": [
+          { "name": "Site Visit",  "sort_order": 0 },
+          { "name": "Engineering", "sort_order": 1 },
+          { "name": "Drafting",    "sort_order": 2 }
+        ] },
+      { "phase_name": "Construction Documents", "sort_order": 1,
+        "tasks": [
+          { "name": "Site Visit",  "sort_order": 0 },
+          { "name": "Engineering", "sort_order": 1 },
+          { "name": "Drafting",    "sort_order": 2 }
+        ] },
+      { "phase_name": "Contract Administration", "sort_order": 2,
+        "tasks": [
+          { "name": "Site Visit",  "sort_order": 0 },
+          { "name": "Engineering", "sort_order": 1 },
+          { "name": "Drafting",    "sort_order": 2 }
+        ] }
+    ]
+  },
+  { "legal_entity": "CES", "department": "Structural", "name": "Standard",
+    "phases": [
+      { "phase_name": "Site Visit",            "sort_order": 0,
+        "tasks": [
+          { "name": "Site Visit",  "sort_order": 0 },
+          { "name": "Engineering", "sort_order": 1 },
+          { "name": "Drafting",    "sort_order": 2 }
+        ] },
+      { "phase_name": "Construction Documents", "sort_order": 1,
+        "tasks": [
+          { "name": "Site Visit",  "sort_order": 0 },
+          { "name": "Engineering", "sort_order": 1 },
+          { "name": "Drafting",    "sort_order": 2 }
+        ] },
+      { "phase_name": "Contract Administration", "sort_order": 2,
+        "tasks": [
+          { "name": "Site Visit",  "sort_order": 0 },
+          { "name": "Engineering", "sort_order": 1 },
+          { "name": "Drafting",    "sort_order": 2 }
+        ] }
+    ]
+  },
+  { "legal_entity": "FWL", "department": "Consulting", "name": "Standard",
+    "phases": [
+      { "phase_name": "Site Visit",            "sort_order": 0,
+        "tasks": [
+          { "name": "Site Visit",  "sort_order": 0 },
+          { "name": "Engineering", "sort_order": 1 },
+          { "name": "Drafting",    "sort_order": 2 }
+        ] },
+      { "phase_name": "Construction Documents", "sort_order": 1,
+        "tasks": [
+          { "name": "Site Visit",  "sort_order": 0 },
+          { "name": "Engineering", "sort_order": 1 },
+          { "name": "Drafting",    "sort_order": 2 }
+        ] },
+      { "phase_name": "Contract Administration", "sort_order": 2,
+        "tasks": [
+          { "name": "Site Visit",  "sort_order": 0 },
+          { "name": "Engineering", "sort_order": 1 },
+          { "name": "Drafting",    "sort_order": 2 }
+        ] }
+    ]
+  },
+  { "legal_entity": "FWL", "department": "Operations", "name": "Standard",
+    "phases": [
+      { "phase_name": "Site Visit",            "sort_order": 0,
+        "tasks": [
+          { "name": "Site Visit",  "sort_order": 0 },
+          { "name": "Engineering", "sort_order": 1 },
+          { "name": "Drafting",    "sort_order": 2 }
+        ] },
+      { "phase_name": "Construction Documents", "sort_order": 1,
+        "tasks": [
+          { "name": "Site Visit",  "sort_order": 0 },
+          { "name": "Engineering", "sort_order": 1 },
+          { "name": "Drafting",    "sort_order": 2 }
+        ] },
+      { "phase_name": "Contract Administration", "sort_order": 2,
+        "tasks": [
+          { "name": "Site Visit",  "sort_order": 0 },
+          { "name": "Engineering", "sort_order": 1 },
+          { "name": "Drafting",    "sort_order": 2 }
+        ] }
+    ]
+  },
+  { "legal_entity": "FWL", "department": "Structural", "name": "Standard",
+    "phases": [
+      { "phase_name": "Site Visit",            "sort_order": 0,
+        "tasks": [
+          { "name": "Site Visit",  "sort_order": 0 },
+          { "name": "Engineering", "sort_order": 1 },
+          { "name": "Drafting",    "sort_order": 2 }
+        ] },
+      { "phase_name": "Construction Documents", "sort_order": 1,
+        "tasks": [
+          { "name": "Site Visit",  "sort_order": 0 },
+          { "name": "Engineering", "sort_order": 1 },
+          { "name": "Drafting",    "sort_order": 2 }
+        ] },
+      { "phase_name": "Contract Administration", "sort_order": 2,
+        "tasks": [
+          { "name": "Site Visit",  "sort_order": 0 },
+          { "name": "Engineering", "sort_order": 1 },
+          { "name": "Drafting",    "sort_order": 2 }
+        ] }
+    ]
+  },
+  { "legal_entity": "TZW", "department": "Consulting", "name": "Standard",
+    "phases": [
+      { "phase_name": "Site Visit",            "sort_order": 0,
+        "tasks": [
+          { "name": "Site Visit",  "sort_order": 0 },
+          { "name": "Engineering", "sort_order": 1 },
+          { "name": "Drafting",    "sort_order": 2 }
+        ] },
+      { "phase_name": "Construction Documents", "sort_order": 1,
+        "tasks": [
+          { "name": "Site Visit",  "sort_order": 0 },
+          { "name": "Engineering", "sort_order": 1 },
+          { "name": "Drafting",    "sort_order": 2 }
+        ] },
+      { "phase_name": "Contract Administration", "sort_order": 2,
+        "tasks": [
+          { "name": "Site Visit",  "sort_order": 0 },
+          { "name": "Engineering", "sort_order": 1 },
+          { "name": "Drafting",    "sort_order": 2 }
+        ] }
+    ]
+  },
+  { "legal_entity": "TZW", "department": "Operations", "name": "Standard",
+    "phases": [
+      { "phase_name": "Site Visit",            "sort_order": 0,
+        "tasks": [
+          { "name": "Site Visit",  "sort_order": 0 },
+          { "name": "Engineering", "sort_order": 1 },
+          { "name": "Drafting",    "sort_order": 2 }
+        ] },
+      { "phase_name": "Construction Documents", "sort_order": 1,
+        "tasks": [
+          { "name": "Site Visit",  "sort_order": 0 },
+          { "name": "Engineering", "sort_order": 1 },
+          { "name": "Drafting",    "sort_order": 2 }
+        ] },
+      { "phase_name": "Contract Administration", "sort_order": 2,
+        "tasks": [
+          { "name": "Site Visit",  "sort_order": 0 },
+          { "name": "Engineering", "sort_order": 1 },
+          { "name": "Drafting",    "sort_order": 2 }
+        ] }
+    ]
+  },
+  { "legal_entity": "TZW", "department": "Structural", "name": "Standard",
+    "phases": [
+      { "phase_name": "Site Visit",            "sort_order": 0,
+        "tasks": [
+          { "name": "Site Visit",  "sort_order": 0 },
+          { "name": "Engineering", "sort_order": 1 },
+          { "name": "Drafting",    "sort_order": 2 }
+        ] },
+      { "phase_name": "Construction Documents", "sort_order": 1,
+        "tasks": [
+          { "name": "Site Visit",  "sort_order": 0 },
+          { "name": "Engineering", "sort_order": 1 },
+          { "name": "Drafting",    "sort_order": 2 }
+        ] },
+      { "phase_name": "Contract Administration", "sort_order": 2,
+        "tasks": [
+          { "name": "Site Visit",  "sort_order": 0 },
+          { "name": "Engineering", "sort_order": 1 },
+          { "name": "Drafting",    "sort_order": 2 }
+        ] }
+    ]
+  }
+]

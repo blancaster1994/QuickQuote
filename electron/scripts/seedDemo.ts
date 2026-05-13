@@ -15,7 +15,7 @@ import fs from 'node:fs';
 import BetterSqlite3 from 'better-sqlite3';
 import { migrate } from '../db/schema';
 import {
-  seedIfEmpty, seedLookupsIfEmpty, seedTemplatesIfMissing,
+  seedIfEmpty, seedLookupsIfEmpty, seedBidItemTemplatesIfMissing,
   resolveSeedPath, resolveLookupsSeedPath,
 } from '../db/seed';
 import * as Q from '../db/queries';
@@ -159,6 +159,17 @@ function buildSections(def: DemoProposal): any[] {
   }));
 }
 
+/** Pick a sensible department from a rate table or won spec. Falls back to
+ *  the rate table's own name if no mapping fits. */
+function inferDepartment(def: DemoProposal): string {
+  if (def.won?.department) return def.won.department;
+  switch (def.rateTable) {
+    case 'structural': return 'Structural';
+    case 'consulting': return 'Consulting';
+    default: return 'Structural';
+  }
+}
+
 function buildProposal(def: DemoProposal, icoreId: string): any {
   return {
     date:               dateOnlyDaysFromNow(-def.proposalAgeDays),
@@ -170,6 +181,8 @@ function buildProposal(def: DemoProposal, icoreId: string): any {
     clientAddress:      def.clientAddress,
     clientCityStateZip: def.clientCityStateZip,
     rateTable:          def.rateTable,
+    legal_entity:       def.won?.legalEntity || 'CES',
+    department:         inferDepartment(def),
     sections:           buildSections(def),
     // ensureLifecycle (called by saveProposal) backfills the rest. We pre-tag
     // the iCore id so it's persisted on the very first INSERT, which is what
@@ -226,24 +239,25 @@ function buildProjectPayload(
   won.phases.forEach((phaseDef, phaseIdx) => {
     const phaseNo = phaseIdx + 1;
     const tasks: Project.ProjectTask[] = [];
+    // Labor budget by category — aggregated from this phase's resources.
+    const laborByCategory = new Map<string, { hours: number; category: string }>();
 
     phaseDef.tasks.forEach((taskDef, taskIdx) => {
       const taskNo = taskIdx + 1;
-      // Sum hours from this task's resources for the task header. The
-      // renderer recomputes amounts from resources, so the displayed dollar
-      // value comes out of the resource rows; this hours number is just for
-      // the task header column.
-      const taskHours = taskDef.resources.reduce((acc, r) => acc + r.hours, 0);
+      // Tasks are name-only in the new model. Category and hours roll up
+      // into the phase's labor budget via the resources below.
       tasks.push({
-        task_no:  taskNo,
-        name:     taskDef.name,
-        category: taskDef.category,
-        hours:    taskHours,
+        task_no: taskNo,
+        name:    taskDef.name,
       });
 
       taskDef.resources.forEach((r: ResourceTemplate) => {
         const rate = rates.rateFor(r.category);
         const resourceName = pool.pick(r.category);
+        const slot = laborByCategory.get(r.category)
+          || { hours: 0, category: r.category };
+        slot.hours += r.hours;
+        laborByCategory.set(r.category, slot);
         resources.push({
           phase_no:        phaseNo,
           task_no:         taskNo,
@@ -257,6 +271,15 @@ function buildProjectPayload(
       });
     });
 
+    const labor: Project.ProjectLabor[] = Array.from(laborByCategory.values()).map((row, i) => ({
+      labor_no: i + 1,
+      category: row.category,
+      hours:    row.hours,
+      employee: null,
+      rate_override: null,
+      rate_baseline: null,
+    }));
+
     phases.push({
       phase_no:      phaseNo,
       name:          phaseDef.name,
@@ -265,6 +288,7 @@ function buildProjectPayload(
       due_date:      dateOnlyDaysFromNow(phaseDef.dueOffsetDays),
       scope_text:    phaseDef.scope,
       target_budget: phaseDef.targetBudget,
+      labor,
       tasks,
       expenses:      [],
     });
@@ -375,7 +399,48 @@ function seedOne(
   }
 
   if (def.targetStatus === 'sent') {
-    return { status: 'inserted', note: `sent ${sentAge}d ago` };
+    // New model: Sent proposals also have a project (bid items → phases at
+    // Send time). Build a minimal project from the proposal's sections so
+    // demo data is consistent with the connected workflow.
+    const proposal = Q.loadProposal(db, def.name);
+    const legalEntity = proposal.legal_entity || 'CES';
+    const department  = proposal.department  || inferDepartment(def);
+    const sentPayload = {
+      phases: (proposal.sections || []).map((s: any, idx: number) => ({
+        phase_no: idx + 1,
+        name: s.title || `Phase ${idx + 1}`,
+        rate_table: def.rateTable,
+        project_type: s.billing === 'tm' ? 'T&M' : 'FF',
+        due_date: null,
+        scope_text: s.scope || '',
+        billing_type: s.billing,
+        notes: s.notes || '',
+        target_budget: typeof s.fee === 'number' ? s.fee : null,
+        labor: [],
+        tasks: (s.tasks || []).map((t: any, ti: number) => ({
+          task_no: ti + 1,
+          name: t.name || '',
+        })),
+        expenses: [],
+      })),
+      resources: [],
+    };
+    Project.initializeProject(
+      db,
+      def.name,
+      {
+        legal_entity:    legalEntity,
+        department,
+        rate_table:      def.rateTable,
+        project_type:    null,
+        icore_project_id: icoreId,
+        current_pm_email: actor.email,
+        current_pm_name:  actor.name,
+      },
+      sentPayload as any,
+      actor,
+    );
+    return { status: 'inserted', note: `sent ${sentAge}d ago + project` };
   }
 
   if (def.targetStatus === 'won') {
@@ -468,7 +533,7 @@ async function main(): Promise<number> {
     migrate(db);
     seedIfEmpty(db, resolveSeedPath(PROJECT_ROOT));
     seedLookupsIfEmpty(db, resolveLookupsSeedPath(PROJECT_ROOT));
-    seedTemplatesIfMissing(db, PROJECT_ROOT);
+    seedBidItemTemplatesIfMissing(db, PROJECT_ROOT);
 
     // 1. Dedup
     const dedup = dedupNewProposedResidence(db);
