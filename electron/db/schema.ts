@@ -448,6 +448,27 @@ const MIGRATIONS: Migration[] = [
       for (const [col, ddl] of v1ProposalVersionCols) addColumnIfMissing(db, 'proposal_version', col, ddl);
     },
   },
+  {
+    version: 4,
+    up: (db) => {
+      // Templates now own their phase+task structure. Tasks attached to a
+      // template's phase are the time-entry buckets shown in iCore when an
+      // employee logs hours against the project. The older department-scoped
+      // `phase_def` and `task_def` tables remain so legacy reads from the
+      // importer (which pulls from PM Quoting App's old schema) don't trip
+      // a missing-table error, but new writes go through template_phase_task.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS template_phase_task (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          template_phase_id INTEGER NOT NULL REFERENCES template_phase(id) ON DELETE CASCADE,
+          name TEXT NOT NULL,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          UNIQUE(template_phase_id, name)
+        );
+        CREATE INDEX IF NOT EXISTS idx_template_phase_task_phase ON template_phase_task(template_phase_id);
+      `);
+    },
+  },
   // Append future migrations here. Never edit a past entry — the runner
   // only applies versions strictly greater than the current recorded one.
 ];

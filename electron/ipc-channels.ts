@@ -74,14 +74,8 @@ export const IPC = {
   MARKUP_ADD:              'markup:add',
   MARKUP_UPDATE:           'markup:update',
   MARKUP_DELETE:           'markup:delete',
-  // Phase + task taxonomy (per-department).
-  PHASE_DEF_LIST:          'phaseDef:list',
-  PHASE_DEF_SAVE:          'phaseDef:save',
-  PHASE_DEF_DELETE:        'phaseDef:delete',
-  TASK_DEF_LIST:           'taskDef:list',
-  TASK_DEF_SAVE:           'taskDef:save',
-  TASK_DEF_DELETE:         'taskDef:delete',
   // Phase templates (legal_entity + department-scoped bundles).
+  // Tasks are owned by each template-phase (see template_phase_task in schema).
   TEMPLATE_PHASE_LIST:     'templatePhase:list',
   TEMPLATE_PHASE_LIST_FOR_CONTEXT: 'templatePhase:listForContext',
   TEMPLATE_PHASE_SAVE:     'templatePhase:save',

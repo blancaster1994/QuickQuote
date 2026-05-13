@@ -295,43 +295,21 @@ function registerIpc(): void {
     return { ok: true as const };
   });
 
-  // Phase + task taxonomy.
-  ipcMain.handle(IPC.PHASE_DEF_LIST, (_e, department?: string) =>
-    Lookups.listPhases(requireDb(), department),
-  );
-  ipcMain.handle(IPC.PHASE_DEF_SAVE, (_e, row: { id?: number; department: string; name: string; sort_order: number }) =>
-    Lookups.upsertPhase(requireDb(), row),
-  );
-  ipcMain.handle(IPC.PHASE_DEF_DELETE, (_e, id: number) => {
-    Lookups.deletePhase(requireDb(), id);
-    return { ok: true as const };
-  });
-  ipcMain.handle(IPC.TASK_DEF_LIST, (_e, department?: string, phase?: string) =>
-    Lookups.listTasks(requireDb(), department, phase),
-  );
-  ipcMain.handle(IPC.TASK_DEF_SAVE, (_e, row: { id?: number; department: string; phase: string; name: string; sort_order: number }) =>
-    Lookups.upsertTask(requireDb(), row),
-  );
-  ipcMain.handle(IPC.TASK_DEF_DELETE, (_e, id: number) => {
-    Lookups.deleteTask(requireDb(), id);
-    return { ok: true as const };
-  });
-
-  // Phase templates.
+  // Phase templates. Each row carries its tasks[] (time-entry buckets).
   ipcMain.handle(IPC.TEMPLATE_PHASE_LIST, (_e, filters?: { legal_entity?: string; department?: string; template?: string }) =>
     Lookups.listTemplatePhases(requireDb(), filters ?? {}),
   );
   ipcMain.handle(IPC.TEMPLATE_PHASE_LIST_FOR_CONTEXT, (_e, legalEntity: string, department: string) =>
     Lookups.listTemplatesForContext(requireDb(), legalEntity, department),
   );
-  ipcMain.handle(IPC.TEMPLATE_PHASE_SAVE, (_e, row: Omit<Lookups.TemplatePhaseRow, 'id'> & { id?: number }) =>
+  ipcMain.handle(IPC.TEMPLATE_PHASE_SAVE, (_e, row: Omit<Lookups.TemplatePhaseRow, 'id' | 'tasks'> & { id?: number; tasks?: string[] }) =>
     Lookups.upsertTemplatePhase(requireDb(), row),
   );
   ipcMain.handle(IPC.TEMPLATE_PHASE_DELETE, (_e, id: number) => {
     Lookups.deleteTemplatePhase(requireDb(), id);
     return { ok: true as const };
   });
-  ipcMain.handle(IPC.TEMPLATE_PHASE_BULK_REPLACE, (_e, rows: Array<Omit<Lookups.TemplatePhaseRow, 'id'>>) => {
+  ipcMain.handle(IPC.TEMPLATE_PHASE_BULK_REPLACE, (_e, rows: Array<Omit<Lookups.TemplatePhaseRow, 'id' | 'tasks'> & { tasks?: string[] }>) => {
     Lookups.bulkReplaceTemplatePhases(requireDb(), rows);
     return { ok: true as const, count: rows.length };
   });

@@ -61,90 +61,6 @@ export function deleteMarkup(db: Database.Database, id: number): void {
   db.prepare('DELETE FROM markup_pct WHERE id=?').run(id);
 }
 
-// ── Phase definitions (department-scoped) ──────────────────────────────────
-
-export interface PhaseDefRow {
-  id: number;
-  department: string;
-  name: string;
-  sort_order: number;
-}
-
-export function listPhases(db: Database.Database, department?: string): PhaseDefRow[] {
-  if (department) {
-    return db
-      .prepare('SELECT id, department, name, sort_order FROM phase_def WHERE department=? ORDER BY sort_order, name')
-      .all(department) as PhaseDefRow[];
-  }
-  return db
-    .prepare('SELECT id, department, name, sort_order FROM phase_def ORDER BY department, sort_order, name')
-    .all() as PhaseDefRow[];
-}
-
-export function upsertPhase(
-  db: Database.Database,
-  row: { id?: number; department: string; name: string; sort_order: number },
-): number {
-  if (row.id) {
-    db.prepare('UPDATE phase_def SET department=?, name=?, sort_order=? WHERE id=?').run(
-      row.department, row.name, row.sort_order, row.id,
-    );
-    return row.id;
-  }
-  return db
-    .prepare('INSERT INTO phase_def(department, name, sort_order) VALUES (?,?,?)')
-    .run(row.department, row.name, row.sort_order).lastInsertRowid as number;
-}
-
-export function deletePhase(db: Database.Database, id: number): void {
-  db.prepare('DELETE FROM phase_def WHERE id=?').run(id);
-}
-
-// ── Task definitions ((department, phase)-scoped) ──────────────────────────
-
-export interface TaskDefRow {
-  id: number;
-  department: string;
-  phase: string;
-  name: string;
-  sort_order: number;
-}
-
-export function listTasks(db: Database.Database, department?: string, phase?: string): TaskDefRow[] {
-  if (department && phase) {
-    return db
-      .prepare('SELECT id, department, phase, name, sort_order FROM task_def WHERE department=? AND phase=? ORDER BY sort_order, name')
-      .all(department, phase) as TaskDefRow[];
-  }
-  if (department) {
-    return db
-      .prepare('SELECT id, department, phase, name, sort_order FROM task_def WHERE department=? ORDER BY phase, sort_order, name')
-      .all(department) as TaskDefRow[];
-  }
-  return db
-    .prepare('SELECT id, department, phase, name, sort_order FROM task_def ORDER BY department, phase, sort_order, name')
-    .all() as TaskDefRow[];
-}
-
-export function upsertTask(
-  db: Database.Database,
-  row: { id?: number; department: string; phase: string; name: string; sort_order: number },
-): number {
-  if (row.id) {
-    db.prepare('UPDATE task_def SET department=?, phase=?, name=?, sort_order=? WHERE id=?').run(
-      row.department, row.phase, row.name, row.sort_order, row.id,
-    );
-    return row.id;
-  }
-  return db
-    .prepare('INSERT INTO task_def(department, phase, name, sort_order) VALUES (?,?,?,?)')
-    .run(row.department, row.phase, row.name, row.sort_order).lastInsertRowid as number;
-}
-
-export function deleteTask(db: Database.Database, id: number): void {
-  db.prepare('DELETE FROM task_def WHERE id=?').run(id);
-}
-
 // ── Employees (extended for PM mode) ───────────────────────────────────────
 //
 // QuickQuote's v1 employee table had only (name, category, active). v2 adds
@@ -454,8 +370,9 @@ export function bulkReplaceRates(db: Database.Database, rows: Array<Omit<RateRow
 
 // ── Phase templates ────────────────────────────────────────────────────────
 //
-// A "template" is a named bundle of phase rows scoped to (legal_entity,
-// department). The Initialize Project modal picks templates by context.
+// A "template" is a named bundle of phases scoped to (legal_entity,
+// department). Each phase owns its tasks (the time-entry buckets surfaced
+// in iCore). Picked from in the Initialize Project modal at Mark Won.
 
 export interface TemplatePhaseRow {
   id: number;
@@ -465,6 +382,48 @@ export interface TemplatePhaseRow {
   phase_name: string;
   rate_table: string;
   sort_order: number;
+  /** Tasks owned by this template-phase. Order matches sort_order in the
+   *  underlying template_phase_task rows. */
+  tasks: string[];
+}
+
+function attachTasksToPhases(
+  db: Database.Database,
+  phases: Array<Omit<TemplatePhaseRow, 'tasks'>>,
+): TemplatePhaseRow[] {
+  if (phases.length === 0) return [];
+  const ids = phases.map((p) => p.id);
+  const placeholders = ids.map(() => '?').join(',');
+  const taskRows = db
+    .prepare(
+      `SELECT template_phase_id, name FROM template_phase_task
+       WHERE template_phase_id IN (${placeholders})
+       ORDER BY template_phase_id, sort_order, id`,
+    )
+    .all(...ids) as Array<{ template_phase_id: number; name: string }>;
+  const byPhase = new Map<number, string[]>();
+  taskRows.forEach((t) => {
+    const arr = byPhase.get(t.template_phase_id) ?? [];
+    arr.push(t.name);
+    byPhase.set(t.template_phase_id, arr);
+  });
+  return phases.map((p) => ({ ...p, tasks: byPhase.get(p.id) ?? [] }));
+}
+
+function replaceTasksForPhase(
+  db: Database.Database,
+  templatePhaseId: number,
+  tasks: string[],
+): void {
+  db.prepare('DELETE FROM template_phase_task WHERE template_phase_id=?').run(templatePhaseId);
+  if (tasks.length === 0) return;
+  const ins = db.prepare(
+    'INSERT INTO template_phase_task(template_phase_id, name, sort_order) VALUES (?,?,?)',
+  );
+  tasks.forEach((name, idx) => {
+    const trimmed = name.trim();
+    if (trimmed) ins.run(templatePhaseId, trimmed, idx);
+  });
 }
 
 export function listTemplatePhases(
@@ -477,7 +436,8 @@ export function listTemplatePhases(
   if (filters.department)   { where.push('department=?');   args.push(filters.department); }
   if (filters.template)     { where.push('template=?');     args.push(filters.template); }
   const sql = `SELECT id, legal_entity, department, template, phase_name, rate_table, sort_order FROM template_phase ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY legal_entity, department, template, sort_order`;
-  return db.prepare(sql).all(...args) as TemplatePhaseRow[];
+  const phases = db.prepare(sql).all(...args) as Array<Omit<TemplatePhaseRow, 'tasks'>>;
+  return attachTasksToPhases(db, phases);
 }
 
 /** Distinct template names available for a (legal_entity, department) pair. */
@@ -496,46 +456,56 @@ export function listTemplatesForContext(
 
 export function upsertTemplatePhase(
   db: Database.Database,
-  row: Omit<TemplatePhaseRow, 'id'> & { id?: number },
+  row: Omit<TemplatePhaseRow, 'id' | 'tasks'> & { id?: number; tasks?: string[] },
 ): number {
-  if (row.id) {
-    db.prepare(
-      'UPDATE template_phase SET legal_entity=?, department=?, template=?, phase_name=?, rate_table=?, sort_order=? WHERE id=?',
-    ).run(
-      row.legal_entity, row.department, row.template, row.phase_name,
-      row.rate_table, row.sort_order, row.id,
-    );
-    return row.id;
-  }
-  return db
-    .prepare(
-      'INSERT INTO template_phase(legal_entity, department, template, phase_name, rate_table, sort_order) VALUES (?,?,?,?,?,?)',
-    )
-    .run(
-      row.legal_entity, row.department, row.template, row.phase_name,
-      row.rate_table, row.sort_order,
-    ).lastInsertRowid as number;
+  const tx = db.transaction(() => {
+    let id: number;
+    if (row.id) {
+      db.prepare(
+        'UPDATE template_phase SET legal_entity=?, department=?, template=?, phase_name=?, rate_table=?, sort_order=? WHERE id=?',
+      ).run(
+        row.legal_entity, row.department, row.template, row.phase_name,
+        row.rate_table, row.sort_order, row.id,
+      );
+      id = row.id;
+    } else {
+      id = db
+        .prepare(
+          'INSERT INTO template_phase(legal_entity, department, template, phase_name, rate_table, sort_order) VALUES (?,?,?,?,?,?)',
+        )
+        .run(
+          row.legal_entity, row.department, row.template, row.phase_name,
+          row.rate_table, row.sort_order,
+        ).lastInsertRowid as number;
+    }
+    if (row.tasks !== undefined) replaceTasksForPhase(db, id, row.tasks);
+    return id;
+  });
+  return tx();
 }
 
 export function deleteTemplatePhase(db: Database.Database, id: number): void {
+  // template_phase_task rows cascade via FK ON DELETE CASCADE.
   db.prepare('DELETE FROM template_phase WHERE id=?').run(id);
 }
 
 export function bulkReplaceTemplatePhases(
   db: Database.Database,
-  rows: Array<Omit<TemplatePhaseRow, 'id'>>,
+  rows: Array<Omit<TemplatePhaseRow, 'id' | 'tasks'> & { tasks?: string[] }>,
 ): void {
   const tx = db.transaction(() => {
+    // Cascade clears template_phase_task automatically.
     db.prepare('DELETE FROM template_phase').run();
     const ins = db.prepare(
       'INSERT INTO template_phase(legal_entity, department, template, phase_name, rate_table, sort_order) VALUES (?,?,?,?,?,?)',
     );
-    rows.forEach((r) =>
-      ins.run(
+    rows.forEach((r) => {
+      const id = ins.run(
         r.legal_entity, r.department, r.template, r.phase_name,
         r.rate_table, r.sort_order,
-      ),
-    );
+      ).lastInsertRowid as number;
+      if (r.tasks && r.tasks.length) replaceTasksForPhase(db, id, r.tasks);
+    });
   });
   tx();
 }

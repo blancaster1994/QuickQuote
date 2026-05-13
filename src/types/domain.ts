@@ -39,7 +39,6 @@ export type EditorMode = 'proposal' | 'project';
 /** Active sub-tab within the slide-out lookups admin panel. */
 export type LookupsTab =
   | 'basic'
-  | 'phases-tasks'
   | 'templates'
   | 'employees'
   | 'rates'
@@ -312,25 +311,10 @@ export interface ProjectTypeDef { id: ID; name: string }
 export interface MarkupPct { id: ID; value: number }
 export interface ExpenseCategoryDef { id: ID; name: string }
 
-/** Department-scoped phase taxonomy. */
-export interface PhaseDef {
-  id: ID;
-  department: string;
-  name: string;
-  sort_order: number;
-}
-
-/** (department, phase)-scoped task taxonomy. */
-export interface TaskDef {
-  id: ID;
-  department: string;
-  phase: string;
-  name: string;
-  sort_order: number;
-}
-
 /** A single phase-row of a phase template. (legal_entity, department, template)
- *  is the addressing tuple; multiple rows make up one named template. */
+ *  is the addressing tuple; multiple rows make up one named template. Each
+ *  phase owns its `tasks` — the time-entry buckets surfaced in iCore when
+ *  staff log hours against a project applied from this template. */
 export interface TemplatePhase {
   id: ID;
   legal_entity: string;
@@ -339,6 +323,7 @@ export interface TemplatePhase {
   phase_name: string;
   rate_table: string;
   sort_order: number;
+  tasks: string[];
 }
 
 /** Employee row as stored in the (extended) `employee` table — used for

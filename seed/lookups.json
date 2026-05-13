@@ -12,8 +12,6 @@
     "Subcontractor"
   ],
   "departments": ["Consulting", "Operations", "Structural"],
-  "phases_by_department": {},
-  "tasks_by_dept_phase": {},
   "employees": [],
   "rates": []
 }

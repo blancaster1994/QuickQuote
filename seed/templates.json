@@ -1,1 +1,68 @@
-[]
+[
+  {
+    "legal_entity": "CES",
+    "department": "Consulting",
+    "name": "Burn Job",
+    "phases": [
+      {
+        "name": "Architectural and Structural Construction Documents",
+        "rate_table": "Consulting",
+        "tasks": ["Architectural Drafting", "Structural Drafting", "Engineering", "Architectural Design", "Administration", "Code Analysis"]
+      },
+      {
+        "name": "MEP Construction Documents",
+        "rate_table": "Consulting",
+        "tasks": ["Architectural Drafting", "Structural Drafting", "Engineering", "Architectural Design", "Administration", "Code Analysis"]
+      },
+      {
+        "name": "Civil Construction Documents",
+        "rate_table": "Consulting",
+        "tasks": ["Architectural Drafting", "Structural Drafting", "Engineering", "Architectural Design", "Administration", "Code Analysis"]
+      }
+    ]
+  },
+  {
+    "legal_entity": "CES",
+    "department": "Consulting",
+    "name": "Site Visit and Investigation",
+    "phases": [
+      {
+        "name": "Site Visit",
+        "rate_table": "Consulting",
+        "tasks": ["Architectural Drafting", "Structural Drafting", "Engineering", "Architectural Design", "Administration", "Code Analysis"]
+      },
+      {
+        "name": "Observation Report",
+        "rate_table": "Consulting",
+        "tasks": ["Architectural Drafting", "Structural Drafting", "Engineering", "Architectural Design", "Administration", "Code Analysis"]
+      }
+    ]
+  },
+  {
+    "legal_entity": "CES",
+    "department": "Consulting",
+    "name": "Expert Witness",
+    "phases": [
+      {
+        "name": "Site Visit",
+        "rate_table": "Consulting",
+        "tasks": ["Report Preparation", "Site Observations", "Consulting", "Engineering", "Expert Testimony", "Document Review"]
+      },
+      {
+        "name": "Observation Report",
+        "rate_table": "Consulting",
+        "tasks": ["Report Preparation", "Site Observations", "Consulting", "Engineering", "Expert Testimony", "Document Review"]
+      },
+      {
+        "name": "Depositions",
+        "rate_table": "Consulting",
+        "tasks": ["Report Preparation", "Site Observations", "Consulting", "Engineering", "Expert Testimony", "Document Review"]
+      },
+      {
+        "name": "Trial Testimony",
+        "rate_table": "Consulting",
+        "tasks": ["Report Preparation", "Site Observations", "Consulting", "Engineering", "Expert Testimony", "Document Review"]
+      }
+    ]
+  }
+]

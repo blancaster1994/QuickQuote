@@ -136,23 +136,9 @@ const api = {
     remove: (id: number) => ipcRenderer.invoke('markup:delete', id),
   },
 
-  /** Department-scoped phase taxonomy. */
-  phases: {
-    list:   (department?: string) => ipcRenderer.invoke('phaseDef:list', department),
-    save:   (row: any) => ipcRenderer.invoke('phaseDef:save', row),
-    remove: (id: number) => ipcRenderer.invoke('phaseDef:delete', id),
-  },
-
-  /** (department, phase)-scoped task taxonomy. */
-  tasks: {
-    list:   (department?: string, phase?: string) =>
-      ipcRenderer.invoke('taskDef:list', department, phase),
-    save:   (row: any) => ipcRenderer.invoke('taskDef:save', row),
-    remove: (id: number) => ipcRenderer.invoke('taskDef:delete', id),
-  },
-
-  /** Phase templates. `importBulk` replaces the whole table per the bulk
-   *  semantics in electron/db/lookups.ts. */
+  /** Phase templates. Each template-phase row carries its own tasks (the
+   *  time-entry buckets shown in iCore). `importBulk` replaces the whole
+   *  table per the bulk semantics in electron/db/lookups.ts. */
   templates: {
     list:           (filters?: any) => ipcRenderer.invoke('templatePhase:list', filters),
     listForContext: (legalEntity: string, department: string) =>

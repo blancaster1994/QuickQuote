@@ -20,7 +20,6 @@ import type { LookupsTab } from '../../types/domain';
 
 import NameListEditor from './NameListEditor';
 import MarkupEditor from './MarkupEditor';
-import PhaseTaskEditor from './PhaseTaskEditor';
 import TemplateEditor from './TemplateEditor';
 import EmployeeEditor from './EmployeeEditor';
 import RateEditor from './RateEditor';
@@ -34,7 +33,6 @@ interface LookupsPanelProps {
 
 const TABS: Array<{ key: LookupsTab; label: string }> = [
   { key: 'basic',             label: 'Basic Lists' },
-  { key: 'phases-tasks',      label: 'Phases & Tasks' },
   { key: 'templates',         label: 'Templates' },
   { key: 'employees',         label: 'Employees' },
   { key: 'rates',             label: 'Rates' },
@@ -258,8 +256,6 @@ function TabBody({ tab, identity, disabled }: {
           <MarkupEditor disabled={disabled} />
         </div>
       );
-    case 'phases-tasks':
-      return <PhaseTaskEditor disabled={disabled} />;
     case 'templates':
       return <TemplateEditor disabled={disabled} />;
     case 'employees':

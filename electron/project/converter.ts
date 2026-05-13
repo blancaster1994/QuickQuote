@@ -63,6 +63,9 @@ export interface TemplatePhase {
   phase_name: string;
   rate_table: string;
   sort_order: number;
+  /** Time-entry task names attached to this template phase. Become
+   *  ProjectTask rows on apply. */
+  tasks: string[];
 }
 
 /** Convert a proposal's sections into project phases. The phase numbering
@@ -147,7 +150,17 @@ export function applyPhaseTemplate(
                                                // in the editor)
       due_date: null,
       scope_text: '',
-      tasks: [],
+      // Template tasks → ProjectTask shells. Name doubles as category so the
+      // time-entry UI can key off it; hours start at 0 and get filled via
+      // resource assignments in the project editor.
+      tasks: (t.tasks ?? []).map((taskName, ti): ProjectTask => ({
+        task_no: ti + 1,
+        name: taskName,
+        category: taskName,
+        hours: 0,
+        rate_override: null,
+        rate_baseline: null,
+      })),
       expenses: [],
       target_budget: null,
     }));

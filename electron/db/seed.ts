@@ -149,9 +149,12 @@ interface LookupsSeed {
   markup: number[];
   expense_categories: string[];
   departments: string[];
-  phases_by_department: Record<string, string[]>;
-  /** Keyed `"<department>||<phase>"`, value = task names. */
-  tasks_by_dept_phase: Record<string, string[]>;
+  /** @deprecated phase/task taxonomy is now owned by templates. Field kept
+   *  in the JSON shape so older seed files still parse cleanly; the data is
+   *  ignored on load. */
+  phases_by_department?: Record<string, string[]>;
+  /** @deprecated see phases_by_department. */
+  tasks_by_dept_phase?: Record<string, string[]>;
   employees?: Array<{
     resource_id: string | null;
     legal_entity: string | null;
@@ -170,13 +173,20 @@ interface LookupsSeed {
   }>;
 }
 
-interface TemplateRow {
+/** Nested template seed shape — one entry per template, with its phases and
+ *  per-phase task lists embedded. */
+interface NestedTemplateSeed {
   legal_entity: string;
   department: string;
-  template: string;
-  phase_name: string;
-  rate_table: string;
-  sort_order: number;
+  /** Template name. */
+  name: string;
+  phases: Array<{
+    /** Phase name as it appears in the project editor. */
+    name: string;
+    rate_table: string;
+    /** Time-entry task buckets for this phase (iCore). May be empty. */
+    tasks: string[];
+  }>;
 }
 
 function resolveCandidate(appRoot: string, file: string): string {
@@ -228,20 +238,10 @@ export function seedLookupsIfEmpty(db: Database.Database, seedJsonPath: string):
     const insDept = db.prepare('INSERT OR IGNORE INTO department(name) VALUES (?)');
     (data.departments || []).forEach((v) => insDept.run(v));
 
-    const insPhase = db.prepare(
-      'INSERT OR IGNORE INTO phase_def(department, name, sort_order) VALUES (?,?,?)',
-    );
-    Object.entries(data.phases_by_department || {}).forEach(([dept, phases]) => {
-      phases.forEach((p, i) => insPhase.run(dept, p, i));
-    });
-
-    const insTask = db.prepare(
-      'INSERT OR IGNORE INTO task_def(department, phase, name, sort_order) VALUES (?,?,?,?)',
-    );
-    Object.entries(data.tasks_by_dept_phase || {}).forEach(([key, tasks]) => {
-      const [dept, phase] = key.split('||');
-      tasks.forEach((t, i) => insTask.run(dept, phase, t, i));
-    });
+    // phase_def / task_def are no longer seeded — taxonomies for phases and
+    // tasks live inside templates now (template_phase + template_phase_task).
+    // The legacy tables are still present so importer code reading from
+    // PM Quoting App's old schema doesn't fail; they just aren't populated.
 
     // Only seed employees if the table is empty (preserve QuickProp imports).
     const empCount = db.prepare('SELECT COUNT(*) AS n FROM employee').get() as { n: number };
@@ -281,24 +281,41 @@ export function seedLookupsIfEmpty(db: Database.Database, seedJsonPath: string):
 }
 
 /**
- * Seed template_phase rows. Idempotent: only inserts when the table is empty.
- * Re-run on every startup so a fresh seed file takes effect without forcing
- * users to wipe their DB.
+ * Seed template_phase + template_phase_task rows from the nested template
+ * shape in seed/templates.json. Idempotent: only inserts when template_phase
+ * is empty. Re-run on every startup so a fresh seed file takes effect
+ * without forcing users to wipe their DB.
+ *
+ * Returns the number of phases inserted (across all templates).
  */
 export function seedTemplatesIfMissing(db: Database.Database, appRoot: string): number {
   const p = resolveTemplatesSeedPath(appRoot);
   if (!fs.existsSync(p)) return 0;
   const existing = db.prepare('SELECT COUNT(*) AS n FROM template_phase').get() as { n: number };
   if (existing.n > 0) return 0;
-  const rows: TemplateRow[] = JSON.parse(fs.readFileSync(p, 'utf-8'));
-  const ins = db.prepare(
-    'INSERT OR IGNORE INTO template_phase(legal_entity, department, template, phase_name, rate_table, sort_order) VALUES (?,?,?,?,?,?)',
+  const templates: NestedTemplateSeed[] = JSON.parse(fs.readFileSync(p, 'utf-8'));
+  const insPhase = db.prepare(
+    'INSERT INTO template_phase(legal_entity, department, template, phase_name, rate_table, sort_order) VALUES (?,?,?,?,?,?)',
   );
+  const insTask = db.prepare(
+    'INSERT INTO template_phase_task(template_phase_id, name, sort_order) VALUES (?,?,?)',
+  );
+  let phaseCount = 0;
   const tx = db.transaction(() => {
-    for (const r of rows) {
-      ins.run(r.legal_entity, r.department, r.template, r.phase_name, r.rate_table, r.sort_order);
+    for (const t of templates) {
+      t.phases.forEach((phase, phaseIdx) => {
+        const phaseId = insPhase.run(
+          t.legal_entity, t.department, t.name,
+          phase.name, phase.rate_table, phaseIdx,
+        ).lastInsertRowid as number;
+        phaseCount += 1;
+        (phase.tasks || []).forEach((taskName, taskIdx) => {
+          const trimmed = taskName.trim();
+          if (trimmed) insTask.run(phaseId, trimmed, taskIdx);
+        });
+      });
     }
   });
   tx();
-  return rows.length;
+  return phaseCount;
 }

@@ -23,14 +23,12 @@ import type {
   LegalEntity,
   LostReason,
   MarkupPct,
-  PhaseDef,
   Project,
   ProjectHeader,
   ProjectPayload,
   ProjectTypeDef,
   RateEntry,
   RateTable,
-  TaskDef,
   TemplatePhase,
 } from './domain';
 
@@ -182,27 +180,15 @@ export interface QuickQuoteApi {
     remove(id: number): Promise<{ ok: true }>;
   };
 
-  /** Department-scoped phase taxonomy. */
-  phases: {
-    list(department?: string): Promise<PhaseDef[]>;
-    save(row: { id?: number; department: string; name: string; sort_order: number }): Promise<number>;
-    remove(id: number): Promise<{ ok: true }>;
-  };
-
-  /** (department, phase)-scoped task taxonomy. */
-  tasks: {
-    list(department?: string, phase?: string): Promise<TaskDef[]>;
-    save(row: { id?: number; department: string; phase: string; name: string; sort_order: number }): Promise<number>;
-    remove(id: number): Promise<{ ok: true }>;
-  };
-
-  /** Phase templates (legal_entity + department-scoped bundles). */
+  /** Phase templates. Each phase row carries its own `tasks` (time-entry
+   *  buckets for iCore). `save` replaces the phase's task list whenever
+   *  `tasks` is provided in the payload. */
   templates: {
     list(filters?: { legal_entity?: string; department?: string; template?: string }): Promise<TemplatePhase[]>;
     listForContext(legalEntity: string, department: string): Promise<string[]>;
-    save(row: Omit<TemplatePhase, 'id'> & { id?: number }): Promise<number>;
+    save(row: Omit<TemplatePhase, 'id' | 'tasks'> & { id?: number; tasks?: string[] }): Promise<number>;
     remove(id: number): Promise<{ ok: true }>;
-    importBulk(rows: Array<Omit<TemplatePhase, 'id'>>): Promise<{ ok: true; count: number }>;
+    importBulk(rows: Array<Omit<TemplatePhase, 'id' | 'tasks'> & { tasks?: string[] }>): Promise<{ ok: true; count: number }>;
   };
 
   /** Employees (extended). Used for resource allocation, PM picker, ClickUp. */
