@@ -8,8 +8,8 @@
 // sees the fresh row.
 
 import type {
-  AutosaveStatus, Project, ProjectExpense, ProjectHeader, ProjectPhase,
-  ProjectTask, ResourceAssignment,
+  AutosaveStatus, Project, ProjectExpense, ProjectHeader, ProjectLabor,
+  ProjectPhase, ProjectTask, ResourceAssignment,
 } from '../types/domain';
 
 // ── state ───────────────────────────────────────────────────────────────────
@@ -24,11 +24,30 @@ export interface ProjectEditorState {
 
 export function initialProjectState(project: Project): ProjectEditorState {
   return {
-    project,
+    project: normalizeProject(project),
     activePhaseIndex: 0,
     autosaveStatus: 'saved',
     autosaveError: null,
   };
+}
+
+/** Ensure phases have a `labor` array and tasks have only `{task_no, name}`.
+ *  Compensates for older payloads that pre-date the labor/tasks split — the
+ *  v4 migration handles existing rows in the DB, but in-memory updates may
+ *  still come from older code paths. */
+function normalizeProject(p: Project): Project {
+  if (!p?.payload?.phases) return p;
+  const phases = p.payload.phases.map((phase: any) => {
+    const labor: ProjectLabor[] = Array.isArray(phase.labor) ? phase.labor : [];
+    const tasks: ProjectTask[] = Array.isArray(phase.tasks)
+      ? phase.tasks.map((t: any, i: number) => ({
+          task_no: typeof t?.task_no === 'number' ? t.task_no : i + 1,
+          name: String(t?.name ?? ''),
+        }))
+      : [];
+    return { ...phase, labor, tasks };
+  });
+  return { ...p, payload: { ...p.payload, phases } };
 }
 
 // ── actions ─────────────────────────────────────────────────────────────────
@@ -44,6 +63,11 @@ export type ProjectEditorAction =
   | { type: 'REMOVE_PHASE'; index: number }
   | { type: 'REORDER_PHASES'; fromIndex: number; toIndex: number }
   | { type: 'UPDATE_PHASE'; index: number; patch: Partial<ProjectPhase> }
+
+  | { type: 'ADD_LABOR'; phaseIndex: number }
+  | { type: 'UPDATE_LABOR'; phaseIndex: number; laborIndex: number; patch: Partial<ProjectLabor> }
+  | { type: 'REMOVE_LABOR'; phaseIndex: number; laborIndex: number }
+  | { type: 'REORDER_LABOR'; phaseIndex: number; fromIndex: number; toIndex: number }
 
   | { type: 'ADD_TASK'; phaseIndex: number }
   | { type: 'UPDATE_TASK'; phaseIndex: number; taskIndex: number; patch: Partial<ProjectTask> }
@@ -70,6 +94,7 @@ export type ProjectEditorAction =
  *  by callers, so they don't enter this set. */
 const PAYLOAD_MUTATIONS = new Set<ProjectEditorAction['type']>([
   'ADD_PHASE', 'REMOVE_PHASE', 'UPDATE_PHASE', 'REORDER_PHASES',
+  'ADD_LABOR', 'UPDATE_LABOR', 'REMOVE_LABOR', 'REORDER_LABOR',
   'ADD_TASK', 'UPDATE_TASK', 'REMOVE_TASK', 'REORDER_TASKS',
   'ADD_EXPENSE', 'UPDATE_EXPENSE', 'REMOVE_EXPENSE',
   'ADD_RESOURCE', 'UPDATE_RESOURCE', 'REMOVE_RESOURCE',
@@ -91,7 +116,7 @@ function step(state: ProjectEditorState, action: ProjectEditorAction): ProjectEd
   switch (action.type) {
     case 'LOAD_FRESH':
       return {
-        project: action.project,
+        project: normalizeProject(action.project),
         activePhaseIndex: clamp(state.activePhaseIndex, action.project.payload.phases.length),
         autosaveStatus: 'saved',
         autosaveError: null,
@@ -114,6 +139,7 @@ function step(state: ProjectEditorState, action: ProjectEditorAction): ProjectEd
         scope_text: '',
         notes: '',
         target_budget: null,
+        labor: [],
         tasks: [],
         expenses: [],
       };
@@ -181,16 +207,66 @@ function step(state: ProjectEditorState, action: ProjectEditorAction): ProjectEd
       return mergePayload(state, { phases, resources }, { activePhaseIndex: newActive });
     }
 
+    case 'ADD_LABOR': {
+      const phases = state.project.payload.phases.map((p, i) => {
+        if (i !== action.phaseIndex) return p;
+        const labor: ProjectLabor[] = [...(p.labor ?? []), {
+          labor_no: (p.labor?.length ?? 0) + 1,
+          category: '',
+          hours: 0,
+          employee: null,
+          rate_override: null,
+          rate_baseline: null,
+        }];
+        return { ...p, labor };
+      });
+      return mergePayload(state, { phases });
+    }
+
+    case 'UPDATE_LABOR': {
+      const phases = state.project.payload.phases.map((p, i) => {
+        if (i !== action.phaseIndex) return p;
+        const labor = (p.labor ?? []).map((row, li) =>
+          li === action.laborIndex ? { ...row, ...action.patch } : row,
+        );
+        return { ...p, labor };
+      });
+      return mergePayload(state, { phases });
+    }
+
+    case 'REMOVE_LABOR': {
+      const phases = state.project.payload.phases.map((p, i) => {
+        if (i !== action.phaseIndex) return p;
+        const labor = (p.labor ?? [])
+          .filter((_, li) => li !== action.laborIndex)
+          .map((row, li) => ({ ...row, labor_no: li + 1 }));
+        return { ...p, labor };
+      });
+      return mergePayload(state, { phases });
+    }
+
+    case 'REORDER_LABOR': {
+      if (action.fromIndex === action.toIndex) return state;
+      const phases = state.project.payload.phases.map((p, i) => {
+        if (i !== action.phaseIndex) return p;
+        const src = p.labor ?? [];
+        if (action.fromIndex < 0 || action.fromIndex >= src.length) return p;
+        if (action.toIndex < 0 || action.toIndex >= src.length) return p;
+        const moved = src.slice();
+        const [pulled] = moved.splice(action.fromIndex, 1);
+        moved.splice(action.toIndex, 0, pulled);
+        const labor = moved.map((row, li) => ({ ...row, labor_no: li + 1 }));
+        return { ...p, labor };
+      });
+      return mergePayload(state, { phases });
+    }
+
     case 'ADD_TASK': {
       const phases = state.project.payload.phases.map((p, i) => {
         if (i !== action.phaseIndex) return p;
-        const tasks = [...p.tasks, {
+        const tasks: ProjectTask[] = [...p.tasks, {
           task_no: p.tasks.length + 1,
           name: 'New task',
-          category: '',
-          hours: 0,
-          rate_override: null,
-          rate_baseline: null,
         }];
         return { ...p, tasks };
       });
@@ -290,7 +366,7 @@ function step(state: ProjectEditorState, action: ProjectEditorAction): ProjectEd
 
     case 'AUTOSAVE_OK':
       return {
-        project: action.project,
+        project: normalizeProject(action.project),
         activePhaseIndex: clamp(state.activePhaseIndex, action.project.payload.phases.length),
         autosaveStatus: 'saved',
         autosaveError: null,

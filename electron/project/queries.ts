@@ -22,11 +22,20 @@ type PhaseType = 'labor' | 'expenses';
 type BillingType = 'fixed' | 'tm';
 type ResourceStatus = 'Not Started' | 'In-process' | 'Completed' | 'On-hold';
 
+/** Task on a project phase — name only. Tasks are work items for iCore /
+ *  ClickUp tracking. Category, hours, and rates live on ProjectLabor. */
 export interface ProjectTask {
   task_no: number;
   name: string;
+}
+
+/** Labor budget for a phase: category × hours, with optional rate override.
+ *  Resource actuals live on ResourceAssignment. */
+export interface ProjectLabor {
+  labor_no: number;
   category: string;
   hours: number;
+  employee?: string | null;
   rate_override?: number | null;
   rate_baseline?: number | null;
   rate_override_by_email?: string | null;
@@ -53,6 +62,7 @@ export interface ProjectPhase {
   phase_type?: PhaseType;
   notes?: string;
   target_budget?: number | null;
+  labor: ProjectLabor[];
   tasks: ProjectTask[];
   expenses: ProjectExpense[];
 }

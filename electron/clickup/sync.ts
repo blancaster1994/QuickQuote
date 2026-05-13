@@ -78,10 +78,12 @@ function hashPhasePayload(phase: any): string {
     scope_text: phase?.scope_text ?? '',
     notes: phase?.notes ?? '',
     target_budget: phase?.target_budget ?? null,
-    tasks: (phase?.tasks ?? []).map((t: any) => ({
-      name: t.name, category: t.category,
-      hours: t.hours, rate_override: t.rate_override ?? null,
+    labor: (phase?.labor ?? []).map((row: any) => ({
+      category: row.category ?? '',
+      hours: row.hours ?? 0,
+      rate_override: row.rate_override ?? null,
     })),
+    tasks: (phase?.tasks ?? []).map((t: any) => ({ name: t.name ?? '' })),
     expenses: (phase?.expenses ?? []).map((e: any) => ({
       description: e.description, category: e.category,
       quantity: e.quantity, amount: e.amount, markup_pct: e.markup_pct,
@@ -98,10 +100,16 @@ function renderPhaseDescription(phase: any): string {
   const parts: string[] = [];
   if (phase.scope_text) parts.push(phase.scope_text);
   if (phase.notes)      parts.push('---', `Internal notes: ${phase.notes}`);
+  if (phase.labor?.length) {
+    parts.push('---', '**Labor budget**');
+    for (const row of phase.labor) {
+      parts.push(`- ${row.category || '—'} · ${row.hours || 0} h`);
+    }
+  }
   if (phase.tasks?.length) {
     parts.push('---', '**Tasks**');
     for (const t of phase.tasks) {
-      parts.push(`- ${t.name} (${t.category || '—'}) · ${t.hours || 0} h`);
+      parts.push(`- ${t.name || '(unnamed)'}`);
     }
   }
   if (phase.expenses?.length) {

@@ -1,8 +1,9 @@
-// Editable rate cell for the phase task table. Direct port from PM Quoting
-// App with an unchanged state machine:
-//   - no override: task.rate_override == null → display = categoryRate
-//   - overridden:  task.rate_override is a finite number ≠ categoryRate →
-//                  display = task.rate_override; yellow background; tooltip
+// Editable rate cell for any row with rate-override audit metadata
+// (currently ProjectLabor on the phase). Direct port from PM Quoting App
+// with an unchanged state machine:
+//   - no override: row.rate_override == null → display = categoryRate
+//   - overridden:  row.rate_override is a finite number ≠ categoryRate →
+//                  display = row.rate_override; yellow background; tooltip
 //                  with audit metadata; ↺ button to revert.
 //
 // On commit (onBlur):
@@ -11,17 +12,17 @@
 //            stamp who/when
 
 import { useEffect, useRef, useState } from 'react';
-import type { ProjectTask } from '../../types/domain';
+import type { ProjectLabor } from '../../types/domain';
 
 interface RateCellProps {
-  task: ProjectTask;
+  row: ProjectLabor;
   /** Current category-lookup rate. Cell uses this both as the displayed
    *  value when no override is set and as the comparison target when
    *  deciding whether to clear an override. */
   categoryRate: number;
   disabled?: boolean;
   currentUser: { email: string | null; name: string | null } | null;
-  onChange: (patch: Partial<ProjectTask>) => void;
+  onChange: (patch: Partial<ProjectLabor>) => void;
 }
 
 function fmtTimestamp(iso: string | null | undefined): string {
@@ -34,11 +35,11 @@ function fmtTimestamp(iso: string | null | undefined): string {
   return d.toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
-export default function RateCell({ task, categoryRate, disabled, currentUser, onChange }: RateCellProps) {
-  const storedOverride = task.rate_override != null && Number.isFinite(task.rate_override);
+export default function RateCell({ row, categoryRate, disabled, currentUser, onChange }: RateCellProps) {
+  const storedOverride = row.rate_override != null && Number.isFinite(row.rate_override);
   const overridden = storedOverride
-    && Math.abs(Number(task.rate_override) - categoryRate) >= 0.005;
-  const displayValue = overridden ? Number(task.rate_override) : categoryRate;
+    && Math.abs(Number(row.rate_override) - categoryRate) >= 0.005;
+  const displayValue = overridden ? Number(row.rate_override) : categoryRate;
 
   const [text, setText] = useState<string>(String(displayValue ?? 0));
   const focusedRef = useRef(false);
@@ -86,10 +87,10 @@ export default function RateCell({ task, categoryRate, disabled, currentUser, on
 
   const tooltip = (() => {
     if (!overridden) return `Category rate: $${categoryRate.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
-    const baseline = task.rate_baseline ?? categoryRate;
-    const who = task.rate_override_by_name || task.rate_override_by_email || 'Someone';
-    const when = task.rate_override_at ? ` on ${fmtTimestamp(task.rate_override_at)}` : '';
-    return `Category rate was $${baseline.toLocaleString('en-US', { maximumFractionDigits: 2 })}. ${who} changed it to $${Number(task.rate_override).toLocaleString('en-US', { maximumFractionDigits: 2 })}${when}.`;
+    const baseline = row.rate_baseline ?? categoryRate;
+    const who = row.rate_override_by_name || row.rate_override_by_email || 'Someone';
+    const when = row.rate_override_at ? ` on ${fmtTimestamp(row.rate_override_at)}` : '';
+    return `Category rate was $${baseline.toLocaleString('en-US', { maximumFractionDigits: 2 })}. ${who} changed it to $${Number(row.rate_override).toLocaleString('en-US', { maximumFractionDigits: 2 })}${when}.`;
   })();
 
   return (

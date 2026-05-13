@@ -7,7 +7,7 @@ import { migrate } from './db/schema';
 import {
   seedIfEmpty, resolveSeedPath,
   seedLookupsIfEmpty, resolveLookupsSeedPath,
-  seedTemplatesIfMissing,
+  seedBidItemTemplatesIfMissing,
 } from './db/seed';
 import * as Q from './db/queries';
 import * as Lookups from './db/lookups';
@@ -23,7 +23,7 @@ import { generateProposal } from './proposal/generate';
 import { importFromQuickProp, importFromPMQuoting } from './db/importer';
 import * as Project from './project/queries';
 import type { InitializeHeaderInput } from './project/queries';
-import { sectionsToPhases, applyPhaseTemplate } from './project/converter';
+import { sectionsToPhases } from './project/converter';
 import { IPC } from './ipc-channels';
 
 const IS_DEV = process.env.NODE_ENV === 'development';
@@ -51,9 +51,9 @@ function initDb(): void {
   const lookupsPath = resolveLookupsSeedPath(app.getAppPath());
   const lookupsSeeded = seedLookupsIfEmpty(db, lookupsPath);
 
-  // V2 phase templates. Idempotent — runs every startup, only inserts when
-  // template_phase is empty.
-  const tplCount = seedTemplatesIfMissing(db, app.getAppPath());
+  // Bid item templates. Idempotent — runs every startup, only inserts when
+  // bid_item_template_phase is empty.
+  const tplCount = seedBidItemTemplatesIfMissing(db, app.getAppPath());
 
   // One-shot import from PM Quoting App's SQLite (lookups, employees,
   // rates, templates). Skipped silently if PM Quoting App isn't found,
@@ -231,6 +231,88 @@ function registerIpc(): void {
       activity.setFollowUp(p, a, whenIso ?? null, note ?? ''),
     );
   });
+  // Mark Sent + initialize the project in one round-trip. New connected
+  // workflow: bid items become phases at Send time, not at Won time.
+  // Returns { proposal, project }. Throws if legal_entity / department
+  // aren't set on the proposal (the renderer enforces this at the button).
+  ipcMain.handle(IPC.LIFECYCLE_SEND_AND_INITIALIZE, (_e, payload: {
+    proposalName: string;
+    rateTableOverride?: string | null;
+    icoreProjectId?: string | null;
+    note?: string;
+  }) => {
+    const db = requireDb();
+    const actor = actorFromIdentity();
+    const loaded = Q.loadProposal(db, payload.proposalName);
+    const legalEntity = (loaded.legal_entity || '').trim();
+    const department = (loaded.department || '').trim();
+    if (!legalEntity || !department) {
+      throw new Error('Set the legal entity and department on the proposal before sending.');
+    }
+    // Run as one transaction so a project-init failure rolls back the Sent
+    // status flip too.
+    const tx = db.transaction(() => {
+      const updatedProposal = Q.mutateAndSave(db, payload.proposalName, actor, (p, a) => {
+        if (payload.icoreProjectId) {
+          // Stamp on the lifecycle metadata so dashboards can see it.
+          p.lifecycle = p.lifecycle || ({} as any);
+          p.lifecycle.metadata = p.lifecycle.metadata || ({} as any);
+          (p.lifecycle.metadata as any).iCore_project_id = payload.icoreProjectId;
+        }
+        return activity.markSent(p, a, payload.note ?? '');
+      });
+
+      const defaultRateTable = (payload.rateTableOverride || loaded.rateTable || '').trim();
+      const phases = sectionsToPhases(loaded.sections || [], defaultRateTable);
+      const header: InitializeHeaderInput = {
+        legal_entity: legalEntity,
+        department,
+        rate_table: defaultRateTable || null,
+        icore_project_id: payload.icoreProjectId?.trim() || null,
+        phase_template: null,
+      };
+      const project = Project.initializeProject(
+        db,
+        payload.proposalName,
+        header,
+        { phases, resources: [] },
+        actor,
+      );
+      return { proposal: updatedProposal, project };
+    });
+    return tx();
+  });
+
+  // Mark Won + push iCore in one transaction. The Send flow may have already
+  // pushed iCore (icore_project_id already set on the project), in which case
+  // this just flips status. Otherwise it stamps the iCore ID on the project
+  // row and the proposal lifecycle metadata together.
+  ipcMain.handle(IPC.LIFECYCLE_MARK_WON_AND_SYNC, (_e, payload: {
+    proposalName: string;
+    icoreProjectId: string;
+  }) => {
+    const db = requireDb();
+    const actor = actorFromIdentity();
+    const icoreId = (payload.icoreProjectId || '').trim();
+    if (!icoreId) throw new Error('iCore project ID is required to mark Won.');
+
+    const tx = db.transaction(() => {
+      const updatedProposal = Q.mutateAndSave(db, payload.proposalName, actor, (p, a) =>
+        activity.markWon(p, a, '', icoreId),
+      );
+      // Sync the iCore ID onto the project row too. The project may not
+      // exist yet for legacy Sent proposals that never went through
+      // sendAndInitialize — in that case we skip the project update and
+      // let the renderer reload it on its next fetch.
+      const project = Project.getProjectByProposalName(db, payload.proposalName);
+      if (project && project.icore_project_id !== icoreId) {
+        Project.updateProjectHeader(db, project.id, { icore_project_id: icoreId }, actor);
+      }
+      const fresh = Project.getProjectByProposalName(db, payload.proposalName);
+      return { proposal: updatedProposal, project: fresh };
+    });
+    return tx();
+  });
 
   // ── versioning ───────────────────────────────────────────────────────────
   ipcMain.handle(IPC.VERSION_CREATE, (_e, name: string, note: string) => {
@@ -317,23 +399,24 @@ function registerIpc(): void {
     return { ok: true as const };
   });
 
-  // Phase templates.
-  ipcMain.handle(IPC.TEMPLATE_PHASE_LIST, (_e, filters?: { legal_entity?: string; department?: string; template?: string }) =>
-    Lookups.listTemplatePhases(requireDb(), filters ?? {}),
+  // Bid item templates.
+  ipcMain.handle(IPC.BID_ITEM_TEMPLATE_LIST, (_e, legalEntity: string, department: string) =>
+    Lookups.listBidItemTemplates(requireDb(), legalEntity, department),
   );
-  ipcMain.handle(IPC.TEMPLATE_PHASE_LIST_FOR_CONTEXT, (_e, legalEntity: string, department: string) =>
-    Lookups.listTemplatesForContext(requireDb(), legalEntity, department),
+  ipcMain.handle(IPC.BID_ITEM_TEMPLATE_GET, (_e, legalEntity: string, department: string, name: string) =>
+    Lookups.getBidItemTemplate(requireDb(), legalEntity, department, name),
   );
-  ipcMain.handle(IPC.TEMPLATE_PHASE_SAVE, (_e, row: Omit<Lookups.TemplatePhaseRow, 'id'> & { id?: number }) =>
-    Lookups.upsertTemplatePhase(requireDb(), row),
-  );
-  ipcMain.handle(IPC.TEMPLATE_PHASE_DELETE, (_e, id: number) => {
-    Lookups.deleteTemplatePhase(requireDb(), id);
+  ipcMain.handle(IPC.BID_ITEM_TEMPLATE_SAVE, (_e, template: Lookups.BidItemTemplateView) => {
+    Lookups.saveBidItemTemplate(requireDb(), template);
     return { ok: true as const };
   });
-  ipcMain.handle(IPC.TEMPLATE_PHASE_BULK_REPLACE, (_e, rows: Array<Omit<Lookups.TemplatePhaseRow, 'id'>>) => {
-    Lookups.bulkReplaceTemplatePhases(requireDb(), rows);
-    return { ok: true as const, count: rows.length };
+  ipcMain.handle(IPC.BID_ITEM_TEMPLATE_DELETE, (_e, legalEntity: string, department: string, name: string) => {
+    Lookups.deleteBidItemTemplate(requireDb(), legalEntity, department, name);
+    return { ok: true as const };
+  });
+  ipcMain.handle(IPC.BID_ITEM_TEMPLATE_RENAME, (_e, legalEntity: string, department: string, oldName: string, newName: string) => {
+    Lookups.renameBidItemTemplate(requireDb(), legalEntity, department, oldName, newName);
+    return { ok: true as const };
   });
 
   // Employees (extended).
@@ -442,28 +525,20 @@ function registerIpc(): void {
     return { ok: true as const };
   });
 
-  // ── Project mode (Stage 4) ───────────────────────────────────────────────
-  // initialize takes the proposal name, the modal-collected header, and an
-  // applyTemplate hint. Reads the proposal's sections, runs the converter,
-  // optionally overlays a phase template, then writes the project row.
+  // ── Project mode ─────────────────────────────────────────────────────────
+  // Direct initialize — used as a fallback when a Sent proposal somehow
+  // exists without a project (legacy data). New code goes through
+  // LIFECYCLE_SEND_AND_INITIALIZE instead, which wraps Mark Sent + initialize
+  // in a single transaction so the workflow is connected end-to-end.
   ipcMain.handle(IPC.PROJECT_INITIALIZE, (_e, payload: {
     proposalName: string;
     header: InitializeHeaderInput;
-    template?: { name: string; mode: 'append' | 'replace' } | null;
   }) => {
     const db = requireDb();
     const actor = actorFromIdentity();
     const proposal = Q.loadProposal(db, payload.proposalName);
     const defaultRateTable = payload.header.rate_table || proposal.rateTable || '';
-    let phases = sectionsToPhases(proposal.sections || [], defaultRateTable);
-    if (payload.template?.name) {
-      const tplRows = Lookups.listTemplatePhases(db, {
-        legal_entity: payload.header.legal_entity,
-        department:   payload.header.department,
-        template:     payload.template.name,
-      });
-      phases = applyPhaseTemplate(phases, tplRows, payload.template.mode, defaultRateTable);
-    }
+    const phases = sectionsToPhases(proposal.sections || [], defaultRateTable);
     return Project.initializeProject(
       db,
       payload.proposalName,

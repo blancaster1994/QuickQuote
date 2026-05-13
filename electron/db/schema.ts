@@ -448,6 +448,92 @@ const MIGRATIONS: Migration[] = [
       for (const [col, ddl] of v1ProposalVersionCols) addColumnIfMissing(db, 'proposal_version', col, ddl);
     },
   },
+  {
+    version: 4,
+    up: (db) => {
+      // Bid item templates replace the legacy template_phase system. Phases
+      // are name-only with name-only tasks; rate_table is no longer scoped
+      // on the template (the proposal carries rateTable). Tables are keyed
+      // by (legal_entity, department, template).
+      db.exec(`DROP TABLE IF EXISTS template_phase;`);
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS bid_item_template_phase (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          legal_entity TEXT NOT NULL,
+          department   TEXT NOT NULL,
+          template     TEXT NOT NULL,
+          phase_name   TEXT NOT NULL,
+          sort_order   INTEGER NOT NULL DEFAULT 0,
+          UNIQUE(legal_entity, department, template, phase_name)
+        );
+
+        CREATE TABLE IF NOT EXISTS bid_item_template_task (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          legal_entity TEXT NOT NULL,
+          department   TEXT NOT NULL,
+          template     TEXT NOT NULL,
+          phase_name   TEXT NOT NULL,
+          task_name    TEXT NOT NULL,
+          sort_order   INTEGER NOT NULL DEFAULT 0,
+          UNIQUE(legal_entity, department, template, phase_name, task_name)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_bid_item_tpl_phase_ctx
+          ON bid_item_template_phase(legal_entity, department, template);
+        CREATE INDEX IF NOT EXISTS idx_bid_item_tpl_task_ctx
+          ON bid_item_template_task(legal_entity, department, template, phase_name);
+      `);
+
+      // One-shot payload rewrite for existing project.payload_json. The
+      // ProjectPhase shape changed: tasks shrink to { task_no, name }, and a
+      // new labor[] array holds the category/hours/rate fields that used to
+      // live on tasks. Demo-data only at this stage — wrap in a transaction
+      // so a malformed row doesn't poison the migration.
+      const rows = db
+        .prepare('SELECT id, payload_json FROM project')
+        .all() as Array<{ id: number; payload_json: string | null }>;
+      const updatePayload = db.prepare('UPDATE project SET payload_json = ? WHERE id = ?');
+      for (const r of rows) {
+        if (!r.payload_json) continue;
+        try {
+          const parsed = JSON.parse(r.payload_json);
+          const phases = Array.isArray(parsed?.phases) ? parsed.phases : [];
+          let mutated = false;
+          for (const p of phases) {
+            const tasks = Array.isArray(p?.tasks) ? p.tasks : [];
+            const hasLegacyFields = tasks.some((t: any) =>
+              t && (t.category !== undefined || t.hours !== undefined),
+            );
+            if (Array.isArray(p?.labor) && !hasLegacyFields) continue;
+            // Split: keep tasks as name-only; build labor[] from legacy fields.
+            const labor = tasks
+              .filter((t: any) => t && (t.category || (typeof t.hours === 'number' && t.hours > 0)))
+              .map((t: any, idx: number) => ({
+                labor_no: idx + 1,
+                category: String(t.category || ''),
+                hours: typeof t.hours === 'number' ? t.hours : 0,
+                employee: null,
+                rate_override: typeof t.rate_override === 'number' ? t.rate_override : null,
+                rate_baseline: typeof t.rate_baseline === 'number' ? t.rate_baseline : null,
+                rate_override_by_email: t.rate_override_by_email ?? null,
+                rate_override_by_name: t.rate_override_by_name ?? null,
+                rate_override_at: t.rate_override_at ?? null,
+              }));
+            p.labor = Array.isArray(p.labor) ? p.labor : labor;
+            p.tasks = tasks.map((t: any, idx: number) => ({
+              task_no: typeof t?.task_no === 'number' ? t.task_no : idx + 1,
+              name: String(t?.name || ''),
+            }));
+            mutated = true;
+          }
+          if (mutated) updatePayload.run(JSON.stringify(parsed), r.id);
+        } catch {
+          // Skip malformed rows; the renderer will treat them as empty.
+        }
+      }
+    },
+  },
   // Append future migrations here. Never edit a past entry — the runner
   // only applies versions strictly greater than the current recorded one.
 ];

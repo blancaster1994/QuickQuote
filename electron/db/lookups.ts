@@ -452,90 +452,143 @@ export function bulkReplaceRates(db: Database.Database, rows: Array<Omit<RateRow
   tx();
 }
 
-// ── Phase templates ────────────────────────────────────────────────────────
+// ── Bid item templates ─────────────────────────────────────────────────────
 //
-// A "template" is a named bundle of phase rows scoped to (legal_entity,
-// department). The Initialize Project modal picks templates by context.
+// A "bid item template" is a named bundle of phases (with name-only tasks)
+// scoped to (legal_entity, department). Applied in the proposal editor:
+// each phase becomes a Section; each task becomes a SectionTask.
+//
+// Replaces the legacy `template_phase` table (single-table phase-name list,
+// applied at Won) — the new shape supports nested name-only tasks for iCore /
+// ClickUp tracking. Backing tables: bid_item_template_phase + bid_item_template_task.
 
-export interface TemplatePhaseRow {
-  id: number;
+export interface BidItemTemplateView {
   legal_entity: string;
   department: string;
-  template: string;
-  phase_name: string;
-  rate_table: string;
-  sort_order: number;
-}
-
-export function listTemplatePhases(
-  db: Database.Database,
-  filters: { legal_entity?: string; department?: string; template?: string } = {},
-): TemplatePhaseRow[] {
-  const where: string[] = [];
-  const args: unknown[] = [];
-  if (filters.legal_entity) { where.push('legal_entity=?'); args.push(filters.legal_entity); }
-  if (filters.department)   { where.push('department=?');   args.push(filters.department); }
-  if (filters.template)     { where.push('template=?');     args.push(filters.template); }
-  const sql = `SELECT id, legal_entity, department, template, phase_name, rate_table, sort_order FROM template_phase ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY legal_entity, department, template, sort_order`;
-  return db.prepare(sql).all(...args) as TemplatePhaseRow[];
+  name: string;
+  phases: Array<{
+    phase_name: string;
+    sort_order: number;
+    tasks: Array<{ name: string; sort_order: number }>;
+  }>;
 }
 
 /** Distinct template names available for a (legal_entity, department) pair. */
-export function listTemplatesForContext(
+export function listBidItemTemplates(
   db: Database.Database,
   legalEntity: string,
   department: string,
 ): string[] {
   const rows = db
     .prepare(
-      'SELECT DISTINCT template FROM template_phase WHERE legal_entity=? AND department=? ORDER BY template',
+      'SELECT DISTINCT template FROM bid_item_template_phase WHERE legal_entity=? AND department=? ORDER BY template',
     )
     .all(legalEntity, department) as Array<{ template: string }>;
   return rows.map((r) => r.template);
 }
 
-export function upsertTemplatePhase(
+/** Load a full template (phases + nested tasks) for the picker UX. Returns
+ *  null when no phases exist for that (legal_entity, department, name). */
+export function getBidItemTemplate(
   db: Database.Database,
-  row: Omit<TemplatePhaseRow, 'id'> & { id?: number },
-): number {
-  if (row.id) {
-    db.prepare(
-      'UPDATE template_phase SET legal_entity=?, department=?, template=?, phase_name=?, rate_table=?, sort_order=? WHERE id=?',
-    ).run(
-      row.legal_entity, row.department, row.template, row.phase_name,
-      row.rate_table, row.sort_order, row.id,
-    );
-    return row.id;
-  }
-  return db
+  legalEntity: string,
+  department: string,
+  name: string,
+): BidItemTemplateView | null {
+  const phaseRows = db
     .prepare(
-      'INSERT INTO template_phase(legal_entity, department, template, phase_name, rate_table, sort_order) VALUES (?,?,?,?,?,?)',
+      'SELECT phase_name, sort_order FROM bid_item_template_phase WHERE legal_entity=? AND department=? AND template=? ORDER BY sort_order, phase_name',
     )
-    .run(
-      row.legal_entity, row.department, row.template, row.phase_name,
-      row.rate_table, row.sort_order,
-    ).lastInsertRowid as number;
+    .all(legalEntity, department, name) as Array<{ phase_name: string; sort_order: number }>;
+  if (phaseRows.length === 0) return null;
+  const taskRows = db
+    .prepare(
+      'SELECT phase_name, task_name, sort_order FROM bid_item_template_task WHERE legal_entity=? AND department=? AND template=? ORDER BY phase_name, sort_order, task_name',
+    )
+    .all(legalEntity, department, name) as Array<{ phase_name: string; task_name: string; sort_order: number }>;
+  const tasksByPhase = new Map<string, Array<{ name: string; sort_order: number }>>();
+  for (const t of taskRows) {
+    if (!tasksByPhase.has(t.phase_name)) tasksByPhase.set(t.phase_name, []);
+    tasksByPhase.get(t.phase_name)!.push({ name: t.task_name, sort_order: t.sort_order });
+  }
+  return {
+    legal_entity: legalEntity,
+    department,
+    name,
+    phases: phaseRows.map((p) => ({
+      phase_name: p.phase_name,
+      sort_order: p.sort_order,
+      tasks: tasksByPhase.get(p.phase_name) || [],
+    })),
+  };
 }
 
-export function deleteTemplatePhase(db: Database.Database, id: number): void {
-  db.prepare('DELETE FROM template_phase WHERE id=?').run(id);
-}
-
-export function bulkReplaceTemplatePhases(
+/** Upsert: replaces all phase + task rows for the given
+ *  (legal_entity, department, template) tuple. Idempotent. */
+export function saveBidItemTemplate(
   db: Database.Database,
-  rows: Array<Omit<TemplatePhaseRow, 'id'>>,
+  template: BidItemTemplateView,
 ): void {
   const tx = db.transaction(() => {
-    db.prepare('DELETE FROM template_phase').run();
-    const ins = db.prepare(
-      'INSERT INTO template_phase(legal_entity, department, template, phase_name, rate_table, sort_order) VALUES (?,?,?,?,?,?)',
+    db.prepare(
+      'DELETE FROM bid_item_template_phase WHERE legal_entity=? AND department=? AND template=?',
+    ).run(template.legal_entity, template.department, template.name);
+    db.prepare(
+      'DELETE FROM bid_item_template_task WHERE legal_entity=? AND department=? AND template=?',
+    ).run(template.legal_entity, template.department, template.name);
+    const insPhase = db.prepare(
+      'INSERT INTO bid_item_template_phase(legal_entity, department, template, phase_name, sort_order) VALUES (?,?,?,?,?)',
     );
-    rows.forEach((r) =>
-      ins.run(
-        r.legal_entity, r.department, r.template, r.phase_name,
-        r.rate_table, r.sort_order,
-      ),
+    const insTask = db.prepare(
+      'INSERT INTO bid_item_template_task(legal_entity, department, template, phase_name, task_name, sort_order) VALUES (?,?,?,?,?,?)',
     );
+    template.phases.forEach((p, pIdx) => {
+      insPhase.run(
+        template.legal_entity, template.department, template.name,
+        p.phase_name, p.sort_order ?? pIdx,
+      );
+      p.tasks.forEach((t, tIdx) => {
+        insTask.run(
+          template.legal_entity, template.department, template.name,
+          p.phase_name, t.name, t.sort_order ?? tIdx,
+        );
+      });
+    });
+  });
+  tx();
+}
+
+export function deleteBidItemTemplate(
+  db: Database.Database,
+  legalEntity: string,
+  department: string,
+  name: string,
+): void {
+  const tx = db.transaction(() => {
+    db.prepare(
+      'DELETE FROM bid_item_template_phase WHERE legal_entity=? AND department=? AND template=?',
+    ).run(legalEntity, department, name);
+    db.prepare(
+      'DELETE FROM bid_item_template_task WHERE legal_entity=? AND department=? AND template=?',
+    ).run(legalEntity, department, name);
+  });
+  tx();
+}
+
+export function renameBidItemTemplate(
+  db: Database.Database,
+  legalEntity: string,
+  department: string,
+  oldName: string,
+  newName: string,
+): void {
+  const tx = db.transaction(() => {
+    db.prepare(
+      'UPDATE bid_item_template_phase SET template=? WHERE legal_entity=? AND department=? AND template=?',
+    ).run(newName, legalEntity, department, oldName);
+    db.prepare(
+      'UPDATE bid_item_template_task SET template=? WHERE legal_entity=? AND department=? AND template=?',
+    ).run(newName, legalEntity, department, oldName);
   });
   tx();
 }

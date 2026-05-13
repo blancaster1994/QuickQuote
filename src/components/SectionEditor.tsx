@@ -85,6 +85,8 @@ export default function SectionEditor({ section, total, state, dispatch }: Secti
           placeholder="not exported" />
       </div>
 
+      <SectionTasks section={section} dispatch={dispatch} />
+
       <button type="button"
         onClick={() => dispatch({ type: 'TOGGLE_FEE_BUILDER' })}
         style={{
@@ -146,6 +148,104 @@ export default function SectionEditor({ section, total, state, dispatch }: Secti
     </div>
   );
 }
+
+// ── Tasks subsection ────────────────────────────────────────────────────────
+// Name-only list. Each task represents a work item that flows to iCore /
+// ClickUp tracking. Category and hours live on labor rows (Fee calculator).
+
+function SectionTasks({ section, dispatch }: { section: Section; dispatch: Dispatch<EditorAction> }) {
+  const tasks = section.tasks ?? [];
+  return (
+    <div style={{
+      marginTop: 14,
+      background: 'var(--canvas)',
+      border: '1px solid var(--hair)',
+      borderRadius: 8,
+      padding: '10px 12px',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+        <span style={{
+          fontSize: 11, fontWeight: 700, letterSpacing: 0.4,
+          color: 'var(--ink)', textTransform: 'uppercase',
+        }}>
+          Tasks
+        </span>
+        <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+          for iCore / ClickUp tracking · name-only
+        </span>
+        <div style={{ flex: 1 }} />
+        <button type="button"
+          onClick={() => dispatch({ type: 'ADD_SECTION_TASK', id: section.id })}
+          style={{
+            height: 24, padding: '0 8px', borderRadius: 5,
+            background: 'var(--surface)', color: 'var(--body)',
+            border: '1px solid var(--hair)',
+            fontSize: 11, fontWeight: 600, cursor: 'pointer',
+            fontFamily: 'var(--sans)',
+          }}>
+          + Add task
+        </button>
+      </div>
+      {tasks.length === 0 ? (
+        <div style={{ fontSize: 11.5, color: 'var(--muted)', padding: '4px 2px' }}>
+          No tasks yet. Click "+ Add task" or apply a template above.
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {tasks.map((t, idx) => (
+            <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 11, color: 'var(--muted)', width: 22, fontVariantNumeric: 'tabular-nums' }}>
+                {idx + 1}.
+              </span>
+              <input
+                value={t.name}
+                onChange={(e) => dispatch({
+                  type: 'UPDATE_SECTION_TASK', id: section.id, index: idx,
+                  patch: { name: e.target.value },
+                })}
+                placeholder="Task name"
+                style={{
+                  flex: 1, height: 26, padding: '0 8px',
+                  border: '1px solid var(--hair)', borderRadius: 5,
+                  fontSize: 12, fontFamily: 'var(--sans)',
+                  background: 'var(--surface)', color: 'var(--ink)',
+                  outline: 'none',
+                }}
+              />
+              <button type="button"
+                onClick={() => dispatch({
+                  type: 'REORDER_SECTION_TASKS', id: section.id,
+                  fromIndex: idx, toIndex: Math.max(0, idx - 1),
+                })}
+                aria-label="Move up"
+                style={taskGhostBtn}>↑</button>
+              <button type="button"
+                onClick={() => dispatch({
+                  type: 'REORDER_SECTION_TASKS', id: section.id,
+                  fromIndex: idx, toIndex: Math.min(tasks.length - 1, idx + 1),
+                })}
+                aria-label="Move down"
+                style={taskGhostBtn}>↓</button>
+              <button type="button"
+                onClick={() => dispatch({
+                  type: 'REMOVE_SECTION_TASK', id: section.id, index: idx,
+                })}
+                aria-label="Remove task"
+                style={taskGhostBtn}>×</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const taskGhostBtn: React.CSSProperties = {
+  width: 22, height: 22, padding: 0, borderRadius: 4,
+  background: 'transparent', color: 'var(--muted)',
+  border: '1px solid transparent', cursor: 'pointer',
+  fontSize: 12, lineHeight: 1, fontFamily: 'var(--sans)',
+};
 
 // ── Rich-ish scope editor ───────────────────────────────────────────────────
 // Plain-text storage with two list-marker toggles. The user types regular

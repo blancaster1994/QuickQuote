@@ -11,8 +11,9 @@
 //                                (legal_entity, department, rate_table, etc.)
 //                                from seed/lookups.json. Gated on `department`
 //                                being empty.
-//   * seedTemplatesIfMissing   — populates template_phase from seed/templates.json.
-//                                Runs every startup; only inserts when empty.
+//   * seedBidItemTemplatesIfMissing — populates bid_item_template_* from
+//                                seed/bid_item_templates.json. Runs every
+//                                startup; only inserts when empty.
 //
 // In normal use the importer (electron/db/importer.ts) pulls the same data
 // from PM Quoting App's DB on first run. The seed JSON files act as the
@@ -170,13 +171,15 @@ interface LookupsSeed {
   }>;
 }
 
-interface TemplateRow {
+interface BidItemTemplateSeed {
   legal_entity: string;
   department: string;
-  template: string;
-  phase_name: string;
-  rate_table: string;
-  sort_order: number;
+  name: string;
+  phases: Array<{
+    phase_name: string;
+    sort_order: number;
+    tasks: Array<{ name: string; sort_order: number }>;
+  }>;
 }
 
 function resolveCandidate(appRoot: string, file: string): string {
@@ -195,8 +198,8 @@ export function resolveLookupsSeedPath(appRoot: string): string {
   return resolveCandidate(appRoot, 'lookups.json');
 }
 
-export function resolveTemplatesSeedPath(appRoot: string): string {
-  return resolveCandidate(appRoot, 'templates.json');
+export function resolveBidItemTemplatesSeedPath(appRoot: string): string {
+  return resolveCandidate(appRoot, 'bid_item_templates.json');
 }
 
 export function seedLookupsIfEmpty(db: Database.Database, seedJsonPath: string): boolean {
@@ -281,24 +284,55 @@ export function seedLookupsIfEmpty(db: Database.Database, seedJsonPath: string):
 }
 
 /**
- * Seed template_phase rows. Idempotent: only inserts when the table is empty.
- * Re-run on every startup so a fresh seed file takes effect without forcing
- * users to wipe their DB.
+ * Sync the JSON-defined bid item templates into the DB on every startup.
+ *
+ * For each template in `seed/bid_item_templates.json`, this clears the
+ * existing rows for that exact (legal_entity, department, name) tuple and
+ * re-inserts from JSON. User-added templates with different names are
+ * preserved untouched.
+ *
+ * This makes the JSON file the source of truth for the seeded templates
+ * (e.g. "Standard"): editing the file and restarting is sufficient to roll
+ * out a new task list. Users who want to customize the seeded Standard
+ * should duplicate it under a different name first.
  */
-export function seedTemplatesIfMissing(db: Database.Database, appRoot: string): number {
-  const p = resolveTemplatesSeedPath(appRoot);
+export function seedBidItemTemplatesIfMissing(db: Database.Database, appRoot: string): number {
+  const p = resolveBidItemTemplatesSeedPath(appRoot);
   if (!fs.existsSync(p)) return 0;
-  const existing = db.prepare('SELECT COUNT(*) AS n FROM template_phase').get() as { n: number };
-  if (existing.n > 0) return 0;
-  const rows: TemplateRow[] = JSON.parse(fs.readFileSync(p, 'utf-8'));
-  const ins = db.prepare(
-    'INSERT OR IGNORE INTO template_phase(legal_entity, department, template, phase_name, rate_table, sort_order) VALUES (?,?,?,?,?,?)',
+
+  const templates: BidItemTemplateSeed[] = JSON.parse(fs.readFileSync(p, 'utf-8'));
+  const delPhase = db.prepare(
+    'DELETE FROM bid_item_template_phase WHERE legal_entity=? AND department=? AND template=?',
   );
+  const delTask = db.prepare(
+    'DELETE FROM bid_item_template_task WHERE legal_entity=? AND department=? AND template=?',
+  );
+  const insPhase = db.prepare(
+    'INSERT INTO bid_item_template_phase(legal_entity, department, template, phase_name, sort_order) VALUES (?,?,?,?,?)',
+  );
+  const insTask = db.prepare(
+    'INSERT INTO bid_item_template_task(legal_entity, department, template, phase_name, task_name, sort_order) VALUES (?,?,?,?,?,?)',
+  );
+  let inserted = 0;
   const tx = db.transaction(() => {
-    for (const r of rows) {
-      ins.run(r.legal_entity, r.department, r.template, r.phase_name, r.rate_table, r.sort_order);
+    for (const t of templates) {
+      delTask.run(t.legal_entity, t.department, t.name);
+      delPhase.run(t.legal_entity, t.department, t.name);
+      t.phases.forEach((p, pIdx) => {
+        insPhase.run(
+          t.legal_entity, t.department, t.name,
+          p.phase_name, p.sort_order ?? pIdx,
+        );
+        inserted += 1;
+        p.tasks.forEach((task, tIdx) => {
+          insTask.run(
+            t.legal_entity, t.department, t.name,
+            p.phase_name, task.name, task.sort_order ?? tIdx,
+          );
+        });
+      });
     }
   });
   tx();
-  return rows.length;
+  return inserted;
 }

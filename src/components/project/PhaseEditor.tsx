@@ -1,11 +1,11 @@
-// Phase body editor — header fields + tasks table.
+// Phase body editor — header + labor + tasks + scope.
 //
-// Header fields: name, due_date, project_type (FF/T&M), rate_table,
-// scope_text (multi-line), notes (single line).
-// Tasks: name + category only. Per-task Amount is derived from resources
-// whose task_no matches — there's no per-task hours/rate input. Hours and
-// rates live exclusively on resources (see ResourceAllocation), so the
-// task and resource totals can never disagree.
+// Labor table: category × hours × rate. Drives the budget for the phase
+// (category-level, not task-level).
+// Tasks table: name only — these are the work items that flow to iCore /
+// ClickUp. Multiple labor categories may be working on a single task, so
+// tasks don't carry category or hours of their own.
+// Per-task Amount is derived from resources whose task_no matches.
 
 import { useMemo, useState, type Dispatch } from 'react';
 import { ConfirmDialog } from '../ui';
@@ -29,14 +29,13 @@ export default function PhaseEditor({
 }: PhaseEditorProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  // Phase budget is the sum of allocated resource cost for this phase
-  // (Σ resource.hrs × bill_rate). Tasks no longer carry hours/rate of
-  // their own — that lives on resources only, with each resource linked
-  // to a specific task via task_no. See projectTotals.ts.
-  const taskBudget = useMemo(
+  const phaseAllocated = useMemo(
     () => computePhaseAllocated(project.payload.resources, phase.phase_no),
     [project.payload.resources, phase.phase_no],
   );
+
+  const labor = phase.labor ?? [];
+  const tasks = phase.tasks ?? [];
 
   return (
     <div style={{
@@ -109,7 +108,7 @@ export default function PhaseEditor({
         <ConfirmDialog
           open={confirmDelete}
           title="Delete phase?"
-          body={<>Remove <strong>{phase.name || 'this phase'}</strong>? Its tasks, hours, and rates will be lost.</>}
+          body={<>Remove <strong>{phase.name || 'this phase'}</strong>? Its labor, tasks, hours, and rates will be lost.</>}
           confirmLabel="Delete"
           confirmKind="loss"
           onConfirm={() => {
@@ -149,7 +148,102 @@ export default function PhaseEditor({
         />
       </Field>
 
-      {/* Tasks */}
+      {/* Labor — category × hours budget */}
+      <div style={{
+        display: 'flex', alignItems: 'center', marginTop: 16, marginBottom: 8, gap: 12,
+      }}>
+        <h4 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
+          Labor
+        </h4>
+        <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+          {labor.length} categor{labor.length === 1 ? 'y' : 'ies'} budgeted
+        </span>
+        <div style={{ flex: 1 }} />
+        {!disabled && (
+          <button
+            onClick={() => dispatch({ type: 'ADD_LABOR', phaseIndex })}
+            style={{
+              height: 26, padding: '0 10px',
+              background: 'var(--surface)', color: 'var(--body)',
+              border: '1px solid var(--hair)', borderRadius: 5,
+              fontSize: 11.5, fontWeight: 600, cursor: 'pointer',
+              fontFamily: 'var(--sans)',
+            }}>
+            + Add labor
+          </button>
+        )}
+      </div>
+
+      {labor.length === 0 ? (
+        <div style={{ fontSize: 12, color: 'var(--muted)', padding: '8px 0' }}>
+          No labor budgeted yet. {disabled ? '' : 'Click "+ Add labor" to budget a category.'}
+        </div>
+      ) : (
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+          <thead>
+            <tr style={{
+              background: 'var(--canvas)', textAlign: 'left',
+              fontSize: 10.5, color: 'var(--muted)',
+              textTransform: 'uppercase', letterSpacing: 0.4,
+            }}>
+              <th style={{ padding: '6px 8px', width: 40 }}>#</th>
+              <th style={{ padding: '6px 8px' }}>Category</th>
+              <th style={{ padding: '6px 8px', width: 100, textAlign: 'right' }}>Hours</th>
+              <th style={{ padding: '6px 8px', width: 130, textAlign: 'right' }}>Rate</th>
+              {!disabled && <th style={{ width: 36 }}></th>}
+            </tr>
+          </thead>
+          <tbody>
+            {labor.map((row, li) => (
+              <tr key={li} style={{ borderTop: '1px solid var(--line)' }}>
+                <td style={{ padding: '6px 8px', color: 'var(--muted)', fontVariantNumeric: 'tabular-nums' }}>
+                  {row.labor_no}
+                </td>
+                <td style={{ padding: '4px 8px' }}>
+                  <input value={row.category} disabled={disabled}
+                    placeholder="e.g. Engineer III"
+                    onChange={(e) => dispatch({ type: 'UPDATE_LABOR', phaseIndex, laborIndex: li, patch: { category: e.target.value } })}
+                    style={cellInputStyle}
+                  />
+                </td>
+                <td style={{ padding: '4px 8px', textAlign: 'right' }}>
+                  <input type="number" min={0} step="0.5"
+                    value={row.hours} disabled={disabled}
+                    onChange={(e) => dispatch({ type: 'UPDATE_LABOR', phaseIndex, laborIndex: li, patch: { hours: Number(e.target.value) || 0 } })}
+                    style={{ ...cellInputStyle, textAlign: 'right' }}
+                  />
+                </td>
+                <td style={{ padding: '4px 8px', textAlign: 'right' }}>
+                  <input type="number" min={0} step="0.01"
+                    value={row.rate_override ?? ''}
+                    placeholder="auto"
+                    disabled={disabled}
+                    onChange={(e) => {
+                      const v = e.target.value === '' ? null : Number(e.target.value);
+                      dispatch({ type: 'UPDATE_LABOR', phaseIndex, laborIndex: li, patch: { rate_override: v } });
+                    }}
+                    style={{ ...cellInputStyle, textAlign: 'right' }}
+                  />
+                </td>
+                {!disabled && (
+                  <td style={{ padding: '4px 6px', textAlign: 'right' }}>
+                    <button onClick={() => dispatch({ type: 'REMOVE_LABOR', phaseIndex, laborIndex: li })}
+                      aria-label="Delete labor row"
+                      style={{
+                        width: 22, height: 22, padding: 0, borderRadius: 4,
+                        background: 'transparent', color: 'var(--muted)',
+                        border: '1px solid transparent', cursor: 'pointer',
+                        fontSize: 13, lineHeight: 1,
+                      }}>×</button>
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {/* Tasks — name-only, for iCore / ClickUp tracking */}
       <div style={{
         display: 'flex', alignItems: 'center', marginTop: 16, marginBottom: 8, gap: 12,
       }}>
@@ -157,7 +251,7 @@ export default function PhaseEditor({
           Tasks
         </h4>
         <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
-          {phase.tasks.length} task{phase.tasks.length === 1 ? '' : 's'} · {fmt$(taskBudget)} from resources
+          {tasks.length} task{tasks.length === 1 ? '' : 's'} · {fmt$(phaseAllocated)} allocated from resources
         </span>
         <div style={{ flex: 1 }} />
         {!disabled && (
@@ -175,9 +269,9 @@ export default function PhaseEditor({
         )}
       </div>
 
-      {phase.tasks.length === 0 ? (
+      {tasks.length === 0 ? (
         <div style={{ fontSize: 12, color: 'var(--muted)', padding: '8px 0' }}>
-          No tasks yet. {disabled ? '' : 'Click "+ Add task" to start.'}
+          No tasks yet. {disabled ? '' : 'Click "+ Add task" to name a work item.'}
         </div>
       ) : (
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
@@ -189,13 +283,12 @@ export default function PhaseEditor({
             }}>
               <th style={{ padding: '6px 8px', width: 40 }}>#</th>
               <th style={{ padding: '6px 8px' }}>Name</th>
-              <th style={{ padding: '6px 8px', width: 200 }}>Category</th>
-              <th style={{ padding: '6px 8px', width: 130, textAlign: 'right' }}>Amount</th>
+              <th style={{ padding: '6px 8px', width: 130, textAlign: 'right' }}>Allocated</th>
               {!disabled && <th style={{ width: 36 }}></th>}
             </tr>
           </thead>
           <tbody>
-            {phase.tasks.map((t, ti) => {
+            {tasks.map((t, ti) => {
               const amount = computeTaskAmount(
                 project.payload.resources, phase.phase_no, t.task_no,
               );
@@ -210,13 +303,6 @@ export default function PhaseEditor({
                       style={cellInputStyle}
                     />
                   </td>
-                  <td style={{ padding: '4px 8px' }}>
-                    <input value={t.category} disabled={disabled}
-                      placeholder="e.g. Senior Engineer"
-                      onChange={(e) => dispatch({ type: 'UPDATE_TASK', phaseIndex, taskIndex: ti, patch: { category: e.target.value } })}
-                      style={cellInputStyle}
-                    />
-                  </td>
                   <td style={{
                     padding: '6px 8px', textAlign: 'right',
                     fontVariantNumeric: 'tabular-nums', fontWeight: 600,
@@ -224,7 +310,7 @@ export default function PhaseEditor({
                     {amount > 0 ? (
                       fmt$(amount)
                     ) : (
-                      <span title="Amount is the sum of resources assigned to this task. Assign a resource below and pick this task."
+                      <span title="Allocated is the sum of resources assigned to this task. Assign a resource below and pick this task."
                         style={{ color: 'var(--subtle)', fontWeight: 500 }}>
                         —
                       </span>

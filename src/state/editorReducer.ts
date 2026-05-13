@@ -6,6 +6,7 @@
 
 import type {
   AutosaveStatus,
+  BidItemTemplate,
   Bootstrap,
   EditorMode,
   EditorView,
@@ -20,11 +21,32 @@ import type {
   ProjectTemplateRecord,
   ClientTemplateRecord,
   Section,
+  SectionTask,
   ViewingVersion,
   VersionRecord,
 } from '../types/domain';
 
 // ── empty / default shapes ──────────────────────────────────────────────────
+
+/** Standard task list a new bid item starts with. Mirrors the seeded
+ *  "Standard" bid item template — every phase ships with these three task
+ *  names because they're the tracking buckets the firm uses on iCore /
+ *  ClickUp. The user can rename or remove them per-bid-item. */
+export const DEFAULT_SECTION_TASK_NAMES = ['Site Visit', 'Engineering', 'Drafting'] as const;
+
+let sectionTaskCounter = 0;
+function newSectionTaskId(): string {
+  sectionTaskCounter += 1;
+  return `st_${Date.now().toString(36)}_${sectionTaskCounter.toString(36)}`;
+}
+
+function defaultSectionTasks(): Section['tasks'] {
+  return DEFAULT_SECTION_TASK_NAMES.map((name, i) => ({
+    id: newSectionTaskId(),
+    name,
+    sort_order: i,
+  }));
+}
 
 export function emptySection(n = 1): Section {
   return {
@@ -37,6 +59,7 @@ export function emptySection(n = 1): Section {
     notes:      '',
     labor:      [],
     expenses:   [],
+    tasks:      defaultSectionTasks(),
   };
 }
 
@@ -169,6 +192,13 @@ export type EditorAction =
   | { type: 'UPDATE_EXPENSE'; id: string; index: number; patch: Partial<ExpenseRow> }
   | { type: 'REMOVE_EXPENSE'; id: string; index: number }
   | { type: 'REORDER_EXPENSES'; id: string; fromIndex: number; toIndex: number }
+  | { type: 'ADD_SECTION_TASK'; id: string }
+  | { type: 'UPDATE_SECTION_TASK'; id: string; index: number; patch: Partial<SectionTask> }
+  | { type: 'REMOVE_SECTION_TASK'; id: string; index: number }
+  | { type: 'REORDER_SECTION_TASKS'; id: string; fromIndex: number; toIndex: number }
+  | { type: 'SET_LEGAL_ENTITY'; legalEntity: string }
+  | { type: 'SET_DEPARTMENT'; department: string }
+  | { type: 'APPLY_BID_ITEM_TEMPLATE'; template: BidItemTemplate; mode: 'append' | 'replace' }
   | { type: 'TOGGLE_FEE_BUILDER' }
   | { type: 'TOGGLE_PREVIEW' }
   | { type: 'SET_GEN_MENU'; open: boolean }
@@ -198,6 +228,8 @@ const CONTENT_MUTATIONS: ReadonlySet<EditorAction['type']> = new Set([
   'SET_FIELD', 'UPDATE_SECTION', 'ADD_SECTION', 'REMOVE_SECTION', 'REORDER_SECTIONS',
   'ADD_LABOR_ROW', 'UPDATE_LABOR_ROW', 'REMOVE_LABOR_ROW', 'REORDER_LABOR_ROWS',
   'ADD_EXPENSE', 'UPDATE_EXPENSE', 'REMOVE_EXPENSE', 'REORDER_EXPENSES',
+  'ADD_SECTION_TASK', 'UPDATE_SECTION_TASK', 'REMOVE_SECTION_TASK', 'REORDER_SECTION_TASKS',
+  'SET_LEGAL_ENTITY', 'SET_DEPARTMENT', 'APPLY_BID_ITEM_TEMPLATE',
 ]);
 
 /** Pure-functional array reorder. Returns a new array with the element at
@@ -228,12 +260,13 @@ export function reducer(state: EditorState, action: EditorAction): EditorState {
 
     case 'LOAD_PROPOSAL': {
       // Normalize sections from older saves so newly-added required fields
-      // (e.g., exclusions) always carry a string default.
+      // (e.g., exclusions, tasks) always carry a default.
       const normalized: Proposal = {
         ...action.payload,
         sections: (action.payload.sections || []).map((s) => ({
           ...s,
           exclusions: s.exclusions ?? '',
+          tasks: Array.isArray(s.tasks) ? s.tasks : [],
         })),
       };
       return {
@@ -456,6 +489,104 @@ export function reducer(state: EditorState, action: EditorAction): EditorState {
           : s,
       );
       return { ...state, proposal: { ...state.proposal, sections }, autosaveStatus: 'idle' };
+    }
+
+    case 'ADD_SECTION_TASK': {
+      const sections = state.proposal.sections.map((s) => {
+        if (s.id !== action.id) return s;
+        const tasks = s.tasks ?? [];
+        const next: SectionTask = { id: newSectionTaskId(), name: '', sort_order: tasks.length };
+        return { ...s, tasks: [...tasks, next] };
+      });
+      return { ...state, proposal: { ...state.proposal, sections }, autosaveStatus: 'idle' };
+    }
+
+    case 'UPDATE_SECTION_TASK': {
+      const sections = state.proposal.sections.map((s) => {
+        if (s.id !== action.id) return s;
+        const tasks = (s.tasks ?? []).map((t, i) =>
+          i === action.index ? { ...t, ...action.patch } : t,
+        );
+        return { ...s, tasks };
+      });
+      return { ...state, proposal: { ...state.proposal, sections }, autosaveStatus: 'idle' };
+    }
+
+    case 'REMOVE_SECTION_TASK': {
+      const sections = state.proposal.sections.map((s) => {
+        if (s.id !== action.id) return s;
+        const tasks = (s.tasks ?? [])
+          .filter((_, i) => i !== action.index)
+          .map((t, i) => ({ ...t, sort_order: i }));
+        return { ...s, tasks };
+      });
+      return { ...state, proposal: { ...state.proposal, sections }, autosaveStatus: 'idle' };
+    }
+
+    case 'REORDER_SECTION_TASKS': {
+      if (action.fromIndex === action.toIndex) return state;
+      const sections = state.proposal.sections.map((s) => {
+        if (s.id !== action.id) return s;
+        const reordered = arrayMove(s.tasks ?? [], action.fromIndex, action.toIndex)
+          .map((t, i) => ({ ...t, sort_order: i }));
+        return { ...s, tasks: reordered };
+      });
+      return { ...state, proposal: { ...state.proposal, sections }, autosaveStatus: 'idle' };
+    }
+
+    case 'SET_LEGAL_ENTITY':
+      return {
+        ...state,
+        proposal:       { ...state.proposal, legal_entity: action.legalEntity || undefined },
+        autosaveStatus: 'idle',
+      };
+
+    case 'SET_DEPARTMENT':
+      return {
+        ...state,
+        proposal:       { ...state.proposal, department: action.department || undefined },
+        autosaveStatus: 'idle',
+      };
+
+    case 'APPLY_BID_ITEM_TEMPLATE': {
+      // Each template phase → a new Section with the phase's task names
+      // attached. Labor / expenses / fee / billing stay blank for the user
+      // to fill in (templates intentionally don't carry cost data).
+      const tplPhases = [...(action.template?.phases || [])].sort(
+        (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0),
+      );
+      const buildSection = (phaseName: string, taskNames: string[], n: number): Section => ({
+        ...emptySection(n),
+        title: phaseName,
+        tasks: taskNames.map((name, i) => ({
+          id: newSectionTaskId(),
+          name,
+          sort_order: i,
+        })),
+      });
+      const tplSections: Section[] = tplPhases.map((p, idx) => {
+        const taskNames = [...(p.tasks || [])]
+          .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+          .map((t) => t.name);
+        return buildSection(p.phase_name || `Phase ${idx + 1}`, taskNames, idx + 1);
+      });
+      if (tplSections.length === 0) return state;
+
+      const sections = action.mode === 'replace'
+        ? tplSections.map((s, i) => ({ ...s, id: `s${i + 1}` }))
+        : [
+            ...state.proposal.sections,
+            ...tplSections.map((s, i) => ({
+              ...s,
+              id: `s${state.proposal.sections.length + i + 1}`,
+            })),
+          ];
+      return {
+        ...state,
+        proposal:       { ...state.proposal, sections },
+        activeSection:  sections[0]?.id ?? state.activeSection,
+        autosaveStatus: 'idle',
+      };
     }
 
     case 'TOGGLE_FEE_BUILDER':

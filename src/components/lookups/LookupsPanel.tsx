@@ -21,7 +21,7 @@ import type { LookupsTab } from '../../types/domain';
 import NameListEditor from './NameListEditor';
 import MarkupEditor from './MarkupEditor';
 import PhaseTaskEditor from './PhaseTaskEditor';
-import TemplateEditor from './TemplateEditor';
+import BidItemTemplateEditor from './BidItemTemplateEditor';
 import EmployeeEditor from './EmployeeEditor';
 import RateEditor from './RateEditor';
 import ClickUpSettings from './ClickUpSettings';
@@ -33,13 +33,13 @@ interface LookupsPanelProps {
 }
 
 const TABS: Array<{ key: LookupsTab; label: string }> = [
-  { key: 'basic',             label: 'Basic Lists' },
-  { key: 'phases-tasks',      label: 'Phases & Tasks' },
-  { key: 'templates',         label: 'Templates' },
-  { key: 'employees',         label: 'Employees' },
-  { key: 'rates',             label: 'Rates' },
-  { key: 'legal-departments', label: 'Legal & Departments' },
-  { key: 'clickup',           label: 'ClickUp' },
+  { key: 'basic',              label: 'Basic Lists' },
+  { key: 'phases-tasks',       label: 'Phases & Tasks' },
+  { key: 'bid-item-templates', label: 'Bid Item Templates' },
+  { key: 'employees',          label: 'Employees' },
+  { key: 'rates',              label: 'Rates' },
+  { key: 'legal-departments',  label: 'Legal & Departments' },
+  { key: 'clickup',            label: 'ClickUp' },
 ];
 
 export default function LookupsPanel({ state, dispatch }: LookupsPanelProps) {
@@ -260,8 +260,8 @@ function TabBody({ tab, identity, disabled }: {
       );
     case 'phases-tasks':
       return <PhaseTaskEditor disabled={disabled} />;
-    case 'templates':
-      return <TemplateEditor disabled={disabled} />;
+    case 'bid-item-templates':
+      return <BidItemTemplateEditor disabled={disabled} />;
     case 'employees':
       return <EmployeeEditor disabled={disabled} />;
     case 'rates':
