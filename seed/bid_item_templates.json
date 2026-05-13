@@ -196,5 +196,98 @@
           { "name": "Drafting",    "sort_order": 2 }
         ] }
     ]
+  },
+  { "legal_entity": "CES", "department": "Consulting", "name": "Burn Job",
+    "phases": [
+      { "phase_name": "Architectural and Structural Construction Documents", "sort_order": 0,
+        "tasks": [
+          { "name": "Architectural Drafting", "sort_order": 0 },
+          { "name": "Structural Drafting",    "sort_order": 1 },
+          { "name": "Engineering",            "sort_order": 2 },
+          { "name": "Architectural Design",   "sort_order": 3 },
+          { "name": "Administration",         "sort_order": 4 },
+          { "name": "Code Analysis",          "sort_order": 5 }
+        ] },
+      { "phase_name": "MEP Construction Documents", "sort_order": 1,
+        "tasks": [
+          { "name": "Architectural Drafting", "sort_order": 0 },
+          { "name": "Structural Drafting",    "sort_order": 1 },
+          { "name": "Engineering",            "sort_order": 2 },
+          { "name": "Architectural Design",   "sort_order": 3 },
+          { "name": "Administration",         "sort_order": 4 },
+          { "name": "Code Analysis",          "sort_order": 5 }
+        ] },
+      { "phase_name": "Civil Construction Documents", "sort_order": 2,
+        "tasks": [
+          { "name": "Architectural Drafting", "sort_order": 0 },
+          { "name": "Structural Drafting",    "sort_order": 1 },
+          { "name": "Engineering",            "sort_order": 2 },
+          { "name": "Architectural Design",   "sort_order": 3 },
+          { "name": "Administration",         "sort_order": 4 },
+          { "name": "Code Analysis",          "sort_order": 5 }
+        ] }
+    ]
+  },
+  { "legal_entity": "CES", "department": "Consulting", "name": "Site Visit and Investigation",
+    "phases": [
+      { "phase_name": "Site Visit", "sort_order": 0,
+        "tasks": [
+          { "name": "Architectural Drafting", "sort_order": 0 },
+          { "name": "Structural Drafting",    "sort_order": 1 },
+          { "name": "Engineering",            "sort_order": 2 },
+          { "name": "Architectural Design",   "sort_order": 3 },
+          { "name": "Administration",         "sort_order": 4 },
+          { "name": "Code Analysis",          "sort_order": 5 }
+        ] },
+      { "phase_name": "Observation Report", "sort_order": 1,
+        "tasks": [
+          { "name": "Architectural Drafting", "sort_order": 0 },
+          { "name": "Structural Drafting",    "sort_order": 1 },
+          { "name": "Engineering",            "sort_order": 2 },
+          { "name": "Architectural Design",   "sort_order": 3 },
+          { "name": "Administration",         "sort_order": 4 },
+          { "name": "Code Analysis",          "sort_order": 5 }
+        ] }
+    ]
+  },
+  { "legal_entity": "CES", "department": "Consulting", "name": "Expert Witness",
+    "phases": [
+      { "phase_name": "Site Visit", "sort_order": 0,
+        "tasks": [
+          { "name": "Report Preparation", "sort_order": 0 },
+          { "name": "Site Observations",  "sort_order": 1 },
+          { "name": "Consulting",         "sort_order": 2 },
+          { "name": "Engineering",        "sort_order": 3 },
+          { "name": "Expert Testimony",   "sort_order": 4 },
+          { "name": "Document Review",    "sort_order": 5 }
+        ] },
+      { "phase_name": "Observation Report", "sort_order": 1,
+        "tasks": [
+          { "name": "Report Preparation", "sort_order": 0 },
+          { "name": "Site Observations",  "sort_order": 1 },
+          { "name": "Consulting",         "sort_order": 2 },
+          { "name": "Engineering",        "sort_order": 3 },
+          { "name": "Expert Testimony",   "sort_order": 4 },
+          { "name": "Document Review",    "sort_order": 5 }
+        ] },
+      { "phase_name": "Depositions", "sort_order": 2,
+        "tasks": [
+          { "name": "Report Preparation", "sort_order": 0 },
+          { "name": "Site Observations",  "sort_order": 1 },
+          { "name": "Consulting",         "sort_order": 2 },
+          { "name": "Engineering",        "sort_order": 3 },
+          { "name": "Expert Testimony",   "sort_order": 4 },
+          { "name": "Document Review",    "sort_order": 5 }
+        ] },
+      { "phase_name": "Trial Testimony", "sort_order": 3,
+        "tasks": [
+          { "name": "Report Preparation", "sort_order": 0 },
+          { "name": "Site Observations",  "sort_order": 1 },
+          { "name": "Consulting",         "sort_order": 2 },
+          { "name": "Engineering",        "sort_order": 3 },
+          { "name": "Expert Testimony",   "sort_order": 4 },
+          { "name": "Document Review",    "sort_order": 5 }
+        ] }
+    ]
   }
 ]
