@@ -12,6 +12,7 @@
 // shape changes.
 
 import { useEffect, useState } from 'react';
+import { apiClient } from '../../api/client';
 import { canDo } from '../../lib/lifecycle';
 import type { IcoreAccount, IcoreStatus, Identity } from '../../types/domain';
 
@@ -38,9 +39,9 @@ export default function IcoreSettings({ identity, disabled }: IcoreSettingsProps
   async function refresh() {
     try {
       const [next, acct, clients] = await Promise.all([
-        window.api.icore.getConfig(),
-        window.api.icore.getAccount(),
-        window.api.icore.listClients({ limit: 1, includeInactive: true }).catch(() => []),
+        apiClient.icore.getConfig(),
+        apiClient.icore.getAccount(),
+        apiClient.icore.listClients({ limit: 1, includeInactive: true }).catch(() => []),
       ]);
       setStatus(next);
       setAccount(acct);
@@ -49,7 +50,7 @@ export default function IcoreSettings({ identity, disabled }: IcoreSettingsProps
       // ordered; do a no-limit count via a second small call. (A cheaper
       // route is to add a count endpoint — fine to upgrade later.)
       try {
-        const all = await window.api.icore.listClients({ includeInactive: true });
+        const all = await apiClient.icore.listClients({ includeInactive: true });
         setClientCount(all.length);
       } catch { setClientCount(clients.length); }
       // Seed edit fields from the saved values so the user sees what's
@@ -68,7 +69,7 @@ export default function IcoreSettings({ identity, disabled }: IcoreSettingsProps
     setBusy('refresh');
     setRefreshResult(null);
     try {
-      const res = await window.api.icore.refreshClients();
+      const res = await apiClient.icore.refreshClients();
       if (res.ok) {
         setRefreshResult({
           ok: true,
@@ -89,7 +90,7 @@ export default function IcoreSettings({ identity, disabled }: IcoreSettingsProps
     setBusy('signin');
     setTestResult(null);
     try {
-      const acct = await window.api.icore.signIn();
+      const acct = await apiClient.icore.signIn();
       setAccount(acct);
     } catch (e: any) {
       alert('Sign-in failed: ' + (e?.message ?? String(e)));
@@ -103,7 +104,7 @@ export default function IcoreSettings({ identity, disabled }: IcoreSettingsProps
     setBusy('signout');
     setTestResult(null);
     try {
-      await window.api.icore.signOut();
+      await apiClient.icore.signOut();
       setAccount(null);
     } catch (e: any) {
       alert('Sign-out failed: ' + (e?.message ?? String(e)));
@@ -115,7 +116,7 @@ export default function IcoreSettings({ identity, disabled }: IcoreSettingsProps
   async function saveConfig() {
     setBusy('save');
     try {
-      await window.api.icore.setConfig({
+      await apiClient.icore.setConfig({
         tenant_id:            tenantId.trim() || null,
         client_id:            clientId.trim() || null,
         environment_url:      envUrl.trim().replace(/\/+$/, '') || null,
@@ -134,7 +135,7 @@ export default function IcoreSettings({ identity, disabled }: IcoreSettingsProps
     setBusy('test');
     setTestResult(null);
     try {
-      const res = await window.api.icore.testConnection();
+      const res = await apiClient.icore.testConnection();
       if (res.ok) setTestResult({ ok: true,  text: res.message });
       else        setTestResult({ ok: false, text: res.error });
     } catch (e: any) {
@@ -148,7 +149,7 @@ export default function IcoreSettings({ identity, disabled }: IcoreSettingsProps
     if (!status) return;
     setBusy('toggle');
     try {
-      await window.api.icore.setConfig({ enabled: !status.enabled });
+      await apiClient.icore.setConfig({ enabled: !status.enabled });
       await refresh();
     } catch (e: any) {
       alert('Toggle failed: ' + (e?.message ?? String(e)));

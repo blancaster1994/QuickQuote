@@ -6,6 +6,13 @@ dist/
 dist-electron/
 release/
 
+# Environment files (commit .env.example only)
+.env
+.env.local
+.env.*.local
+server/.env
+server/.env.local
+
 # Local SQLite databases (DB lives in %APPDATA%\QuickQuote\, but just in case)
 *.db
 *.db-shm

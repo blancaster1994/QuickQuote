@@ -7,6 +7,7 @@
 // linked F&O customer and any prior project link.
 
 import { useEffect, useState } from 'react';
+import { apiClient } from '../../api/client';
 import { Modal, ModalActions } from '../StatusComponents';
 import type {
   IcoreExecuteDecisions, IcorePhaseAction, IcorePreflightResult,
@@ -29,7 +30,7 @@ export default function SendToICoreModal({ project, onClose, onSent }: SendToICo
     let cancelled = false;
     void (async () => {
       try {
-        const result = await window.api.icore.preflight(project.id);
+        const result = await apiClient.icore.preflight(project.id);
         if (cancelled) return;
         setPlan(result);
         if (result.ok) {
@@ -62,7 +63,7 @@ export default function SendToICoreModal({ project, onClose, onSent }: SendToICo
           action: decisions.get(p.phase_index) ?? p.default_action,
         })),
       };
-      const result = await window.api.icore.send(project.id, decisionsPayload);
+      const result = await apiClient.icore.send(project.id, decisionsPayload);
       onSent(result);
     } catch (e: any) {
       setErr(e?.message || String(e));

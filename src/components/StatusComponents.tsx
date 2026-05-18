@@ -1,3 +1,4 @@
+import { apiClient } from '../api/client';
 // Lifecycle UI primitives — direct port of QuickProp's StatusComponents.jsx.
 // All status-mutating actions round-trip through the IPC layer; the UI
 // dispatches REPLACE_LIFECYCLE with the fresh lifecycle returned from main.
@@ -134,18 +135,18 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
     let cancelled = false;
     void (async () => {
       try {
-        const cfg = await window.api.clickup.getConfig();
+        const cfg = await apiClient.clickup.getConfig();
         if (!cancelled) setClickUpEnabled(!!cfg.configured && !!cfg.enabled);
       } catch { if (!cancelled) setClickUpEnabled(false); }
     })();
     void (async () => {
       try {
-        const cfg = await window.api.icore.getConfig();
+        const cfg = await apiClient.icore.getConfig();
         if (!cancelled) setIcoreEnabled(!!cfg.configured && !!cfg.enabled);
       } catch { if (!cancelled) setIcoreEnabled(false); }
     })();
     if (state.project) {
-      void window.api.clickup.getLink(state.project.id)
+      void apiClient.clickup.getLink(state.project.id)
         .then(link => {
           if (cancelled) return;
           setClickUpLinkUrl(link?.list_url ?? null);
@@ -156,7 +157,7 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
           setClickUpLinkUrl(null);
           setClickUpLastSyncedAt(null);
         });
-      void window.api.icore.getLink(state.project.id)
+      void apiClient.icore.getLink(state.project.id)
         .then(link => {
           if (cancelled) return;
           setIcoreLinkId(link?.icore_project_id ?? null);
@@ -214,7 +215,7 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
         return;
       }
       try {
-        const all = await window.api.proposals.list();
+        const all = await apiClient.proposals.list();
         const lower = trimmed.toLowerCase();
         const currentLower = (state.projectName || '').toLowerCase();
         const dup = all.find(n => n.toLowerCase() === lower && n.toLowerCase() !== currentLower);
@@ -256,20 +257,20 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
       label: 'Reopen', fn: 'reopen', kind: 'ghost',
       title: 'Move this proposal back to Sent so you can change the outcome.',
       click: () => dispatchLifecycle('reopen', async () =>
-        (await window.api.lifecycle.reopen(state.projectName!)) as any),
+        (await apiClient.lifecycle.reopen(state.projectName!)) as any),
     });
     buttons.push({
       label: 'Archive', fn: 'mark_archived', kind: 'ghost',
       title: 'Hide this proposal from the active dashboard. You can still find it under Archived.',
       click: () => dispatchLifecycle('mark_archived', async () =>
-        (await window.api.lifecycle.markArchived(state.projectName!)) as any),
+        (await apiClient.lifecycle.markArchived(state.projectName!)) as any),
     });
   } else if (status === 'archived') {
     buttons.push({
       label: 'Reopen', fn: 'reopen', kind: 'ghost',
       title: 'Restore this proposal to its previous status (Won/Lost/Sent).',
       click: () => dispatchLifecycle('reopen', async () =>
-        (await window.api.lifecycle.reopen(state.projectName!)) as any),
+        (await apiClient.lifecycle.reopen(state.projectName!)) as any),
     });
   }
 
@@ -379,7 +380,7 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
         {inProjectMode && state.project && (
           <>
             {clickUpEnabled && clickUpLinkUrl ? (
-              <button onClick={() => void window.api.os.openFile(clickUpLinkUrl)}
+              <button onClick={() => void apiClient.os.openFile(clickUpLinkUrl)}
                 title={clickUpLastSyncedAt
                   ? `Open in browser — last synced ${formatRelative(clickUpLastSyncedAt)}`
                   : 'Open the linked ClickUp list in your browser'}
@@ -493,7 +494,7 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
           onSubmit={async ({ reason, note }) => {
             setShowLost(false);
             await dispatchLifecycle('mark_lost', async () =>
-              (await window.api.lifecycle.markLost(state.projectName!, reason as any, note)) as any);
+              (await apiClient.lifecycle.markLost(state.projectName!, reason as any, note)) as any);
           }}
         />
       )}
@@ -504,7 +505,7 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
           onSubmit={async (note) => {
             setShowNote(false);
             await dispatchLifecycle('add_note', async () =>
-              (await window.api.lifecycle.addNote(state.projectName!, note)) as any);
+              (await apiClient.lifecycle.addNote(state.projectName!, note)) as any);
           }}
         />
       )}
@@ -515,7 +516,7 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
           onConfirm={async () => {
             setShowDelete(false);
             try {
-              await window.api.proposals.remove(state.projectName!);
+              await apiClient.proposals.remove(state.projectName!);
               dispatch({ type: 'NEW_PROPOSAL' });
               if (onDeleted) onDeleted();
               else if (onReload) onReload();
@@ -534,7 +535,7 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
           onSubmit={async ({ email, note }) => {
             setShowReassign(false);
             try {
-              const updated = (await window.api.lifecycle.reassign(state.projectName!, email, note)) as { lifecycle: Lifecycle };
+              const updated = (await apiClient.lifecycle.reassign(state.projectName!, email, note)) as { lifecycle: Lifecycle };
               dispatch({ type: 'REPLACE_LIFECYCLE', lifecycle: updated.lifecycle });
               onReload?.();
             } catch (e: any) {
@@ -551,7 +552,7 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
           onSubmit={async ({ whenIso, note }) => {
             setShowFollowUp(false);
             await dispatchLifecycle('follow_up', async () =>
-              (await window.api.lifecycle.setFollowUp(state.projectName!, whenIso, note)) as any);
+              (await apiClient.lifecycle.setFollowUp(state.projectName!, whenIso, note)) as any);
           }}
         />
       )}
@@ -1061,7 +1062,7 @@ export function VersionSwitcher({ state, dispatch }: VersionSwitcherProps) {
   if (!state.projectName) return null;
 
   async function openFile(path: string) {
-    try { await window.api.os.openFile(path); }
+    try { await apiClient.os.openFile(path); }
     catch (e: any) { alert(`Couldn't open file: ${e?.message || String(e)}`); }
   }
 
@@ -1225,7 +1226,7 @@ export function FirstRunIdentity({ allowed, onPicked, onError }: FirstRunIdentit
     if (!email) return;
     setBusy(true); setErr(null);
     try {
-      const id = await window.api.identity.set(email);
+      const id = await apiClient.identity.set(email);
       onPicked(id);
     } catch (e: any) {
       setErr(String(e?.message || String(e)));

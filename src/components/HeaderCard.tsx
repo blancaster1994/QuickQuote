@@ -1,3 +1,4 @@
+import { apiClient } from '../api/client';
 // Project / client header card — ported from QuickProp's HeaderCard.jsx.
 // Project name, Date, Client, Attention always visible; full address fields
 // toggled behind a persistent disclosure row. Above the client fields, two
@@ -115,8 +116,8 @@ function ScopeRow({ proposal, dispatch }: {
   const [departments,   setDepartments]   = useState<string[]>([]);
 
   useEffect(() => {
-    void window.api.lookups.list('legal_entity').then(rs => setLegalEntities(rs.map(r => r.name)));
-    void window.api.lookups.list('department').then(rs => setDepartments(rs.map(r => r.name)));
+    void apiClient.lookups.list('legal_entity').then(rs => setLegalEntities(rs.map(r => r.name)));
+    void apiClient.lookups.list('department').then(rs => setDepartments(rs.map(r => r.name)));
   }, []);
 
   const legalEntity = proposal.legal_entity || '';
@@ -164,7 +165,7 @@ function ClientTemplateBar({ proposal, dispatch, templates, onAfterLoad }: Clien
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   async function refreshList(): Promise<string[]> {
-    const names = (await window.api.clientTemplates.list()) as string[];
+    const names = (await apiClient.clientTemplates.list()) as string[];
     dispatch({ type: 'SET_CLIENT_TEMPLATES', templates: names });
     return names;
   }
@@ -172,7 +173,7 @@ function ClientTemplateBar({ proposal, dispatch, templates, onAfterLoad }: Clien
   async function onLoad() {
     if (!picked) return;
     try {
-      const t = (await window.api.clientTemplates.load(picked)) as ClientTemplateRecord;
+      const t = (await apiClient.clientTemplates.load(picked)) as ClientTemplateRecord;
       dispatch({ type: 'APPLY_CLIENT_TEMPLATE', template: t });
       if (t.clientAddress || t.clientCityStateZip) onAfterLoad?.();
     } catch (e: any) {
@@ -192,7 +193,7 @@ function ClientTemplateBar({ proposal, dispatch, templates, onAfterLoad }: Clien
           placeholder="e.g. Acme Corp"
           onClose={() => setSaveOpen(false)}
           onSubmit={async (name) => {
-            const res = (await window.api.clientTemplates.save(name, {
+            const res = (await apiClient.clientTemplates.save(name, {
               client:             proposal.client,
               contact:            proposal.contact,
               clientAddress:      proposal.clientAddress,
@@ -209,7 +210,7 @@ function ClientTemplateBar({ proposal, dispatch, templates, onAfterLoad }: Clien
         <DeleteTemplateModal kind="Client" name={picked}
           onClose={() => setDeleteOpen(false)}
           onSubmit={async () => {
-            await window.api.clientTemplates.remove(picked);
+            await apiClient.clientTemplates.remove(picked);
             setDeleteOpen(false);
             await refreshList();
             setPicked('');

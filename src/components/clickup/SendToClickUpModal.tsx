@@ -1,3 +1,4 @@
+import { apiClient } from '../../api/client';
 // Two-phase send-to-ClickUp UI. preflight() returns a plan describing what
 // will happen — workspace / space / folder / list resolution + per-phase
 // create / update / skip decisions with smart defaults derived from a payload
@@ -34,7 +35,7 @@ export default function SendToClickUpModal({ project, onClose, onSent }: SendToC
     let cancelled = false;
     void (async () => {
       try {
-        const result = await window.api.clickup.preflight(project.id);
+        const result = await apiClient.clickup.preflight(project.id);
         if (cancelled) return;
         setPlan(result);
         if (result.ok) {
@@ -68,7 +69,7 @@ export default function SendToClickUpModal({ project, onClose, onSent }: SendToC
           action: decisions.get(p.phase_index) ?? p.default_action,
         })),
       };
-      const result = await window.api.clickup.send(project.id, decisionsPayload);
+      const result = await apiClient.clickup.send(project.id, decisionsPayload);
       onSent(result);
     } catch (e: any) {
       setErr(e?.message || String(e));

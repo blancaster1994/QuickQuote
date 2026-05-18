@@ -12,6 +12,7 @@
 // actually creates the project upstream.
 
 import { useEffect, useState } from 'react';
+import { apiClient } from '../../api/client';
 
 interface ICoreBadgeProps {
   id: string | null | undefined;
@@ -30,7 +31,7 @@ export default function ICoreBadge({ id, dataAreaId, locked }: ICoreBadgeProps) 
 
   useEffect(() => {
     let cancelled = false;
-    void window.api.icore.getConfig()
+    void apiClient.icore.getConfig()
       .then(cfg => { if (!cancelled) setDeeplinkPattern(cfg.deeplink_url_pattern ?? null); })
       .catch(() => { /* config not reachable — leave Open button disabled */ });
     return () => { cancelled = true; };
@@ -68,7 +69,7 @@ export default function ICoreBadge({ id, dataAreaId, locked }: ICoreBadgeProps) 
   async function openInICore() {
     const url = deeplinkUrl();
     if (!url) return;
-    try { await window.api.os.openFile(url); }
+    try { await apiClient.os.openFile(url); }
     catch (e) { console.warn('open icore failed', e); }
   }
 

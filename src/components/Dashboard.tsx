@@ -1,5 +1,6 @@
+import { apiClient } from '../api/client';
 // Dashboard view — pipeline stats strip, status kanban, filterable list.
-// Direct port of QuickProp's Dashboard.jsx. Reads from window.api.dashboard.get();
+// Direct port of QuickProp's Dashboard.jsx. Reads from apiClient.dashboard.get();
 // clicking any proposal opens it in the editor.
 
 import { useCallback, useEffect, useState, type Dispatch } from 'react';
@@ -70,7 +71,7 @@ export default function Dashboard({ state, onOpenProposal, refreshKey }: Dashboa
   const reload = useCallback(async () => {
     setLoading(true); setErr(null);
     try {
-      const d = (await window.api.dashboard.get({
+      const d = (await apiClient.dashboard.get({
         stale_days: state.staleDays,
         win_rate_window_days: state.winRateWindowDays,
         owner_email: ownerFilter,
@@ -487,7 +488,7 @@ function ProposalList({ rows, onOpen, onDeleted }: ProposalListProps) {
               const name = confirming.name;
               setConfirming(null);
               try {
-                await window.api.proposals.remove(name);
+                await apiClient.proposals.remove(name);
                 onDeleted(name);
               } catch (e: any) {
                 alert(`Delete failed: ${e?.message || String(e)}`);

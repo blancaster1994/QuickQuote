@@ -1,3 +1,4 @@
+import { apiClient } from '../../api/client';
 // Markup percentages editor. Direct port of PM Quoting App's MarkupEditor.
 // `formatPct` is inlined here because QuickQuote's lib/calc.ts doesn't
 // export it (PM had it; QQ proposals format inline elsewhere).
@@ -15,14 +16,14 @@ export default function MarkupEditor({ disabled }: MarkupEditorProps = {}) {
   const [newValue, setNewValue] = useState('');
   const [pendingDelete, setPendingDelete] = useState<MarkupPct | null>(null);
 
-  async function refresh() { setItems(await window.api.markup.list()); }
+  async function refresh() { setItems(await apiClient.markup.list()); }
   useEffect(() => { void refresh(); }, []);
 
   async function add() {
     const v = parseFloat(newValue);
     if (isNaN(v)) return;
     // Accept "15" (treated as 15%) or "0.15".
-    await window.api.markup.add(v > 1 ? v / 100 : v);
+    await apiClient.markup.add(v > 1 ? v / 100 : v);
     setNewValue('');
     void refresh();
   }
@@ -31,7 +32,7 @@ export default function MarkupEditor({ disabled }: MarkupEditorProps = {}) {
     if (!pendingDelete) return;
     const id = pendingDelete.id;
     setPendingDelete(null);
-    await window.api.markup.remove(id);
+    await apiClient.markup.remove(id);
     void refresh();
   }
 
