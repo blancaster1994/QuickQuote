@@ -1,3 +1,4 @@
+import { apiClient } from '../../api/client';
 // Employees editor. Direct port of PM Quoting App's EmployeeEditor — XLSX
 // import + per-row inline editing + role dropdown.
 
@@ -30,23 +31,23 @@ export default function EmployeeEditor({ disabled }: EmployeeEditorProps = {}) {
   const [pendingImport, setPendingImport] = useState<PendingImport | null>(null);
 
   async function refresh() {
-    setRows(await window.api.employees.list(false));
+    setRows(await apiClient.employees.list(false));
   }
   useEffect(() => { void refresh(); }, []);
 
   async function save(r: EmployeeRow, patch: Partial<EmployeeRow>) {
-    await window.api.employees.save({ ...r, ...patch });
+    await apiClient.employees.save({ ...r, ...patch });
     void refresh();
   }
   async function performDelete() {
     if (!pendingDelete) return;
     const id = pendingDelete.id;
     setPendingDelete(null);
-    await window.api.employees.remove(id);
+    await apiClient.employees.remove(id);
     void refresh();
   }
   async function addBlank() {
-    await window.api.employees.save({
+    await apiClient.employees.save({
       resource_id: null, name: 'New Employee', category: null,
       legal_entity: null, email: null, home_department: null,
       title: null, credentials: null, role: 'pm', active: 1,
@@ -55,7 +56,7 @@ export default function EmployeeEditor({ disabled }: EmployeeEditorProps = {}) {
   }
 
   async function importFile() {
-    const res = await window.api.dialog.openFile([
+    const res = await apiClient.dialog.openFile([
       { name: 'Spreadsheet/CSV', extensions: ['xlsx', 'xls', 'xlsm', 'csv'] },
     ]);
     if (!res) return;
@@ -92,7 +93,7 @@ export default function EmployeeEditor({ disabled }: EmployeeEditorProps = {}) {
     if (!pendingImport) return;
     const { rows: mapped, filePath } = pendingImport;
     setPendingImport(null);
-    await window.api.employees.importBulk(mapped);
+    await apiClient.employees.importBulk(mapped);
     setImportMsg(`Imported ${mapped.length} employees from ${filePath}`);
     void refresh();
   }

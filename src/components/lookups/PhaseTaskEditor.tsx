@@ -1,3 +1,4 @@
+import { apiClient } from '../../api/client';
 // Phase + task taxonomy editor. Direct port of PM Quoting App's
 // PhaseTaskEditor. Phases and tasks are scoped to a chosen department.
 //
@@ -26,7 +27,7 @@ export default function PhaseTaskEditor({ disabled }: PhaseTaskEditorProps = {})
   const [pendingTaskDelete, setPendingTaskDelete] = useState<TaskDef | null>(null);
 
   useEffect(() => {
-    void window.api.lookups.list('department').then(rows => {
+    void apiClient.lookups.list('department').then(rows => {
       const names = rows.map(r => r.name);
       setDepartments(names);
       if (names.length && !dept) setDept(names[0]);
@@ -36,14 +37,14 @@ export default function PhaseTaskEditor({ disabled }: PhaseTaskEditorProps = {})
 
   async function refresh() {
     if (!dept) return;
-    setPhases(await window.api.phases.list(dept));
-    setTasks(await window.api.tasks.list(dept));
+    setPhases(await apiClient.phases.list(dept));
+    setTasks(await apiClient.tasks.list(dept));
   }
   useEffect(() => { void refresh(); /* eslint-disable-line react-hooks/exhaustive-deps */ }, [dept]);
 
   async function addPhase() {
     if (!newPhase.trim() || !dept) return;
-    await window.api.phases.save({ department: dept, name: newPhase.trim(), sort_order: phases.length });
+    await apiClient.phases.save({ department: dept, name: newPhase.trim(), sort_order: phases.length });
     setNewPhase('');
     void refresh();
   }
@@ -52,7 +53,7 @@ export default function PhaseTaskEditor({ disabled }: PhaseTaskEditorProps = {})
     if (!pendingPhaseDelete) return;
     const id = pendingPhaseDelete.id;
     setPendingPhaseDelete(null);
-    await window.api.phases.remove(id);
+    await apiClient.phases.remove(id);
     void refresh();
   }
 
@@ -60,14 +61,14 @@ export default function PhaseTaskEditor({ disabled }: PhaseTaskEditorProps = {})
     if (!newName.trim() || newName === oldName) return;
     const p = phases.find(x => x.id === id);
     if (!p) return;
-    await window.api.phases.save({ id, department: p.department, name: newName.trim(), sort_order: p.sort_order });
+    await apiClient.phases.save({ id, department: p.department, name: newName.trim(), sort_order: p.sort_order });
     void refresh();
   }
 
   async function addTask() {
     if (!newTaskPhase || !newTaskName.trim() || !dept) return;
     const siblings = tasks.filter(t => t.phase === newTaskPhase);
-    await window.api.tasks.save({ department: dept, phase: newTaskPhase, name: newTaskName.trim(), sort_order: siblings.length });
+    await apiClient.tasks.save({ department: dept, phase: newTaskPhase, name: newTaskName.trim(), sort_order: siblings.length });
     setNewTaskName('');
     void refresh();
   }
@@ -75,7 +76,7 @@ export default function PhaseTaskEditor({ disabled }: PhaseTaskEditorProps = {})
   async function renameTask(id: number, newName: string) {
     const t = tasks.find(x => x.id === id);
     if (!t || newName.trim() === t.name) return;
-    await window.api.tasks.save({ id, department: t.department, phase: t.phase, name: newName.trim(), sort_order: t.sort_order });
+    await apiClient.tasks.save({ id, department: t.department, phase: t.phase, name: newName.trim(), sort_order: t.sort_order });
     void refresh();
   }
 
@@ -83,7 +84,7 @@ export default function PhaseTaskEditor({ disabled }: PhaseTaskEditorProps = {})
     if (!pendingTaskDelete) return;
     const id = pendingTaskDelete.id;
     setPendingTaskDelete(null);
-    await window.api.tasks.remove(id);
+    await apiClient.tasks.remove(id);
     void refresh();
   }
 

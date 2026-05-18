@@ -1,3 +1,4 @@
+import { apiClient } from '../../api/client';
 // Bid Item Template admin editor.
 //
 // Scoped per (legal_entity, department). Each template holds an ordered list
@@ -26,12 +27,12 @@ export default function BidItemTemplateEditor({ disabled }: BidItemTemplateEdito
 
   // Bootstrap legal entity + department options once.
   useEffect(() => {
-    void window.api.lookups.list('legal_entity').then(rs => {
+    void apiClient.lookups.list('legal_entity').then(rs => {
       const names = rs.map(r => r.name);
       setLegalEntities(names);
       setLegalEntity((prev) => prev || names[0] || '');
     });
-    void window.api.lookups.list('department').then(rs => {
+    void apiClient.lookups.list('department').then(rs => {
       const names = rs.map(r => r.name);
       setDepartments(names);
       setDepartment((prev) => prev || names[0] || '');
@@ -46,7 +47,7 @@ export default function BidItemTemplateEditor({ disabled }: BidItemTemplateEdito
       setWorking(null);
       return;
     }
-    const names = await window.api.bidItemTemplates.list(legalEntity, department);
+    const names = await apiClient.bidItemTemplates.list(legalEntity, department);
     setTemplateNames(names);
     setActiveName((prev) => names.includes(prev) ? prev : names[0] || '');
   }
@@ -60,7 +61,7 @@ export default function BidItemTemplateEditor({ disabled }: BidItemTemplateEdito
       setDirty(false);
       return;
     }
-    void window.api.bidItemTemplates.get(legalEntity, department, activeName).then((t) => {
+    void apiClient.bidItemTemplates.get(legalEntity, department, activeName).then((t) => {
       setWorking(t || { legal_entity: legalEntity, department, name: activeName, phases: [] });
       setActivePhaseIdx(0);
       setDirty(false);
@@ -89,7 +90,7 @@ export default function BidItemTemplateEditor({ disabled }: BidItemTemplateEdito
       name,
       phases: [],
     };
-    await window.api.bidItemTemplates.save(fresh);
+    await apiClient.bidItemTemplates.save(fresh);
     await refreshNames();
     setActiveName(name);
   }
@@ -105,7 +106,7 @@ export default function BidItemTemplateEditor({ disabled }: BidItemTemplateEdito
         tasks: p.tasks.map((t, ti) => ({ ...t, sort_order: ti })),
       })),
     };
-    await window.api.bidItemTemplates.save(normalized);
+    await apiClient.bidItemTemplates.save(normalized);
     setDirty(false);
     await refreshNames();
   }
@@ -114,7 +115,7 @@ export default function BidItemTemplateEditor({ disabled }: BidItemTemplateEdito
     if (!pendingDelete || !legalEntity || !department) return;
     const name = pendingDelete;
     setPendingDelete(null);
-    await window.api.bidItemTemplates.remove(legalEntity, department, name);
+    await apiClient.bidItemTemplates.remove(legalEntity, department, name);
     setActiveName('');
     setWorking(null);
     await refreshNames();

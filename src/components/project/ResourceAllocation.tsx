@@ -1,3 +1,4 @@
+import { apiClient } from '../../api/client';
 // Resource allocation table for a single phase. Shows assigned employees,
 // their hours, bill_rate (with override audit), scheduled start, status,
 // notes. "+ Assign" picks an employee from the canonical list and seeds the
@@ -39,7 +40,7 @@ export default function ResourceAllocation({
   const [rateMap, setRateMap] = useState<Map<string, number>>(new Map());
 
   useEffect(() => {
-    void window.api.employees.list(true).then(setEmployees).catch(() => setEmployees([]));
+    void apiClient.employees.list(true).then(setEmployees).catch(() => setEmployees([]));
   }, []);
 
   // Filter to assignments belonging to THIS phase. The reducer state holds a
@@ -62,7 +63,7 @@ export default function ResourceAllocation({
     const cached = rateMap.get(key);
     if (cached != null) return cached;
     try {
-      const v = await window.api.rates.lookup(project.legal_entity, effectiveRateTable, category, resourceId);
+      const v = await apiClient.rates.lookup(project.legal_entity, effectiveRateTable, category, resourceId);
       const num = Number(v) || 0;
       if (!num) {
         console.warn('[Assign] rates.lookup returned no match', {

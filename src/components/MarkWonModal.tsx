@@ -1,3 +1,4 @@
+import { apiClient } from '../api/client';
 // MarkWonModal — opens when the user clicks Mark Won on a Sent proposal.
 //
 // Always sends the project to iCore. If iCore was already pushed at Send
@@ -48,7 +49,7 @@ export default function MarkWonModal({
     setErr(null);
     try {
       const idToSync = alreadyLinked ? existingIcoreId : trimmed;
-      const result = await window.api.lifecycle.markWonAndSync({
+      const result = await apiClient.lifecycle.markWonAndSync({
         proposalName: proposal.name,
         icoreProjectId: idToSync,
       });

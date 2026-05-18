@@ -1,3 +1,4 @@
+import { apiClient } from './api/client';
 // QuickQuote root component. Direct port of QuickProp/ui/app.jsx.
 // Owns EditorState via the reducer and handles:
 //   · bootstrap on mount
@@ -61,7 +62,7 @@ export default function App() {
   useEffect(() => {
     void (async () => {
       try {
-        const boot = (await window.api.app.bootstrap()) as Bootstrap;
+        const boot = (await apiClient.app.bootstrap()) as Bootstrap;
         dispatch({ type: 'SET_BOOTSTRAP', payload: boot });
         if (boot.identity) dispatch({ type: 'SET_IDENTITY', identity: boot.identity });
       } catch (e: any) {
@@ -83,7 +84,7 @@ export default function App() {
   // Reload the project list (keeps the dashboard / sidebar in sync).
   const reloadProjects = useCallback(async () => {
     try {
-      const names = (await window.api.proposals.list()) as string[];
+      const names = (await apiClient.proposals.list()) as string[];
       const current = state.bootstrap;
       if (current) {
         dispatch({
@@ -120,7 +121,7 @@ export default function App() {
         const priorName = state.projectName;
         const currentName = (proposalRef.current.name || '').trim();
         const renameFrom = priorName && priorName !== currentName ? priorName : null;
-        const res = (await window.api.proposals.save(proposalRef.current, renameFrom)) as {
+        const res = (await apiClient.proposals.save(proposalRef.current, renameFrom)) as {
           ok: boolean; name: string; proposal: { lifecycle?: any };
         };
         dispatch({ type: 'AUTOSAVE_OK', name: res.name });
@@ -140,14 +141,14 @@ export default function App() {
 
   const handleSelectProject = useCallback(async (name: string) => {
     try {
-      const p = (await window.api.proposals.load(name)) as Proposal;
+      const p = (await apiClient.proposals.load(name)) as Proposal;
       dispatch({ type: 'LOAD_PROPOSAL', payload: p });
       dispatch({ type: 'SET_VIEW', view: 'editor' });
       // If this proposal has been initialized as a Project (post-Won),
       // load that record too so editorMode flips and the project view
       // is available. Stage 5 renders the project body.
       try {
-        const proj = (await window.api.project.getByProposalName(name)) as Project | null;
+        const proj = (await apiClient.project.getByProposalName(name)) as Project | null;
         if (proj) dispatch({ type: 'LOAD_PROJECT', project: proj });
       } catch (e) {
         console.warn('project.getByProposalName failed', e);
@@ -197,8 +198,8 @@ export default function App() {
     setGenerating(format);
     try {
       const result: any = format === 'pdf'
-        ? await window.api.generate.pdf(proposal, '')
-        : await window.api.generate.docx(proposal);
+        ? await apiClient.generate.pdf(proposal, '')
+        : await apiClient.generate.docx(proposal);
       if (!result?.ok) {
         throw new Error(result?.error || 'Generator returned no result');
       }
@@ -215,7 +216,7 @@ export default function App() {
         let copied = false;
         if (format === 'pdf') {
           try {
-            await window.api.os.copyFileToClipboard(result.path);
+            await apiClient.os.copyFileToClipboard(result.path);
             copied = true;
           } catch (e) {
             console.warn('copyFileToClipboard failed', e);
@@ -342,7 +343,7 @@ export default function App() {
           proposal={state.proposal}
           onSnapshot={async () => {
             try {
-              const res = (await window.api.versions.create(
+              const res = (await apiClient.versions.create(
                 state.projectName!,
                 'Snapshot created because the proposal was edited after sending.',
               )) as { proposal: { lifecycle: any } };
@@ -664,7 +665,7 @@ function ImportBanner({ state, onAfterImport }: ImportBannerProps) {
   async function runImport() {
     setBusy(true);
     try {
-      const r: any = await window.api.app.importFromQuickProp();
+      const r: any = await apiClient.app.importFromQuickProp();
       if (!r.ok) {
         alert(`Import did not complete:\n\n${r.skipped.join('\n')}`);
         return;
@@ -796,16 +797,16 @@ function PostGenerateDialog({ prompt, onClose, onMarkCopied }: PostGenerateDialo
 
   async function open() {
     onClose();
-    try { await window.api.os.openFile(prompt.path); }
+    try { await apiClient.os.openFile(prompt.path); }
     catch (e: any) { alert(`Couldn't open file: ${e?.message || String(e)}`); }
   }
   async function reveal() {
-    try { await window.api.os.revealInExplorer(prompt.path); }
+    try { await apiClient.os.revealInExplorer(prompt.path); }
     catch (e: any) { alert(`Couldn't open folder: ${e?.message || String(e)}`); }
   }
   async function copyFile() {
     try {
-      await window.api.os.copyFileToClipboard(prompt.path);
+      await apiClient.os.copyFileToClipboard(prompt.path);
       onMarkCopied();
     } catch (e: any) {
       alert(`Couldn't copy to clipboard: ${e?.message || String(e)}`);
