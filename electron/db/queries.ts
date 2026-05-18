@@ -233,7 +233,7 @@ export function saveProposal(
 
   const tx = db.transaction(() => {
     // Resolve the row we're saving onto: prefer renameFrom if provided.
-    let row = renameFrom ? findByName(db, renameFrom) : findByName(db, name);
+    const row = renameFrom ? findByName(db, renameFrom) : findByName(db, name);
     if (!row) {
       // First save — INSERT proposal + version.
       const insP = db.prepare(`

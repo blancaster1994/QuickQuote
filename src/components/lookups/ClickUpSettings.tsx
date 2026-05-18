@@ -1,3 +1,4 @@
+import { apiClient } from '../../api/client';
 // ClickUp settings — port of PM Quoting App's ClickUpSettings.
 //
 // Two adjustments from the source:
@@ -29,7 +30,7 @@ export default function ClickUpSettings({ identity, disabled }: ClickUpSettingsP
   const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null);
 
   async function refresh() {
-    try { setStatus(await window.api.clickup.getConfig()); }
+    try { setStatus(await apiClient.clickup.getConfig()); }
     catch (e: any) { console.warn('config load failed', e); }
   }
   useEffect(() => { void refresh(); }, []);
@@ -38,7 +39,7 @@ export default function ClickUpSettings({ identity, disabled }: ClickUpSettingsP
     if (!tokenInput.trim()) return;
     setBusy('rotate');
     try {
-      await window.api.clickup.setConfig({ api_token: tokenInput.trim(), enabled: true });
+      await apiClient.clickup.setConfig({ api_token: tokenInput.trim(), enabled: true });
       setTokenInput('');
       await refresh();
       alert('Token saved. Run "Test connection" to verify it works.');
@@ -53,7 +54,7 @@ export default function ClickUpSettings({ identity, disabled }: ClickUpSettingsP
     setBusy('test');
     setTestResult(null);
     try {
-      const res = await window.api.clickup.testConnection();
+      const res = await apiClient.clickup.testConnection();
       if (res.ok) {
         const userText = res.user ? ` as ${res.user.email} (id ${res.user.id})` : '';
         setTestResult({ ok: true, text: `Connected${userText}.` });
@@ -71,7 +72,7 @@ export default function ClickUpSettings({ identity, disabled }: ClickUpSettingsP
     if (!status) return;
     setBusy('toggle');
     try {
-      await window.api.clickup.setConfig({ enabled: !status.enabled });
+      await apiClient.clickup.setConfig({ enabled: !status.enabled });
       await refresh();
     } catch (e: any) {
       alert('Toggle failed: ' + (e?.message ?? String(e)));

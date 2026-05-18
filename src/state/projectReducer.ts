@@ -2,7 +2,7 @@
 //
 // Mirrors the pattern in PM Quoting App's QuoteEditor — local state lives in
 // a useReducer scoped to the editor component, autosaves via debounce to
-// `window.api.project.savePayload`. On save success we sync the outer
+// `apiClient.project.savePayload`. On save success we sync the outer
 // EditorState with `dispatch({ type: 'LOAD_PROJECT', project })` so anything
 // reading state.project (e.g. the dashboard refresh, ClickUp send button)
 // sees the fresh row.

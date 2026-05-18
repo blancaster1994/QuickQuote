@@ -1,3 +1,4 @@
+import { apiClient } from '../../api/client';
 // Generic editor for any of the simple name-list lookup tables.
 // Direct port from PM Quoting App's NameListEditor — no logic changes.
 
@@ -21,14 +22,14 @@ export default function NameListEditor({ table, label, disabled }: NameListEdito
   const [pendingDelete, setPendingDelete] = useState<NameRow | null>(null);
 
   async function refresh() {
-    setItems(await window.api.lookups.list(table) as NameRow[]);
+    setItems(await apiClient.lookups.list(table) as NameRow[]);
   }
   useEffect(() => { void refresh(); /* eslint-disable-line react-hooks/exhaustive-deps */ }, [table]);
 
   async function add() {
     if (!newName.trim()) return;
     try {
-      await window.api.lookups.add(table, newName.trim());
+      await apiClient.lookups.add(table, newName.trim());
       setNewName('');
       setError(null);
       void refresh();
@@ -39,7 +40,7 @@ export default function NameListEditor({ table, label, disabled }: NameListEdito
 
   async function update(id: number, name: string) {
     if (!name.trim()) return;
-    await window.api.lookups.update(table, id, name.trim());
+    await apiClient.lookups.update(table, id, name.trim());
     void refresh();
   }
 
@@ -47,7 +48,7 @@ export default function NameListEditor({ table, label, disabled }: NameListEdito
     if (!pendingDelete) return;
     const id = pendingDelete.id;
     setPendingDelete(null);
-    await window.api.lookups.remove(table, id);
+    await apiClient.lookups.remove(table, id);
     void refresh();
   }
 

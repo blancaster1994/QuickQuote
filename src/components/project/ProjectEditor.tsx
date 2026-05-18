@@ -1,3 +1,4 @@
+import { apiClient } from '../../api/client';
 // Top-level shell for the project editor. Owns the local projectReducer +
 // 800ms autosave; renders header card, mode toggle, phase tabs, and the
 // active phase's body (PhaseEditor + ResourceAllocation).
@@ -57,7 +58,7 @@ export default function ProjectEditor({ project, proposal, identity, outerDispat
     const handle = window.setTimeout(async () => {
       dispatch({ type: 'AUTOSAVE_START' });
       try {
-        const fresh = await window.api.project.savePayload(id, state.project.payload);
+        const fresh = await apiClient.project.savePayload(id, state.project.payload);
         if (fresh) {
           dispatch({ type: 'AUTOSAVE_OK', project: fresh });
           outerDispatch({ type: 'LOAD_PROJECT', project: fresh });
@@ -74,7 +75,7 @@ export default function ProjectEditor({ project, proposal, identity, outerDispat
   // and pass through; PhaseEditor doesn't need to know about the IPC.
   const [rateTables, setRateTables] = useState<string[]>([]);
   useEffect(() => {
-    void window.api.lookups.list('rate_table')
+    void apiClient.lookups.list('rate_table')
       .then(rs => setRateTables(rs.map(r => r.name)))
       .catch(() => setRateTables([]));
   }, []);

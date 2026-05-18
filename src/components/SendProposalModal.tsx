@@ -1,3 +1,4 @@
+import { apiClient } from '../api/client';
 // SendProposalModal — opens when the user clicks Mark Sent.
 //
 // Confirms the Send action, asks whether to push the project to iCore now,
@@ -49,7 +50,7 @@ export default function SendProposalModal({
   const missingScope = !legalEntity || !department;
 
   useEffect(() => {
-    void window.api.lookups.list('rate_table').then(rs => setRateTables(rs.map(r => r.name)));
+    void apiClient.lookups.list('rate_table').then(rs => setRateTables(rs.map(r => r.name)));
   }, []);
 
   const trimmedIcore = icoreId.trim();
@@ -65,7 +66,7 @@ export default function SendProposalModal({
     setBusy(true);
     setErr(null);
     try {
-      const result = await window.api.lifecycle.sendAndInitialize({
+      const result = await apiClient.lifecycle.sendAndInitialize({
         proposalName: proposal.name,
         rateTableOverride: rateTable || null,
         icoreProjectId: sendToICore ? trimmedIcore : null,

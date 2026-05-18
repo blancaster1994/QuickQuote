@@ -1,0 +1,121 @@
+# Azure DevOps pipeline for QuickQuote web port.
+#
+# Status: STUB. Wire in the next session once Azure resources are provisioned
+# (see docs/AZURE_SETUP.md). Service connection names and resource names
+# below are placeholders — replace before enabling.
+#
+# Stages:
+#   1. Validate — install, lint, typecheck, test (no deploy)
+#   2. BuildSPA — build the Vite SPA in HTTP mode (VITE_API_BASE_URL set)
+#   3. BuildAPI — build the Fastify server (server/)
+#   4. DeploySPA — push to Azure Static Web Apps
+#   5. DeployAPI — push to Azure App Service
+
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    exclude:
+      - docs/**
+      - '**/*.md'
+
+pool:
+  vmImage: 'ubuntu-22.04'
+
+variables:
+  NODE_VERSION: '20.x'
+  QQ_SKIP_ELECTRON_REBUILD: 'true'  # Skip electron-rebuild on Linux build agents
+  # Set these in the pipeline's Variables UI (do NOT commit):
+  #   AZURE_STATIC_WEB_APP_TOKEN
+  #   AZURE_SUBSCRIPTION       (name of the ARM service connection)
+  #   APP_SERVICE_NAME         (e.g. quickquote-api-prod)
+  #   STATIC_WEB_APP_NAME      (e.g. quickquote-prod)
+  #   VITE_API_BASE_URL_PROD   (e.g. https://quickquote-api-prod.azurewebsites.net/api)
+  #   VITE_AZURE_CLIENT_ID
+  #   VITE_AZURE_TENANT_ID
+  #   VITE_AZURE_SCOPES
+
+stages:
+  - stage: Validate
+    jobs:
+      - job: ValidateRoot
+        displayName: 'Lint, typecheck, test (renderer)'
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: $(NODE_VERSION)
+          - script: npm ci
+            displayName: 'npm ci'
+          - script: npm run typecheck
+            displayName: 'typecheck'
+          - script: npm run lint
+            displayName: 'lint'
+          - script: npm test
+            displayName: 'test'
+
+      - job: ValidateServer
+        displayName: 'Build + typecheck (server)'
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: $(NODE_VERSION)
+          - script: cd server && npm ci && npm run typecheck && npm run build
+            displayName: 'server: install, typecheck, build'
+
+  - stage: BuildAndDeploy
+    dependsOn: Validate
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - job: BuildSPA
+        displayName: 'Build SPA (Vite)'
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: $(NODE_VERSION)
+          - script: npm ci
+            displayName: 'npm ci'
+          - script: npm run build:renderer
+            displayName: 'vite build'
+            env:
+              VITE_API_BASE_URL: $(VITE_API_BASE_URL_PROD)
+              VITE_AZURE_CLIENT_ID: $(VITE_AZURE_CLIENT_ID)
+              VITE_AZURE_TENANT_ID: $(VITE_AZURE_TENANT_ID)
+              VITE_AZURE_SCOPES: $(VITE_AZURE_SCOPES)
+          - publish: dist
+            artifact: spa-dist
+
+      - job: DeploySPA
+        displayName: 'Deploy SPA → Static Web Apps'
+        dependsOn: BuildSPA
+        steps:
+          - download: current
+            artifact: spa-dist
+          - task: AzureStaticWebApp@0
+            inputs:
+              app_location: '$(Pipeline.Workspace)/spa-dist'
+              skip_app_build: true
+              azure_static_web_apps_api_token: $(AZURE_STATIC_WEB_APP_TOKEN)
+
+      - job: BuildAndDeployAPI
+        displayName: 'Build + deploy API → App Service'
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: $(NODE_VERSION)
+          - script: cd server && npm ci && npm run build
+            displayName: 'server: install + build'
+          - script: |
+              cd server
+              cp package.json package-lock.json dist/
+              cd dist
+              npm ci --omit=dev
+            displayName: 'server: bundle deps for deploy'
+          - task: AzureWebApp@1
+            inputs:
+              azureSubscription: $(AZURE_SUBSCRIPTION)
+              appType: webAppLinux
+              appName: $(APP_SERVICE_NAME)
+              package: 'server/dist'
+              runtimeStack: 'NODE|20-lts'
+              startUpCommand: 'node index.js'

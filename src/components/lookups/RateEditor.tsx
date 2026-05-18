@@ -1,3 +1,4 @@
+import { apiClient } from '../../api/client';
 // Rate table editor. Direct port of PM Quoting App's RateEditor with two
 // adjustments:
 //   1. The two `invalidateRateMap()` call sites are dropped — QuickQuote
@@ -32,28 +33,28 @@ export default function RateEditor({ disabled }: RateEditorProps = {}) {
     const filters: any = {};
     if (selectedLE) filters.legal_entity = selectedLE;
     if (selectedRT) filters.rate_table   = selectedRT;
-    setRows(await window.api.rates.list(filters));
+    setRows(await apiClient.rates.list(filters));
     // TODO(stage5): invalidate rateMap once the project editor's cache lands.
   }
   useEffect(() => {
-    void window.api.lookups.list('rate_table').then(rs => setRateTables(rs.map(r => r.name)));
-    void window.api.lookups.list('legal_entity').then(rs => setLegalEntities(rs.map(r => r.name)));
+    void apiClient.lookups.list('rate_table').then(rs => setRateTables(rs.map(r => r.name)));
+    void apiClient.lookups.list('legal_entity').then(rs => setLegalEntities(rs.map(r => r.name)));
   }, []);
   useEffect(() => { void refresh(); /* eslint-disable-line react-hooks/exhaustive-deps */ }, [selectedLE, selectedRT]);
 
   async function save(r: RateEntry, patch: Partial<RateEntry>) {
-    await window.api.rates.save({ ...r, ...patch });
+    await apiClient.rates.save({ ...r, ...patch });
     void refresh();
   }
   async function performDelete() {
     if (!pendingDelete) return;
     const id = pendingDelete.id;
     setPendingDelete(null);
-    await window.api.rates.remove(id);
+    await apiClient.rates.remove(id);
     void refresh();
   }
   async function addBlank() {
-    await window.api.rates.save({
+    await apiClient.rates.save({
       legal_entity:   selectedLE || legalEntities[0] || 'CES',
       rate_table:     selectedRT || rateTables[0]    || 'Standard',
       category:       'New Category',
@@ -66,7 +67,7 @@ export default function RateEditor({ disabled }: RateEditorProps = {}) {
   }
 
   async function importFile() {
-    const res = await window.api.dialog.openFile([
+    const res = await apiClient.dialog.openFile([
       { name: 'Spreadsheet/CSV', extensions: ['xlsx', 'xls', 'xlsm', 'csv'] },
     ]);
     if (!res) return;
@@ -98,7 +99,7 @@ export default function RateEditor({ disabled }: RateEditorProps = {}) {
     if (!pendingImport) return;
     const { rows: mapped, filePath } = pendingImport;
     setPendingImport(null);
-    await window.api.rates.importBulk(mapped);
+    await apiClient.rates.importBulk(mapped);
     setImportMsg(`Imported ${mapped.length} rates from ${filePath}`);
     // TODO(stage5): invalidate rateMap once the project editor's cache lands.
     void refresh();

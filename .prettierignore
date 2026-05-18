@@ -1,0 +1,9 @@
+dist/
+dist-electron/
+release/
+node_modules/
+seed/
+Templates/
+quickquote_cli/
+package-lock.json
+**/*.md

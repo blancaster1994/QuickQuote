@@ -1,3 +1,4 @@
+import { apiClient } from '../api/client';
 // Persistent left navigation rail. 200px wide.
 //
 // Top: a "Jump to…" button with a ⌘K hint that opens the global command
@@ -212,7 +213,7 @@ function UserMenu({ state }: { state: EditorState }) {
               </div>
             )}
             <button onClick={async () => {
-              await window.api.identity.clear();
+              await apiClient.identity.clear();
               window.location.reload();
             }}
               style={{

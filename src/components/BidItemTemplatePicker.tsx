@@ -1,3 +1,4 @@
+import { apiClient } from '../api/client';
 // Modal that lists bid item templates for the current
 // (legal_entity, department) scope and applies the chosen one to the
 // proposal's sections. Append or Replace mode mirrors the previous
@@ -30,7 +31,7 @@ export default function BidItemTemplatePicker({ proposal, dispatch, onClose }: B
 
   useEffect(() => {
     if (missingScope) return;
-    void window.api.bidItemTemplates.list(legalEntity, department).then((rs) => {
+    void apiClient.bidItemTemplates.list(legalEntity, department).then((rs) => {
       setNames(rs);
       setPicked((prev) => prev || rs[0] || '');
     });
@@ -41,7 +42,7 @@ export default function BidItemTemplatePicker({ proposal, dispatch, onClose }: B
     setBusy(true);
     setErr(null);
     try {
-      const template = await window.api.bidItemTemplates.get(legalEntity, department, picked) as BidItemTemplate | null;
+      const template = await apiClient.bidItemTemplates.get(legalEntity, department, picked) as BidItemTemplate | null;
       if (!template) throw new Error('Template not found.');
       dispatch({ type: 'APPLY_BID_ITEM_TEMPLATE', template, mode });
       onClose();
