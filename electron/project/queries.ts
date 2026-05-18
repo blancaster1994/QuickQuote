@@ -103,6 +103,8 @@ export interface ProjectHeader {
   project_type: string | null;
   phase_template: string | null;
   icore_project_id: string | null;
+  icore_client_id: string | null;
+  icore_data_area_id: string | null;
   current_pm_email: string | null;
   current_pm_name: string | null;
   created_by_email: string | null;
@@ -147,6 +149,8 @@ interface ProjectRow {
   project_type: string | null;
   phase_template: string | null;
   icore_project_id: string | null;
+  icore_client_id: string | null;
+  icore_data_area_id: string | null;
   current_pm_email: string | null;
   current_pm_name: string | null;
   created_by_email: string | null;
@@ -196,6 +200,10 @@ export interface InitializeHeaderInput {
   phase_template?: string | null;
   /** Optional iCore project ID (alphanumeric). */
   icore_project_id?: string | null;
+  /** F&O CustomerAccount of the linked iCore customer, if any. */
+  icore_client_id?: string | null;
+  /** F&O dataAreaId (company) the customer account belongs to. */
+  icore_data_area_id?: string | null;
   /** PM contact at initialization time. Defaults to the actor. */
   current_pm_email?: string | null;
   current_pm_name?: string | null;
@@ -229,7 +237,8 @@ export function initializeProject(
   // project header later without touching the proposal.
   const proposalRow = db.prepare(`
     SELECT name, client_name, client_contact, client_address, client_city_state_zip,
-           project_address, project_city_state_zip, rate_table
+           project_address, project_city_state_zip, rate_table,
+           icore_client_id, icore_data_area_id
     FROM proposal WHERE id = ?
   `).get(proposalId) as {
     name: string;
@@ -240,6 +249,8 @@ export function initializeProject(
     project_address: string | null;
     project_city_state_zip: string | null;
     rate_table: string | null;
+    icore_client_id: string | null;
+    icore_data_area_id: string | null;
   };
 
   const pmEmail = header.current_pm_email ?? actor.email;
@@ -251,12 +262,12 @@ export function initializeProject(
       client_name, client_contact, client_address, client_city_state_zip,
       project_address, project_city_state_zip,
       legal_entity, department, rate_table, project_type, phase_template,
-      icore_project_id,
+      icore_project_id, icore_client_id, icore_data_area_id,
       current_pm_email, current_pm_name,
       created_by_email, created_by_name,
       last_modified_by_email, last_modified_by_name, last_modified_at,
       status, payload_json
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), 'active', ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), 'active', ?)
   `).run(
     proposalId, proposalRow.name,
     proposalRow.client_name, proposalRow.client_contact,
@@ -268,6 +279,8 @@ export function initializeProject(
     header.project_type ?? null,
     header.phase_template ?? null,
     (header.icore_project_id ?? null) || null,
+    (header.icore_client_id ?? proposalRow.icore_client_id) || null,
+    (header.icore_data_area_id ?? proposalRow.icore_data_area_id) || null,
     pmEmail, pmName,
     actor.email, actor.name,
     actor.email, actor.name,
@@ -346,7 +359,8 @@ export function updateProjectHeader(
     'project_address', 'project_city_state_zip',
     'legal_entity', 'department', 'rate_table',
     'project_type', 'phase_template',
-    'icore_project_id', 'current_pm_email', 'current_pm_name',
+    'icore_project_id', 'icore_client_id', 'icore_data_area_id',
+    'current_pm_email', 'current_pm_name',
     'status',
   ];
   const sets: string[] = [];

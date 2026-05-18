@@ -18,6 +18,7 @@ import type { EditorState, EditorAction } from '../state/editorReducer';
 import SendProposalModal from './SendProposalModal';
 import MarkWonModal from './MarkWonModal';
 import SendToClickUpModal from './clickup/SendToClickUpModal';
+import SendToICoreModal from './icore/SendToICoreModal';
 
 // ── status badge ──────────────────────────────────────────────────────────
 
@@ -114,12 +115,17 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
   const [showSendProposal, setShowSendProposal] = useState(false);
   const [showMarkWon, setShowMarkWon] = useState(false);
   const [showSendClickUp, setShowSendClickUp] = useState(false);
+  const [showSendICore, setShowSendICore] = useState(false);
   const [nameWarn, setNameWarn] = useState<{ kind: 'generic' | 'dup'; dupName?: string } | null>(null);
   const [nameWarnAck, setNameWarnAck] = useState(false);
   // ClickUp link + config status. Refreshed when project changes.
   const [clickUpEnabled, setClickUpEnabled] = useState(false);
   const [clickUpLinkUrl, setClickUpLinkUrl] = useState<string | null>(null);
   const [clickUpLastSyncedAt, setClickUpLastSyncedAt] = useState<string | null>(null);
+  // iCore link + config status. Same pattern as ClickUp.
+  const [icoreEnabled, setIcoreEnabled] = useState(false);
+  const [icoreLinkId, setIcoreLinkId] = useState<string | null>(null);
+  const [icoreLastSyncedAt, setIcoreLastSyncedAt] = useState<string | null>(null);
   const currentPm = (proposal.lifecycle?.owner) || { email: '', name: '' };
   const followUpAt = proposal.lifecycle?.metadata?.follow_up_at || null;
   const followUpOverdue = isFollowUpOverdue(followUpAt, status);
@@ -133,6 +139,12 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
         if (!cancelled) setClickUpEnabled(!!cfg.configured && !!cfg.enabled);
       } catch { if (!cancelled) setClickUpEnabled(false); }
     })();
+    void (async () => {
+      try {
+        const cfg = await apiClient.icore.getConfig();
+        if (!cancelled) setIcoreEnabled(!!cfg.configured && !!cfg.enabled);
+      } catch { if (!cancelled) setIcoreEnabled(false); }
+    })();
     if (state.project) {
       void apiClient.clickup.getLink(state.project.id)
         .then(link => {
@@ -145,9 +157,22 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
           setClickUpLinkUrl(null);
           setClickUpLastSyncedAt(null);
         });
+      void apiClient.icore.getLink(state.project.id)
+        .then(link => {
+          if (cancelled) return;
+          setIcoreLinkId(link?.icore_project_id ?? null);
+          setIcoreLastSyncedAt(link?.last_synced_at ?? null);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setIcoreLinkId(null);
+          setIcoreLastSyncedAt(null);
+        });
     } else {
       setClickUpLinkUrl(null);
       setClickUpLastSyncedAt(null);
+      setIcoreLinkId(null);
+      setIcoreLastSyncedAt(null);
     }
     return () => { cancelled = true; };
   }, [state.project?.id, state.project]);
@@ -402,6 +427,55 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
                 ? (clickUpLinkUrl ? 'Re-send' : 'Send to ClickUp')
                 : 'Send to ClickUp'}
             </button>
+
+            {/* Send to iCore — same pattern. The badge variant lights up
+                once a project has been pushed and an ID is on file. */}
+            {icoreEnabled && icoreLinkId ? (
+              <span
+                title={icoreLastSyncedAt
+                  ? `iCore project ${icoreLinkId} — last synced ${formatRelative(icoreLastSyncedAt)}`
+                  : `iCore project ${icoreLinkId}`}
+                style={{
+                  height: 30, padding: '0 10px',
+                  background: 'transparent', color: '#0369a1',
+                  border: '1px solid #BAE6FD', borderRadius: 6,
+                  fontSize: 11.5, fontWeight: 600,
+                  fontFamily: 'var(--sans)',
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                }}>
+                <span>iCore · {icoreLinkId}</span>
+                {icoreLastSyncedAt && (
+                  <span style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 500 }}>
+                    · synced {formatRelative(icoreLastSyncedAt)}
+                  </span>
+                )}
+              </span>
+            ) : null}
+            <button
+              onClick={() => {
+                if (!icoreEnabled) {
+                  dispatch({ type: 'SET_LOOKUPS_TAB', tab: 'icore' });
+                  dispatch({ type: 'SET_LOOKUPS_OPEN', open: true });
+                  return;
+                }
+                setShowSendICore(true);
+              }}
+              title={icoreEnabled
+                ? "Push this project + phases to iCore (D365 F&O)"
+                : 'Configure iCore in Lookups → iCore first'}
+              style={{
+                height: 30, padding: '0 12px',
+                background: icoreEnabled ? '#0369a1' : 'transparent',
+                color: icoreEnabled ? '#fff' : '#0369a1',
+                border: icoreEnabled ? 'none' : '1px solid #BAE6FD',
+                borderRadius: 6,
+                fontSize: 11.5, fontWeight: 700, cursor: 'pointer',
+                fontFamily: 'var(--sans)',
+              }}>
+              {icoreEnabled
+                ? (icoreLinkId ? 'Re-send to iCore' : 'Send to iCore')
+                : 'Send to iCore'}
+            </button>
           </>
         )}
 
@@ -529,6 +603,33 @@ export function StatusActionBar({ state, dispatch, onReload, onDeleted }: Status
                 `${result.phases_synced} phase${result.phases_synced === 1 ? '' : 's'} synced` +
                 (result.phases_skipped ? `, ${result.phases_skipped} skipped` : '') +
                 (result.list_url ? `\n\nList: ${result.list_url}` : '') +
+                warnText,
+              );
+            } else {
+              alert(`Send failed: ${result.error}`);
+            }
+            onReload?.();
+          }}
+        />
+      )}
+
+      {showSendICore && state.project && (
+        <SendToICoreModal
+          project={state.project}
+          onClose={() => setShowSendICore(false)}
+          onSent={(result) => {
+            setShowSendICore(false);
+            if (result.ok) {
+              setIcoreLinkId(result.icore_project_id);
+              setIcoreLastSyncedAt(new Date().toISOString());
+              const warnText = result.warnings.length
+                ? `\n\nWarnings:\n${result.warnings.map(w => '· ' + w).join('\n')}`
+                : '';
+              alert(
+                `Sent to iCore.\n\n` +
+                `${result.phases_synced} phase${result.phases_synced === 1 ? '' : 's'} synced` +
+                (result.phases_skipped ? `, ${result.phases_skipped} skipped` : '') +
+                `\n\niCore project ID: ${result.icore_project_id}` +
                 warnText,
               );
             } else {

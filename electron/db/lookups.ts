@@ -469,6 +469,10 @@ export interface BidItemTemplateView {
   phases: Array<{
     phase_name: string;
     sort_order: number;
+    /** Optional mapping to an iCore (D365 F&O) phase template line. Populated
+     *  when the QuickQuote bid item phase corresponds to a specific iCore
+     *  template phase; null when no mapping has been set yet. */
+    icore_phase_template_id: string | null;
     tasks: Array<{ name: string; sort_order: number }>;
   }>;
 }
@@ -497,9 +501,9 @@ export function getBidItemTemplate(
 ): BidItemTemplateView | null {
   const phaseRows = db
     .prepare(
-      'SELECT phase_name, sort_order FROM bid_item_template_phase WHERE legal_entity=? AND department=? AND template=? ORDER BY sort_order, phase_name',
+      'SELECT phase_name, sort_order, icore_phase_template_id FROM bid_item_template_phase WHERE legal_entity=? AND department=? AND template=? ORDER BY sort_order, phase_name',
     )
-    .all(legalEntity, department, name) as Array<{ phase_name: string; sort_order: number }>;
+    .all(legalEntity, department, name) as Array<{ phase_name: string; sort_order: number; icore_phase_template_id: string | null }>;
   if (phaseRows.length === 0) return null;
   const taskRows = db
     .prepare(
@@ -518,6 +522,7 @@ export function getBidItemTemplate(
     phases: phaseRows.map((p) => ({
       phase_name: p.phase_name,
       sort_order: p.sort_order,
+      icore_phase_template_id: p.icore_phase_template_id ?? null,
       tasks: tasksByPhase.get(p.phase_name) || [],
     })),
   };
@@ -537,7 +542,7 @@ export function saveBidItemTemplate(
       'DELETE FROM bid_item_template_task WHERE legal_entity=? AND department=? AND template=?',
     ).run(template.legal_entity, template.department, template.name);
     const insPhase = db.prepare(
-      'INSERT INTO bid_item_template_phase(legal_entity, department, template, phase_name, sort_order) VALUES (?,?,?,?,?)',
+      'INSERT INTO bid_item_template_phase(legal_entity, department, template, phase_name, sort_order, icore_phase_template_id) VALUES (?,?,?,?,?,?)',
     );
     const insTask = db.prepare(
       'INSERT INTO bid_item_template_task(legal_entity, department, template, phase_name, task_name, sort_order) VALUES (?,?,?,?,?,?)',
@@ -546,6 +551,7 @@ export function saveBidItemTemplate(
       insPhase.run(
         template.legal_entity, template.department, template.name,
         p.phase_name, p.sort_order ?? pIdx,
+        p.icore_phase_template_id ?? null,
       );
       p.tasks.forEach((t, tIdx) => {
         insTask.run(

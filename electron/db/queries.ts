@@ -147,6 +147,8 @@ interface HeaderRow {
   proposal_date: string | null;
   legal_entity: string | null;
   department: string | null;
+  icore_client_id: string | null;
+  icore_data_area_id: string | null;
 }
 
 function extractHeaders(proposal: any): HeaderRow {
@@ -174,6 +176,8 @@ function extractHeaders(proposal: any): HeaderRow {
     proposal_date:          proposal?.date || null,
     legal_entity:           (proposal?.legal_entity || '').trim() || null,
     department:             (proposal?.department || '').trim() || null,
+    icore_client_id:        (proposal?.icore_client_id || '').trim() || null,
+    icore_data_area_id:     (proposal?.icore_data_area_id || '').trim() || null,
   };
 }
 
@@ -247,6 +251,7 @@ export function saveProposal(
           client_name, client_contact, client_address, client_city_state_zip,
           project_address, project_city_state_zip, proposal_date,
           legal_entity, department,
+          icore_client_id, icore_data_area_id,
           updated_at
         ) VALUES (
           ?, ?, ?,
@@ -257,6 +262,7 @@ export function saveProposal(
           ?, ?,
           ?, ?, ?, ?,
           ?, ?, ?,
+          ?, ?,
           ?, ?,
           datetime('now')
         )
@@ -274,6 +280,7 @@ export function saveProposal(
         headers.project_address, headers.project_city_state_zip,
         headers.proposal_date,
         headers.legal_entity, headers.department,
+        headers.icore_client_id, headers.icore_data_area_id,
       );
       const proposalId = Number(result.lastInsertRowid);
 
@@ -311,6 +318,7 @@ export function saveProposal(
           project_address = ?, project_city_state_zip = ?,
           proposal_date = ?,
           legal_entity = ?, department = ?,
+          icore_client_id = ?, icore_data_area_id = ?,
           updated_at = datetime('now')
         WHERE id = ?
       `).run(
@@ -326,6 +334,7 @@ export function saveProposal(
         headers.project_address, headers.project_city_state_zip,
         headers.proposal_date,
         headers.legal_entity, headers.department,
+        headers.icore_client_id, headers.icore_data_area_id,
         row.id,
       );
 

@@ -9,3 +9,4 @@ export { default as BidItemTemplateEditor } from './BidItemTemplateEditor';
 export { default as EmployeeEditor } from './EmployeeEditor';
 export { default as RateEditor } from './RateEditor';
 export { default as ClickUpSettings } from './ClickUpSettings';
+export { default as IcoreSettings } from './IcoreSettings';

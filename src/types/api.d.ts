@@ -21,6 +21,18 @@ import type {
   EmployeeRow,
   ExpenseCategoryDef,
   GenerateResult,
+  IcoreAccount,
+  IcoreClient,
+  IcoreConfigPatch,
+  IcoreExecuteDecisions,
+  IcoreLink,
+  IcoreListClientsFilters,
+  IcorePhaseLink,
+  IcorePreflightResult,
+  IcoreRefreshClientsResult,
+  IcoreSendResult,
+  IcoreStatus,
+  IcoreTestResult,
   LegalEntity,
   LostReason,
   MarkupPct,
@@ -271,6 +283,26 @@ export interface QuickQuoteApi {
     send(projectId: number, decisions: ClickUpExecuteDecisions): Promise<ClickUpSendResult>;
     getLink(projectId: number): Promise<ClickUpLink | null>;
     listPhaseLinks(projectId: number): Promise<ClickUpPhaseLink[]>;
+    unlink(projectId: number): Promise<{ ok: true }>;
+  };
+
+  /** iCore (Dynamics 365 F&O) settings, auth, and connection check.
+   *  signIn opens a system-browser MSAL flow; testConnection validates
+   *  the saved config and (when signed in) probes silent token
+   *  acquisition. Live OData probes land alongside api.ts. */
+  icore: {
+    getConfig(): Promise<IcoreStatus>;
+    setConfig(patch: IcoreConfigPatch): Promise<IcoreStatus>;
+    testConnection(): Promise<IcoreTestResult>;
+    signIn(): Promise<IcoreAccount>;
+    signOut(): Promise<void>;
+    getAccount(): Promise<IcoreAccount | null>;
+    refreshClients(): Promise<IcoreRefreshClientsResult>;
+    listClients(filters?: IcoreListClientsFilters): Promise<IcoreClient[]>;
+    preflight(projectId: number): Promise<IcorePreflightResult>;
+    send(projectId: number, decisions: IcoreExecuteDecisions): Promise<IcoreSendResult>;
+    getLink(projectId: number): Promise<IcoreLink | null>;
+    listPhaseLinks(projectId: number): Promise<IcorePhaseLink[]>;
     unlink(projectId: number): Promise<{ ok: true }>;
   };
 

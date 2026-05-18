@@ -534,6 +534,92 @@ const MIGRATIONS: Migration[] = [
       }
     },
   },
+  {
+    version: 5,
+    up: (db) => {
+      // iCore (Dynamics 365 F&O) integration foundation. Additive only —
+      // mirrors the ClickUp pattern (clickup_config / project_clickup_link /
+      // project_clickup_phase_link). Actual auth/API/sync code ships in a
+      // later slice; this migration only ensures the schema is ready to
+      // receive it. Existing flows ignore the new columns (nullable) and
+      // never look at the new tables.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS icore_config (
+          key TEXT PRIMARY KEY,
+          tenant_id TEXT,
+          client_id TEXT,
+          environment_url TEXT,
+          deeplink_url_pattern TEXT,
+          enabled INTEGER NOT NULL DEFAULT 0,
+          client_sync_interval_minutes INTEGER NOT NULL DEFAULT 60,
+          client_last_synced_at TEXT,
+          updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
+        -- Local cache of iCore customers. Filled by the integration's
+        -- interval timer + the user-facing "Refresh clients" button (both
+        -- ship in the integration slice). Foundation just provides the
+        -- schema. Proposals/projects reference customer_account by value
+        -- (soft reference) so rebuilding the cache never orphans them.
+        CREATE TABLE IF NOT EXISTS icore_client (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          customer_account TEXT NOT NULL,
+          data_area_id TEXT,
+          name TEXT NOT NULL,
+          address TEXT,
+          contact_name TEXT,
+          contact_email TEXT,
+          is_active INTEGER NOT NULL DEFAULT 1,
+          last_synced_at TEXT NOT NULL DEFAULT (datetime('now')),
+          UNIQUE(data_area_id, customer_account)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_icore_client_name   ON icore_client(name);
+        CREATE INDEX IF NOT EXISTS idx_icore_client_active ON icore_client(is_active);
+
+        CREATE TABLE IF NOT EXISTS project_icore_link (
+          project_id INTEGER PRIMARY KEY REFERENCES project(id) ON DELETE CASCADE,
+          icore_project_guid TEXT NOT NULL,
+          icore_project_id TEXT,
+          icore_customer_account TEXT,
+          environment_url TEXT NOT NULL,
+          first_synced_at TEXT NOT NULL DEFAULT (datetime('now')),
+          last_synced_at TEXT NOT NULL DEFAULT (datetime('now')),
+          last_synced_by_email TEXT,
+          last_synced_by_name TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS project_icore_phase_link (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          project_id INTEGER NOT NULL REFERENCES project(id) ON DELETE CASCADE,
+          phase_index INTEGER NOT NULL,
+          phase_name TEXT NOT NULL,
+          icore_task_guid TEXT NOT NULL,
+          payload_hash TEXT,
+          last_synced_at TEXT NOT NULL DEFAULT (datetime('now')),
+          last_synced_by_email TEXT,
+          last_synced_by_name TEXT,
+          UNIQUE(project_id, phase_index)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_icore_phase_project
+          ON project_icore_phase_link(project_id);
+      `);
+
+      // F&O CustomerAccount on the proposal/project (and the dataAreaId
+      // it belongs to — F&O customer accounts are unique per company,
+      // not per tenant).
+      addColumnIfMissing(db, 'proposal', 'icore_client_id',    'icore_client_id TEXT');
+      addColumnIfMissing(db, 'proposal', 'icore_data_area_id', 'icore_data_area_id TEXT');
+      addColumnIfMissing(db, 'project',  'icore_client_id',    'icore_client_id TEXT');
+      addColumnIfMissing(db, 'project',  'icore_data_area_id', 'icore_data_area_id TEXT');
+
+      // Optional mapping from a QuickQuote bid item template phase to an
+      // iCore phase template line. Lets future "send to iCore" pick the
+      // right template when creating the project upstream.
+      addColumnIfMissing(db, 'bid_item_template_phase', 'icore_phase_template_id', 'icore_phase_template_id TEXT');
+    },
+  },
   // Append future migrations here. Never edit a past entry — the runner
   // only applies versions strictly greater than the current recorded one.
 ];

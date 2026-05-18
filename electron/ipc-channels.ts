@@ -128,6 +128,27 @@ export const IPC = {
   CLICKUP_LIST_PHASE_LINKS:  'clickup:listPhaseLinks',
   CLICKUP_UNLINK:            'clickup:unlink',
 
+  // ── iCore (Dynamics 365 F&O) settings + connection ──────────────────────
+  // Settings mirror the ClickUp pattern: getConfig returns a sanitized
+  // status (no secrets today, but the shape is future-proof for cached
+  // tokens). testConnection validates the saved config and — once the
+  // auth slice lands — also probes the F&O OData endpoint with a real
+  // bearer token. Sync (preflight/send/link CRUD) ships alongside the
+  // API client in a follow-up.
+  ICORE_GET_CONFIG:       'icore:getConfig',
+  ICORE_SET_CONFIG:       'icore:setConfig',
+  ICORE_TEST_CONNECTION:  'icore:testConnection',
+  ICORE_SIGN_IN:          'icore:signIn',
+  ICORE_SIGN_OUT:         'icore:signOut',
+  ICORE_GET_ACCOUNT:      'icore:getAccount',
+  ICORE_REFRESH_CLIENTS:  'icore:refreshClients',
+  ICORE_LIST_CLIENTS:     'icore:listClients',
+  ICORE_PREFLIGHT:        'icore:preflight',
+  ICORE_SEND:             'icore:send',
+  ICORE_GET_LINK:         'icore:getLink',
+  ICORE_LIST_PHASE_LINKS: 'icore:listPhaseLinks',
+  ICORE_UNLINK:           'icore:unlink',
+
   // ── Project mode (Stage 4) ───────────────────────────────────────────────
   // Per-proposal post-Won record. One project row per Won proposal, joined
   // via proposal_id. Renderer-facing IPC takes proposal name (consistent

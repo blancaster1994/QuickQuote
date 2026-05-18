@@ -214,7 +214,7 @@ function ProjectHeaderCard({
             <span>{project.department}</span>
             <span>·</span>
             <span>iCore</span>
-            <ICoreBadge id={project.icore_project_id} locked={won} />
+            <ICoreBadge id={project.icore_project_id} dataAreaId={project.icore_data_area_id} locked={won} />
             {project.current_pm_name && <>
               <span>·</span>
               <span>PM {project.current_pm_name}</span>

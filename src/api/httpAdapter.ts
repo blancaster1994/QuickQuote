@@ -193,6 +193,22 @@ export const httpAdapter: QuickQuoteApi = {
     unlink: notImpl('clickup.unlink') as never,
   },
 
+  icore: {
+    getConfig: notImpl('icore.getConfig') as never,
+    setConfig: notImpl('icore.setConfig') as never,
+    testConnection: notImpl('icore.testConnection') as never,
+    signIn: notImpl('icore.signIn') as never,
+    signOut: notImpl('icore.signOut') as never,
+    getAccount: notImpl('icore.getAccount') as never,
+    refreshClients: notImpl('icore.refreshClients') as never,
+    listClients: notImpl('icore.listClients') as never,
+    preflight: notImpl('icore.preflight') as never,
+    send: notImpl('icore.send') as never,
+    getLink: notImpl('icore.getLink') as never,
+    listPhaseLinks: notImpl('icore.listPhaseLinks') as never,
+    unlink: notImpl('icore.unlink') as never,
+  },
+
   project: {
     initialize: notImpl('project.initialize') as never,
     get: notImpl('project.get') as never,

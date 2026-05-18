@@ -44,7 +44,8 @@ export type LookupsTab =
   | 'employees'
   | 'rates'
   | 'legal-departments'
-  | 'clickup';
+  | 'clickup'
+  | 'icore';
 
 /** Capability the renderer might want to gate. QuickQuote is single-user and
  *  canDo() returns true for every value today, but keeping the union lets a
@@ -225,6 +226,15 @@ export interface Proposal {
   legal_entity?: string;
   /** Department within the legal entity. Required before Send. */
   department?: string;
+  /** iCore (D365 F&O) CustomerAccount the proposal is linked to. Soft
+   *  reference into the local `icore_client` cache; the cache can be
+   *  rebuilt without orphaning this proposal. Populated when the user
+   *  picks a customer via the (future) iCore client picker. */
+  icore_client_id?: string | null;
+  /** F&O dataAreaId (company) the customer account belongs to. F&O
+   *  CustomerAccount values are unique per company, not per tenant, so
+   *  this pair (icore_client_id, icore_data_area_id) is the full key. */
+  icore_data_area_id?: string | null;
   sections: Section[];
   lifecycle: Lifecycle;
 }
@@ -363,6 +373,10 @@ export interface BidItemTemplate {
 export interface BidItemTemplatePhase {
   phase_name: string;
   sort_order: number;
+  /** Optional mapping to an iCore (D365 F&O) phase template line. When set,
+   *  the future "send to iCore" flow can hand iCore the matching template
+   *  id so it expands the WBS the same way iCore would have. */
+  icore_phase_template_id?: string | null;
   tasks: BidItemTemplateTaskName[];
 }
 
@@ -507,6 +521,12 @@ export interface ProjectHeader {
   project_type: string | null;
   phase_template: string | null;
   icore_project_id: string | null;
+  /** F&O CustomerAccount the project is tied to upstream. Mirrors the
+   *  proposal's icore_client_id at initialize time and can be edited
+   *  via project.updateHeader later. */
+  icore_client_id: string | null;
+  /** F&O dataAreaId for the customer. See Proposal.icore_data_area_id. */
+  icore_data_area_id: string | null;
   current_pm_email: string | null;
   current_pm_name: string | null;
   created_by_email: string | null;
@@ -522,6 +542,165 @@ export interface ProjectHeader {
 /** Header + payload — the full project record returned by IPC. */
 export interface Project extends ProjectHeader {
   payload: ProjectPayload;
+}
+
+// iCore (Dynamics 365 F&O) — config, status, cache row, and link record
+// shapes. testConnection today only validates the saved config; auth +
+// real API probes land in the next slice.
+
+/** Sanitized iCore config returned to the renderer. Mirrors the
+ *  ClickUpStatus shape — `configured` is a derived boolean ("does the
+ *  saved config have enough to attempt a connection?"), the rest are
+ *  the actual values for display in the settings card. */
+export interface IcoreStatus {
+  configured: boolean;
+  enabled: boolean;
+  tenant_id: string | null;
+  client_id: string | null;
+  environment_url: string | null;
+  deeplink_url_pattern: string | null;
+  client_sync_interval_minutes: number;
+  client_last_synced_at: string | null;
+  updated_at: string | null;
+}
+
+/** Patch payload for `icore.setConfig`. All fields optional — partial
+ *  updates merge with the existing singleton row. */
+export interface IcoreConfigPatch {
+  tenant_id?: string | null;
+  client_id?: string | null;
+  environment_url?: string | null;
+  deeplink_url_pattern?: string | null;
+  enabled?: boolean;
+  client_sync_interval_minutes?: number;
+}
+
+/** Signed-in iCore account (Entra ID identity). Pulled from MSAL's
+ *  cached AccountInfo; `home_account_id` is MSAL's primary key for the
+ *  account, useful only for log correlation. */
+export interface IcoreAccount {
+  username: string;
+  name: string | null;
+  home_account_id: string;
+  tenant_id: string;
+}
+
+/** Result of `icore.testConnection`. Three terminal states:
+ *   - `mode: 'config-only'` — config looks well-formed but no cached
+ *     account; sign-in needed before any real call.
+ *   - `mode: 'token'`       — silent token acquisition succeeded.
+ *   - `mode: 'api'`         — token + a `/data/Companies?$top=1` probe
+ *     succeeded (added in slice 4 alongside api.ts).
+ */
+export type IcoreTestResult =
+  | { ok: true; mode: 'config-only' | 'token' | 'api'; message: string; account?: { username: string; name: string | null } }
+  | { ok: false; error: string };
+
+
+
+/** Local cache row for an iCore customer. The cache is filled by the
+ *  integration's interval timer plus a user-facing refresh action; the
+ *  picker UI reads from this list so it doesn't have to hit the F&O
+ *  OData endpoint on every render. Proposals/projects reference these
+ *  customers by `customer_account` (with `data_area_id` for company
+ *  scoping) rather than by row id, so rebuilding the cache never
+ *  orphans a record. */
+export interface IcoreClient {
+  id: ID;
+  customer_account: string;
+  data_area_id: string | null;
+  name: string;
+  address: string | null;
+  contact_name: string | null;
+  contact_email: string | null;
+  is_active: 0 | 1;
+  last_synced_at: string;
+}
+
+export interface IcoreListClientsFilters {
+  data_area_id?: string;
+  q?: string;
+  includeInactive?: boolean;
+  limit?: number;
+}
+
+/** Result of a manual or background `icore.refreshClients` call. */
+export type IcoreRefreshClientsResult =
+  | { ok: true; upserted: number; deactivated: number; total: number; duration_ms: number }
+  | { ok: false; error: string };
+
+// ── iCore send (preflight + execute) ────────────────────────────────────────
+
+export type IcorePhaseAction = 'create' | 'update' | 'skip';
+
+export interface IcorePreflightPlan {
+  ok: true;
+  project: { id: ID; name: string };
+  customer: {
+    customer_account: string;
+    data_area_id: string | null;
+    name: string;
+    cached: boolean;
+  };
+  existing: {
+    icore_project_id: string | null;
+    icore_project_guid: string | null;
+  };
+  phases: Array<{
+    phase_index: number;
+    phase_name: string;
+    existing_task_guid: string | null;
+    last_synced_at: string | null;
+    payload_changed: boolean;
+    default_action: IcorePhaseAction;
+  }>;
+  warnings: string[];
+}
+
+export interface IcorePreflightError {
+  ok: false;
+  error: string;
+}
+
+export type IcorePreflightResult = IcorePreflightPlan | IcorePreflightError;
+
+export interface IcoreExecuteDecisions {
+  phases: Array<{ phase_index: number; action: IcorePhaseAction }>;
+}
+
+export interface IcoreExecuteResult {
+  ok: true;
+  icore_project_id: string;
+  icore_project_guid: string;
+  phases_synced: number;
+  phases_skipped: number;
+  warnings: string[];
+}
+
+export type IcoreSendResult = IcoreExecuteResult | { ok: false; error: string };
+
+export interface IcoreLink {
+  project_id: ID;
+  icore_project_guid: string;
+  icore_project_id: string | null;
+  icore_customer_account: string | null;
+  environment_url: string;
+  first_synced_at: string;
+  last_synced_at: string;
+  last_synced_by_email: string | null;
+  last_synced_by_name: string | null;
+}
+
+export interface IcorePhaseLink {
+  id: ID;
+  project_id: ID;
+  phase_index: number;
+  phase_name: string;
+  icore_task_guid: string;
+  payload_hash: string | null;
+  last_synced_at: string;
+  last_synced_by_email: string | null;
+  last_synced_by_name: string | null;
 }
 
 // ClickUp config + link record shapes (DB-row mirrors).
