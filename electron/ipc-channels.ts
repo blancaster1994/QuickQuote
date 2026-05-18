@@ -138,6 +138,9 @@ export const IPC = {
   ICORE_GET_CONFIG:       'icore:getConfig',
   ICORE_SET_CONFIG:       'icore:setConfig',
   ICORE_TEST_CONNECTION:  'icore:testConnection',
+  ICORE_SIGN_IN:          'icore:signIn',
+  ICORE_SIGN_OUT:         'icore:signOut',
+  ICORE_GET_ACCOUNT:      'icore:getAccount',
 
   // ── Project mode (Stage 4) ───────────────────────────────────────────────
   // Per-proposal post-Won record. One project row per Won proposal, joined

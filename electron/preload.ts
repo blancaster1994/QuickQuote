@@ -224,6 +224,9 @@ const api = {
     getConfig:       () => ipcRenderer.invoke('icore:getConfig'),
     setConfig:       (patch: any) => ipcRenderer.invoke('icore:setConfig', patch),
     testConnection:  () => ipcRenderer.invoke('icore:testConnection'),
+    signIn:          () => ipcRenderer.invoke('icore:signIn'),
+    signOut:         () => ipcRenderer.invoke('icore:signOut'),
+    getAccount:      () => ipcRenderer.invoke('icore:getAccount'),
   },
 
   /** Project mode (Stage 4). Per-Won-proposal record holding entity /

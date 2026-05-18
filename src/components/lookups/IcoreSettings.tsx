@@ -13,7 +13,7 @@
 
 import { useEffect, useState } from 'react';
 import { canDo } from '../../lib/lifecycle';
-import type { IcoreStatus, Identity } from '../../types/domain';
+import type { IcoreAccount, IcoreStatus, Identity } from '../../types/domain';
 
 interface IcoreSettingsProps {
   identity: Identity | null;
@@ -25,6 +25,7 @@ export default function IcoreSettings({ identity, disabled }: IcoreSettingsProps
   const lock = !!disabled;
 
   const [status, setStatus] = useState<IcoreStatus | null>(null);
+  const [account, setAccount] = useState<IcoreAccount | null>(null);
   const [tenantId,     setTenantId]     = useState('');
   const [clientId,     setClientId]     = useState('');
   const [envUrl,       setEnvUrl]       = useState('');
@@ -34,8 +35,12 @@ export default function IcoreSettings({ identity, disabled }: IcoreSettingsProps
 
   async function refresh() {
     try {
-      const next = await window.api.icore.getConfig();
+      const [next, acct] = await Promise.all([
+        window.api.icore.getConfig(),
+        window.api.icore.getAccount(),
+      ]);
       setStatus(next);
+      setAccount(acct);
       // Seed edit fields from the saved values so the user sees what's
       // already there. Empty strings mean "not yet set".
       setTenantId(next.tenant_id ?? '');
@@ -47,6 +52,33 @@ export default function IcoreSettings({ identity, disabled }: IcoreSettingsProps
     }
   }
   useEffect(() => { void refresh(); }, []);
+
+  async function signIn() {
+    setBusy('signin');
+    setTestResult(null);
+    try {
+      const acct = await window.api.icore.signIn();
+      setAccount(acct);
+    } catch (e: any) {
+      alert('Sign-in failed: ' + (e?.message ?? String(e)));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function signOut() {
+    if (!confirm('Sign out of iCore on this machine? The cached token will be deleted.')) return;
+    setBusy('signout');
+    setTestResult(null);
+    try {
+      await window.api.icore.signOut();
+      setAccount(null);
+    } catch (e: any) {
+      alert('Sign-out failed: ' + (e?.message ?? String(e)));
+    } finally {
+      setBusy(null);
+    }
+  }
 
   async function saveConfig() {
     setBusy('save');
@@ -135,6 +167,19 @@ export default function IcoreSettings({ identity, disabled }: IcoreSettingsProps
         <Row label="Deeplink pattern" value={<code>{status.deeplink_url_pattern || '—'}</code>} />
         <Row label="Client refresh"   value={`every ${status.client_sync_interval_minutes} min`} />
         <Row label="Last client sync" value={status.client_last_synced_at ? new Date(status.client_last_synced_at).toLocaleString() : '—'} />
+        <Row label="Signed in" value={
+          account
+            ? <span style={{ color: '#047857', fontWeight: 600 }}>{account.username}</span>
+            : <span style={{ color: '#92400e', fontWeight: 600 }}>no</span>
+        } extra={status.configured && (
+          account
+            ? <button onClick={() => void signOut()} disabled={lock || busy === 'signout'} style={{ marginLeft: 8 }}>
+                {busy === 'signout' ? 'Signing out…' : 'Sign out'}
+              </button>
+            : <button onClick={() => void signIn()} disabled={lock || busy === 'signin'} style={{ marginLeft: 8 }}>
+                {busy === 'signin' ? 'Opening browser…' : 'Sign in'}
+              </button>
+        )} />
         <Row label="Last updated"     value={status.updated_at ? new Date(status.updated_at).toLocaleString() : '—'} />
 
         <div style={{ marginTop: 14, display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -156,9 +201,9 @@ export default function IcoreSettings({ identity, disabled }: IcoreSettingsProps
           background: 'var(--canvas)', border: '1px solid var(--hair)',
           borderRadius: 6, fontSize: 11, color: 'var(--muted)', lineHeight: 1.5,
         }}>
-          Today's "Test connection" only validates the saved config shape.
-          Real connectivity (MSAL sign-in + F&amp;O OData probe) lands in the
-          next slice once Azure app registration values are available.
+          Test connection validates the saved config and (when signed in)
+          attempts a silent token acquisition. A live OData probe is added
+          when the API client lands in the next slice.
         </div>
       </div>
 

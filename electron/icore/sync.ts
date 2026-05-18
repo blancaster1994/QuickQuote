@@ -1,39 +1,40 @@
-// iCore (Dynamics 365 F&O) sync orchestrator — scaffolding.
+// iCore (Dynamics 365 F&O) sync orchestrator.
 //
-// This module mirrors electron/clickup/sync.ts at the surface level
-// (testConnection, preflight, execute) so the main process and renderer
-// can wire up the integration end-to-end before the auth + API client
-// land. Today only `testConnection` does anything useful, and it only
-// validates the saved config shape — there's no MSAL token acquisition
-// yet, so no actual call to F&O is made.
+// This module owns:
+//   - testConnection() — config-shape validation + cached-token probe. When
+//     the API client is wired up (slice 4 adds api.ts) it also calls
+//     `/data/Companies?$top=1` to verify connectivity end-to-end.
+//   - refreshClients() — TODO (slice 4): pull F&O CustomersV3 → upsert into
+//     the local icore_client cache.
+//   - preflight() / execute() — TODO (slice 5): two-phase send-to-iCore that
+//     creates the project upstream and stamps the returned ID.
 //
-// When the auth slice ships, testConnection will additionally:
-//   1. Acquire a bearer token via MSAL public-client + PKCE
-//   2. Hit `${environment_url}/data/Companies?$top=1` as a cheap probe
-//   3. Return the user identity from the token claims
-//
-// Until then, "configured" means "looks well-formed and points somewhere".
+// Mirrors electron/clickup/sync.ts at the surface level so the renderer
+// can wire both integrations the same way.
 
 import type Database from 'better-sqlite3';
 import { getIcoreConfig } from '../db/icore';
+import * as Auth from './auth';
 
 const GUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 const OPERATIONS_URL_RE = /^https:\/\/[^/]+\.operations\.dynamics\.com\/?$/;
 
 export type IcoreTestResult =
-  | { ok: true; mode: 'config-only'; message: string }
+  | { ok: true; mode: 'config-only' | 'token'; message: string; account?: { username: string; name: string | null } }
   | { ok: false; error: string };
 
 /**
- * Validate the saved iCore config and report what's still needed.
- * Does NOT hit the network — auth scaffolding ships in a later slice.
+ * Validate the saved iCore config + (when signed in) verify a token can be
+ * acquired silently for the configured environment scope.
  *
- * The renderer's "Test Connection" button calls this. The success
- * variant carries `mode: 'config-only'` so the UI can clearly label
- * "config looks good, real connectivity not implemented yet" rather
- * than over-promising.
+ * Three terminal states:
+ *   1. Config malformed/missing             → ok: false
+ *   2. Config good, no cached account       → ok: true, mode: 'config-only'
+ *   3. Config good + silent token acquired  → ok: true, mode: 'token'
+ *
+ * Live OData probe (mode: 'api') ships in slice 4 alongside api.ts.
  */
-export function testConnection(db: Database.Database): IcoreTestResult {
+export async function testConnection(db: Database.Database): Promise<IcoreTestResult> {
   const cfg = getIcoreConfig(db);
   const missing: string[] = [];
   if (!cfg.tenant_id)       missing.push('Tenant ID');
@@ -46,9 +47,6 @@ export function testConnection(db: Database.Database): IcoreTestResult {
       error: `Missing required config: ${missing.join(', ')}. Fill these in before testing.`,
     };
   }
-
-  // Format checks. Friendly errors so a typo doesn't masquerade as an
-  // auth problem when the auth code lands.
   if (cfg.tenant_id && !GUID_RE.test(cfg.tenant_id)) {
     return { ok: false, error: 'Tenant ID is not a valid GUID (expected 8-4-4-4-12 hex).' };
   }
@@ -62,9 +60,25 @@ export function testConnection(db: Database.Database): IcoreTestResult {
     };
   }
 
+  // Try silent token acquisition. If no account is cached this errors out
+  // and we return the friendlier "config-only" state with a hint to sign in.
+  const account = await Auth.getAccount(db).catch(() => null);
+  if (!account) {
+    return {
+      ok: true,
+      mode: 'config-only',
+      message: 'Config looks well-formed. Sign in to test token acquisition.',
+    };
+  }
+  try {
+    await Auth.acquireToken(db, { interactive: false });
+  } catch (e: any) {
+    return { ok: false, error: e?.message ?? String(e) };
+  }
   return {
     ok: true,
-    mode: 'config-only',
-    message: 'Config looks well-formed. Live connectivity check is added in the next slice (auth + API client).',
+    mode: 'token',
+    message: `Signed in as ${account.username} and silent token acquisition succeeded.`,
+    account: { username: account.username, name: account.name },
   };
 }

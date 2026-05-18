@@ -575,12 +575,25 @@ export interface IcoreConfigPatch {
   client_sync_interval_minutes?: number;
 }
 
-/** Result of `icore.testConnection`. Today this only validates the
- *  saved config (no network call); the success variant carries
- *  `mode: 'config-only'` so the UI can label the state honestly until
- *  the auth slice adds a real connectivity probe. */
+/** Signed-in iCore account (Entra ID identity). Pulled from MSAL's
+ *  cached AccountInfo; `home_account_id` is MSAL's primary key for the
+ *  account, useful only for log correlation. */
+export interface IcoreAccount {
+  username: string;
+  name: string | null;
+  home_account_id: string;
+  tenant_id: string;
+}
+
+/** Result of `icore.testConnection`. Three terminal states:
+ *   - `mode: 'config-only'` — config looks well-formed but no cached
+ *     account; sign-in needed before any real call.
+ *   - `mode: 'token'`       — silent token acquisition succeeded.
+ *   - `mode: 'api'`         — token + a `/data/Companies?$top=1` probe
+ *     succeeded (added in slice 4 alongside api.ts).
+ */
 export type IcoreTestResult =
-  | { ok: true; mode: 'config-only'; message: string }
+  | { ok: true; mode: 'config-only' | 'token' | 'api'; message: string; account?: { username: string; name: string | null } }
   | { ok: false; error: string };
 
 

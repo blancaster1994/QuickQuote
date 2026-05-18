@@ -21,6 +21,7 @@ import type {
   EmployeeRow,
   ExpenseCategoryDef,
   GenerateResult,
+  IcoreAccount,
   IcoreConfigPatch,
   IcoreStatus,
   IcoreTestResult,
@@ -277,13 +278,17 @@ export interface QuickQuoteApi {
     unlink(projectId: number): Promise<{ ok: true }>;
   };
 
-  /** iCore (Dynamics 365 F&O) settings + connection check.
-   *  testConnection today only validates the saved config; auth + real
-   *  API probes land in a follow-up. */
+  /** iCore (Dynamics 365 F&O) settings, auth, and connection check.
+   *  signIn opens a system-browser MSAL flow; testConnection validates
+   *  the saved config and (when signed in) probes silent token
+   *  acquisition. Live OData probes land alongside api.ts. */
   icore: {
     getConfig(): Promise<IcoreStatus>;
     setConfig(patch: IcoreConfigPatch): Promise<IcoreStatus>;
     testConnection(): Promise<IcoreTestResult>;
+    signIn(): Promise<IcoreAccount>;
+    signOut(): Promise<void>;
+    getAccount(): Promise<IcoreAccount | null>;
   };
 
   /** Project mode (Stage 4). One row per Won proposal, joined via

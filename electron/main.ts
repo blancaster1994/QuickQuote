@@ -18,6 +18,7 @@ import * as ClickUpSync from './clickup/sync';
 import { getIcoreConfig, setIcoreConfig } from './db/icore';
 import type { IcoreConfigRow } from './db/icore';
 import * as IcoreSync from './icore/sync';
+import * as IcoreAuth from './icore/auth';
 import * as activity from './lifecycle/activity';
 import * as versioning from './lifecycle/versioning';
 import { buildDashboard } from './lifecycle/dashboard';
@@ -562,6 +563,9 @@ function registerIpc(): void {
     };
   });
   ipcMain.handle(IPC.ICORE_TEST_CONNECTION, () => IcoreSync.testConnection(requireDb()));
+  ipcMain.handle(IPC.ICORE_SIGN_IN,       () => IcoreAuth.signIn(requireDb()));
+  ipcMain.handle(IPC.ICORE_SIGN_OUT,      () => IcoreAuth.signOut(requireDb()));
+  ipcMain.handle(IPC.ICORE_GET_ACCOUNT,   () => IcoreAuth.getAccount(requireDb()));
 
   // ── Project mode ─────────────────────────────────────────────────────────
   // Direct initialize — used as a fallback when a Sent proposal somehow
