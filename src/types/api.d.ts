@@ -21,6 +21,9 @@ import type {
   EmployeeRow,
   ExpenseCategoryDef,
   GenerateResult,
+  IcoreConfigPatch,
+  IcoreStatus,
+  IcoreTestResult,
   LegalEntity,
   LostReason,
   MarkupPct,
@@ -272,6 +275,15 @@ export interface QuickQuoteApi {
     getLink(projectId: number): Promise<ClickUpLink | null>;
     listPhaseLinks(projectId: number): Promise<ClickUpPhaseLink[]>;
     unlink(projectId: number): Promise<{ ok: true }>;
+  };
+
+  /** iCore (Dynamics 365 F&O) settings + connection check.
+   *  testConnection today only validates the saved config; auth + real
+   *  API probes land in a follow-up. */
+  icore: {
+    getConfig(): Promise<IcoreStatus>;
+    setConfig(patch: IcoreConfigPatch): Promise<IcoreStatus>;
+    testConnection(): Promise<IcoreTestResult>;
   };
 
   /** Project mode (Stage 4). One row per Won proposal, joined via

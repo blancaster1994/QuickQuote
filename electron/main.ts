@@ -15,6 +15,9 @@ import type { NameTable } from './db/lookups';
 import { getClickUpConfig, setClickUpConfig } from './db/clickup';
 import type { ClickUpConfigRow } from './db/clickup';
 import * as ClickUpSync from './clickup/sync';
+import { getIcoreConfig, setIcoreConfig } from './db/icore';
+import type { IcoreConfigRow } from './db/icore';
+import * as IcoreSync from './icore/sync';
 import * as activity from './lifecycle/activity';
 import * as versioning from './lifecycle/versioning';
 import { buildDashboard } from './lifecycle/dashboard';
@@ -524,6 +527,41 @@ function registerIpc(): void {
     ClickUpSync.unlink(requireDb(), projectId);
     return { ok: true as const };
   });
+
+  // ── iCore (Dynamics 365 F&O) settings ────────────────────────────────────
+  // getConfig returns a sanitized status (no secrets today; the tenant/
+  // client/env values aren't secret, but keeping the shape distinct from
+  // the row leaves room to add cached-token fields later without leaking
+  // them to the renderer).
+  ipcMain.handle(IPC.ICORE_GET_CONFIG, () => {
+    const row = getIcoreConfig(requireDb());
+    return {
+      configured: !!(row.tenant_id && row.client_id && row.environment_url),
+      enabled:                       row.enabled,
+      tenant_id:                     row.tenant_id,
+      client_id:                     row.client_id,
+      environment_url:               row.environment_url,
+      deeplink_url_pattern:          row.deeplink_url_pattern,
+      client_sync_interval_minutes:  row.client_sync_interval_minutes,
+      client_last_synced_at:         row.client_last_synced_at,
+      updated_at:                    row.updated_at,
+    };
+  });
+  ipcMain.handle(IPC.ICORE_SET_CONFIG, (_e, patch: Partial<IcoreConfigRow>) => {
+    const row = setIcoreConfig(requireDb(), patch);
+    return {
+      configured: !!(row.tenant_id && row.client_id && row.environment_url),
+      enabled:                       row.enabled,
+      tenant_id:                     row.tenant_id,
+      client_id:                     row.client_id,
+      environment_url:               row.environment_url,
+      deeplink_url_pattern:          row.deeplink_url_pattern,
+      client_sync_interval_minutes:  row.client_sync_interval_minutes,
+      client_last_synced_at:         row.client_last_synced_at,
+      updated_at:                    row.updated_at,
+    };
+  });
+  ipcMain.handle(IPC.ICORE_TEST_CONNECTION, () => IcoreSync.testConnection(requireDb()));
 
   // ── Project mode ─────────────────────────────────────────────────────────
   // Direct initialize — used as a fallback when a Sent proposal somehow

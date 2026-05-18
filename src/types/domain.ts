@@ -44,7 +44,8 @@ export type LookupsTab =
   | 'employees'
   | 'rates'
   | 'legal-departments'
-  | 'clickup';
+  | 'clickup'
+  | 'icore';
 
 /** Capability the renderer might want to gate. QuickQuote is single-user and
  *  canDo() returns true for every value today, but keeping the union lets a
@@ -543,8 +544,46 @@ export interface Project extends ProjectHeader {
   payload: ProjectPayload;
 }
 
-// iCore (Dynamics 365 F&O) — cache row + link record shapes (foundation
-// only; the auth/API/sync code lives in a later slice).
+// iCore (Dynamics 365 F&O) — config, status, cache row, and link record
+// shapes. testConnection today only validates the saved config; auth +
+// real API probes land in the next slice.
+
+/** Sanitized iCore config returned to the renderer. Mirrors the
+ *  ClickUpStatus shape — `configured` is a derived boolean ("does the
+ *  saved config have enough to attempt a connection?"), the rest are
+ *  the actual values for display in the settings card. */
+export interface IcoreStatus {
+  configured: boolean;
+  enabled: boolean;
+  tenant_id: string | null;
+  client_id: string | null;
+  environment_url: string | null;
+  deeplink_url_pattern: string | null;
+  client_sync_interval_minutes: number;
+  client_last_synced_at: string | null;
+  updated_at: string | null;
+}
+
+/** Patch payload for `icore.setConfig`. All fields optional — partial
+ *  updates merge with the existing singleton row. */
+export interface IcoreConfigPatch {
+  tenant_id?: string | null;
+  client_id?: string | null;
+  environment_url?: string | null;
+  deeplink_url_pattern?: string | null;
+  enabled?: boolean;
+  client_sync_interval_minutes?: number;
+}
+
+/** Result of `icore.testConnection`. Today this only validates the
+ *  saved config (no network call); the success variant carries
+ *  `mode: 'config-only'` so the UI can label the state honestly until
+ *  the auth slice adds a real connectivity probe. */
+export type IcoreTestResult =
+  | { ok: true; mode: 'config-only'; message: string }
+  | { ok: false; error: string };
+
+
 
 /** Local cache row for an iCore customer. The cache is filled by the
  *  integration's interval timer plus a user-facing refresh action; the

@@ -25,6 +25,7 @@ import BidItemTemplateEditor from './BidItemTemplateEditor';
 import EmployeeEditor from './EmployeeEditor';
 import RateEditor from './RateEditor';
 import ClickUpSettings from './ClickUpSettings';
+import IcoreSettings from './IcoreSettings';
 import './lookups.css';
 
 interface LookupsPanelProps {
@@ -40,6 +41,7 @@ const TABS: Array<{ key: LookupsTab; label: string }> = [
   { key: 'rates',              label: 'Rates' },
   { key: 'legal-departments',  label: 'Legal & Departments' },
   { key: 'clickup',            label: 'ClickUp' },
+  { key: 'icore',              label: 'iCore' },
 ];
 
 export default function LookupsPanel({ state, dispatch }: LookupsPanelProps) {
@@ -279,5 +281,7 @@ function TabBody({ tab, identity, disabled }: {
       );
     case 'clickup':
       return <ClickUpSettings identity={identity} disabled={disabled} />;
+    case 'icore':
+      return <IcoreSettings identity={identity} disabled={disabled} />;
   }
 }

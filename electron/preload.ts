@@ -217,6 +217,15 @@ const api = {
     unlink:          (projectId: number) => ipcRenderer.invoke('clickup:unlink', projectId),
   },
 
+  /** iCore (Dynamics 365 F&O) settings + connection check. testConnection
+   *  today only validates the saved config; once the auth slice lands it
+   *  will also acquire a token and probe the F&O OData endpoint. */
+  icore: {
+    getConfig:       () => ipcRenderer.invoke('icore:getConfig'),
+    setConfig:       (patch: any) => ipcRenderer.invoke('icore:setConfig', patch),
+    testConnection:  () => ipcRenderer.invoke('icore:testConnection'),
+  },
+
   /** Project mode (Stage 4). Per-Won-proposal record holding entity /
    *  department / PM / iCore + the editable phases + resources payload.
    *  Renderer addresses by proposal name (consistent with lifecycle.*). */
