@@ -225,6 +225,15 @@ export interface Proposal {
   legal_entity?: string;
   /** Department within the legal entity. Required before Send. */
   department?: string;
+  /** iCore (D365 F&O) CustomerAccount the proposal is linked to. Soft
+   *  reference into the local `icore_client` cache; the cache can be
+   *  rebuilt without orphaning this proposal. Populated when the user
+   *  picks a customer via the (future) iCore client picker. */
+  icore_client_id?: string | null;
+  /** F&O dataAreaId (company) the customer account belongs to. F&O
+   *  CustomerAccount values are unique per company, not per tenant, so
+   *  this pair (icore_client_id, icore_data_area_id) is the full key. */
+  icore_data_area_id?: string | null;
   sections: Section[];
   lifecycle: Lifecycle;
 }
@@ -363,6 +372,10 @@ export interface BidItemTemplate {
 export interface BidItemTemplatePhase {
   phase_name: string;
   sort_order: number;
+  /** Optional mapping to an iCore (D365 F&O) phase template line. When set,
+   *  the future "send to iCore" flow can hand iCore the matching template
+   *  id so it expands the WBS the same way iCore would have. */
+  icore_phase_template_id?: string | null;
   tasks: BidItemTemplateTaskName[];
 }
 
@@ -507,6 +520,12 @@ export interface ProjectHeader {
   project_type: string | null;
   phase_template: string | null;
   icore_project_id: string | null;
+  /** F&O CustomerAccount the project is tied to upstream. Mirrors the
+   *  proposal's icore_client_id at initialize time and can be edited
+   *  via project.updateHeader later. */
+  icore_client_id: string | null;
+  /** F&O dataAreaId for the customer. See Proposal.icore_data_area_id. */
+  icore_data_area_id: string | null;
   current_pm_email: string | null;
   current_pm_name: string | null;
   created_by_email: string | null;
@@ -522,6 +541,28 @@ export interface ProjectHeader {
 /** Header + payload — the full project record returned by IPC. */
 export interface Project extends ProjectHeader {
   payload: ProjectPayload;
+}
+
+// iCore (Dynamics 365 F&O) — cache row + link record shapes (foundation
+// only; the auth/API/sync code lives in a later slice).
+
+/** Local cache row for an iCore customer. The cache is filled by the
+ *  integration's interval timer plus a user-facing refresh action; the
+ *  picker UI reads from this list so it doesn't have to hit the F&O
+ *  OData endpoint on every render. Proposals/projects reference these
+ *  customers by `customer_account` (with `data_area_id` for company
+ *  scoping) rather than by row id, so rebuilding the cache never
+ *  orphans a record. */
+export interface IcoreClient {
+  id: ID;
+  customer_account: string;
+  data_area_id: string | null;
+  name: string;
+  address: string | null;
+  contact_name: string | null;
+  contact_email: string | null;
+  is_active: 0 | 1;
+  last_synced_at: string;
 }
 
 // ClickUp config + link record shapes (DB-row mirrors).
