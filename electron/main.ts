@@ -15,7 +15,12 @@ import type { NameTable } from './db/lookups';
 import { getClickUpConfig, setClickUpConfig } from './db/clickup';
 import type { ClickUpConfigRow } from './db/clickup';
 import * as ClickUpSync from './clickup/sync';
-import { getIcoreConfig, setIcoreConfig } from './db/icore';
+import {
+  getIcoreConfig,
+  setIcoreConfig,
+  listIcoreClients,
+  type ListIcoreClientsFilters,
+} from './db/icore';
 import type { IcoreConfigRow } from './db/icore';
 import * as IcoreSync from './icore/sync';
 import * as IcoreAuth from './icore/auth';
@@ -566,6 +571,16 @@ function registerIpc(): void {
   ipcMain.handle(IPC.ICORE_SIGN_IN,       () => IcoreAuth.signIn(requireDb()));
   ipcMain.handle(IPC.ICORE_SIGN_OUT,      () => IcoreAuth.signOut(requireDb()));
   ipcMain.handle(IPC.ICORE_GET_ACCOUNT,   () => IcoreAuth.getAccount(requireDb()));
+  ipcMain.handle(IPC.ICORE_REFRESH_CLIENTS, async () => {
+    try {
+      return await IcoreSync.refreshClients(requireDb());
+    } catch (e: any) {
+      return { ok: false as const, error: e?.message ?? String(e) };
+    }
+  });
+  ipcMain.handle(IPC.ICORE_LIST_CLIENTS, (_e, filters?: ListIcoreClientsFilters) => {
+    return listIcoreClients(requireDb(), filters || {});
+  });
 
   // ── Project mode ─────────────────────────────────────────────────────────
   // Direct initialize — used as a fallback when a Sent proposal somehow
@@ -659,6 +674,7 @@ void app.whenReady().then(() => {
   initDb();
   registerIpc();
   createWindow();
+  IcoreSync.startBackgroundRefresh(requireDb());
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -666,6 +682,7 @@ void app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
+  IcoreSync.stopBackgroundRefresh();
   if (db) {
     try { db.close(); } catch { /* best effort */ }
     db = null;

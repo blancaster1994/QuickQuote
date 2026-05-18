@@ -26,21 +26,32 @@ export default function IcoreSettings({ identity, disabled }: IcoreSettingsProps
 
   const [status, setStatus] = useState<IcoreStatus | null>(null);
   const [account, setAccount] = useState<IcoreAccount | null>(null);
+  const [clientCount, setClientCount] = useState<number>(0);
   const [tenantId,     setTenantId]     = useState('');
   const [clientId,     setClientId]     = useState('');
   const [envUrl,       setEnvUrl]       = useState('');
   const [deeplink,     setDeeplink]     = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null);
+  const [refreshResult, setRefreshResult] = useState<{ ok: boolean; text: string } | null>(null);
 
   async function refresh() {
     try {
-      const [next, acct] = await Promise.all([
+      const [next, acct, clients] = await Promise.all([
         window.api.icore.getConfig(),
         window.api.icore.getAccount(),
+        window.api.icore.listClients({ limit: 1, includeInactive: true }).catch(() => []),
       ]);
       setStatus(next);
       setAccount(acct);
+      // Quick count: pull a 1-row sample to confirm cache exists, then a
+      // count query via a wider call. listClients already returns rows
+      // ordered; do a no-limit count via a second small call. (A cheaper
+      // route is to add a count endpoint — fine to upgrade later.)
+      try {
+        const all = await window.api.icore.listClients({ includeInactive: true });
+        setClientCount(all.length);
+      } catch { setClientCount(clients.length); }
       // Seed edit fields from the saved values so the user sees what's
       // already there. Empty strings mean "not yet set".
       setTenantId(next.tenant_id ?? '');
@@ -52,6 +63,27 @@ export default function IcoreSettings({ identity, disabled }: IcoreSettingsProps
     }
   }
   useEffect(() => { void refresh(); }, []);
+
+  async function refreshClients() {
+    setBusy('refresh');
+    setRefreshResult(null);
+    try {
+      const res = await window.api.icore.refreshClients();
+      if (res.ok) {
+        setRefreshResult({
+          ok: true,
+          text: `Pulled ${res.total} (upserted ${res.upserted}, deactivated ${res.deactivated}) in ${Math.round(res.duration_ms / 100) / 10}s.`,
+        });
+        await refresh();
+      } else {
+        setRefreshResult({ ok: false, text: res.error });
+      }
+    } catch (e: any) {
+      setRefreshResult({ ok: false, text: e?.message ?? String(e) });
+    } finally {
+      setBusy(null);
+    }
+  }
 
   async function signIn() {
     setBusy('signin');
@@ -166,7 +198,24 @@ export default function IcoreSettings({ identity, disabled }: IcoreSettingsProps
         <Row label="Environment URL"  value={<code>{status.environment_url || '—'}</code>} />
         <Row label="Deeplink pattern" value={<code>{status.deeplink_url_pattern || '—'}</code>} />
         <Row label="Client refresh"   value={`every ${status.client_sync_interval_minutes} min`} />
+        <Row label="Cached clients"   value={`${clientCount} row${clientCount === 1 ? '' : 's'}`}
+             extra={account && status.configured && (
+               <button onClick={() => void refreshClients()} disabled={lock || busy === 'refresh'} style={{ marginLeft: 8 }}>
+                 {busy === 'refresh' ? 'Refreshing…' : 'Refresh now'}
+               </button>
+             )} />
         <Row label="Last client sync" value={status.client_last_synced_at ? new Date(status.client_last_synced_at).toLocaleString() : '—'} />
+        {refreshResult && (
+          <div style={{
+            marginTop: 8, padding: '6px 8px',
+            background: refreshResult.ok ? 'rgba(4,120,87,0.08)' : 'rgba(185,28,28,0.08)',
+            border: `1px solid ${refreshResult.ok ? 'rgba(4,120,87,0.3)' : 'rgba(185,28,28,0.3)'}`,
+            borderRadius: 5, fontSize: 11,
+            color: refreshResult.ok ? '#047857' : '#b91c1c',
+          }}>
+            {refreshResult.ok ? '✓ ' : '✗ '}{refreshResult.text}
+          </div>
+        )}
         <Row label="Signed in" value={
           account
             ? <span style={{ color: '#047857', fontWeight: 600 }}>{account.username}</span>

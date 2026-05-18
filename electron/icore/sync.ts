@@ -13,14 +13,19 @@
 // can wire both integrations the same way.
 
 import type Database from 'better-sqlite3';
-import { getIcoreConfig } from '../db/icore';
+import {
+  getIcoreConfig,
+  setIcoreConfig,
+  replaceIcoreClients,
+} from '../db/icore';
 import * as Auth from './auth';
+import { IcoreApi, IcoreApiError, customerToCacheRow } from './api';
 
 const GUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 const OPERATIONS_URL_RE = /^https:\/\/[^/]+\.operations\.dynamics\.com\/?$/;
 
 export type IcoreTestResult =
-  | { ok: true; mode: 'config-only' | 'token'; message: string; account?: { username: string; name: string | null } }
+  | { ok: true; mode: 'config-only' | 'token' | 'api'; message: string; account?: { username: string; name: string | null } }
   | { ok: false; error: string };
 
 /**
@@ -75,10 +80,104 @@ export async function testConnection(db: Database.Database): Promise<IcoreTestRe
   } catch (e: any) {
     return { ok: false, error: e?.message ?? String(e) };
   }
+
+  // Live OData probe: cheapest endpoint that exercises the auth path.
+  // `/data/Companies?$top=1` returns the first company the user can see
+  // (every F&O user belongs to at least one). A 200 here means token →
+  // F&O round-trip is healthy end-to-end.
+  try {
+    const api = new IcoreApi(cfg.environment_url!, () => Auth.acquireToken(db, { interactive: false }));
+    const companies = await api.listCompanies(1);
+    return {
+      ok: true,
+      mode: 'api',
+      message: `Signed in as ${account.username}; F&O reachable (${companies.length ? `first company: ${companies[0].DataArea}` : 'no companies visible'}).`,
+      account: { username: account.username, name: account.name },
+    };
+  } catch (e: any) {
+    if (e instanceof IcoreApiError) {
+      return { ok: false, error: `F&O API ${e.status}${e.code ? ' / ' + e.code : ''}: ${e.message}` };
+    }
+    return { ok: false, error: e?.message ?? String(e) };
+  }
+}
+
+// ── client cache refresh ─────────────────────────────────────────────────
+
+export interface RefreshClientsResult {
+  ok: true;
+  upserted: number;
+  deactivated: number;
+  total: number;
+  duration_ms: number;
+}
+
+/**
+ * Pull every visible non-blocked customer from F&O and replace the local
+ * `icore_client` cache transactionally. Updates
+ * `icore_config.client_last_synced_at` on success so the interval timer
+ * knows when the next sweep is due. Caller (IPC handler / interval timer)
+ * is responsible for catching errors and presenting them.
+ */
+export async function refreshClients(
+  db: Database.Database,
+): Promise<RefreshClientsResult> {
+  const cfg = getIcoreConfig(db);
+  if (!cfg.environment_url) throw new Error('iCore environment URL not configured.');
+  const api = new IcoreApi(cfg.environment_url, () => Auth.acquireToken(db, { interactive: false }));
+
+  const start = Date.now();
+  const customers = await api.listCustomers({ includeBlocked: false });
+  const rows = customers.map(customerToCacheRow);
+  const { upserted, deactivated } = replaceIcoreClients(db, rows);
+  setIcoreConfig(db, { client_last_synced_at: new Date().toISOString() });
   return {
     ok: true,
-    mode: 'token',
-    message: `Signed in as ${account.username} and silent token acquisition succeeded.`,
-    account: { username: account.username, name: account.name },
+    upserted,
+    deactivated,
+    total: rows.length,
+    duration_ms: Date.now() - start,
   };
+}
+
+// ── background interval ──────────────────────────────────────────────────
+//
+// Single setInterval started from main.ts at app ready. Reads config each
+// tick (so changes to interval_minutes take effect within a minute) and
+// fires `refreshClients` when:
+//   - sync is enabled,
+//   - we have a cached account (silent refresh won't prompt),
+//   - the last sync is older than the configured interval.
+
+let intervalHandle: NodeJS.Timeout | null = null;
+
+export function startBackgroundRefresh(db: Database.Database): void {
+  if (intervalHandle) return;
+  const tick = async () => {
+    try {
+      const cfg = getIcoreConfig(db);
+      if (!cfg.enabled || !cfg.environment_url) return;
+      const account = await Auth.getAccount(db).catch(() => null);
+      if (!account) return;
+
+      const intervalMs = Math.max(5, cfg.client_sync_interval_minutes) * 60_000;
+      const lastMs = cfg.client_last_synced_at ? new Date(cfg.client_last_synced_at).getTime() : 0;
+      if (Date.now() - lastMs < intervalMs) return;
+
+      await refreshClients(db);
+    } catch (e) {
+      console.warn('[icore] background refresh failed:', e);
+    }
+  };
+  // First tick after 30s so app startup doesn't compete with renderer
+  // bootstrap; then once per minute.
+  intervalHandle = setInterval(tick, 60_000);
+  setTimeout(tick, 30_000);
+}
+
+export function stopBackgroundRefresh(): void {
+  if (intervalHandle) {
+    clearInterval(intervalHandle);
+    intervalHandle = null;
+  }
 }

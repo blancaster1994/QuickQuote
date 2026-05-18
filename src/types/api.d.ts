@@ -22,7 +22,10 @@ import type {
   ExpenseCategoryDef,
   GenerateResult,
   IcoreAccount,
+  IcoreClient,
   IcoreConfigPatch,
+  IcoreListClientsFilters,
+  IcoreRefreshClientsResult,
   IcoreStatus,
   IcoreTestResult,
   LegalEntity,
@@ -289,6 +292,8 @@ export interface QuickQuoteApi {
     signIn(): Promise<IcoreAccount>;
     signOut(): Promise<void>;
     getAccount(): Promise<IcoreAccount | null>;
+    refreshClients(): Promise<IcoreRefreshClientsResult>;
+    listClients(filters?: IcoreListClientsFilters): Promise<IcoreClient[]>;
   };
 
   /** Project mode (Stage 4). One row per Won proposal, joined via

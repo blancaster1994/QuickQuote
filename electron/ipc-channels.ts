@@ -141,6 +141,8 @@ export const IPC = {
   ICORE_SIGN_IN:          'icore:signIn',
   ICORE_SIGN_OUT:         'icore:signOut',
   ICORE_GET_ACCOUNT:      'icore:getAccount',
+  ICORE_REFRESH_CLIENTS:  'icore:refreshClients',
+  ICORE_LIST_CLIENTS:     'icore:listClients',
 
   // ── Project mode (Stage 4) ───────────────────────────────────────────────
   // Per-proposal post-Won record. One project row per Won proposal, joined

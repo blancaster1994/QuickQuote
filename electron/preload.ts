@@ -227,6 +227,8 @@ const api = {
     signIn:          () => ipcRenderer.invoke('icore:signIn'),
     signOut:         () => ipcRenderer.invoke('icore:signOut'),
     getAccount:      () => ipcRenderer.invoke('icore:getAccount'),
+    refreshClients:  () => ipcRenderer.invoke('icore:refreshClients'),
+    listClients:     (filters?: any) => ipcRenderer.invoke('icore:listClients', filters),
   },
 
   /** Project mode (Stage 4). Per-Won-proposal record holding entity /

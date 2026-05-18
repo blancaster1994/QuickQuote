@@ -617,6 +617,18 @@ export interface IcoreClient {
   last_synced_at: string;
 }
 
+export interface IcoreListClientsFilters {
+  data_area_id?: string;
+  q?: string;
+  includeInactive?: boolean;
+  limit?: number;
+}
+
+/** Result of a manual or background `icore.refreshClients` call. */
+export type IcoreRefreshClientsResult =
+  | { ok: true; upserted: number; deactivated: number; total: number; duration_ms: number }
+  | { ok: false; error: string };
+
 // ClickUp config + link record shapes (DB-row mirrors).
 
 export interface ClickUpConfig {
