@@ -157,6 +157,125 @@ export function getIcoreClientByAccount(
   return (row as IcoreClientRow | undefined) ?? null;
 }
 
+// ── project link rows ───────────────────────────────────────────────────────
+//
+// One `project_icore_link` row per project that's been pushed to F&O,
+// plus one `project_icore_phase_link` per phase. Mirrors how the
+// ClickUp tables work — payload_hash lets the orchestrator default
+// unchanged phases to 'skip' on re-send.
+
+export interface IcoreLinkRow {
+  project_id: number;
+  icore_project_guid: string;
+  icore_project_id: string | null;
+  icore_customer_account: string | null;
+  environment_url: string;
+  first_synced_at: string;
+  last_synced_at: string;
+  last_synced_by_email: string | null;
+  last_synced_by_name: string | null;
+}
+
+export interface IcorePhaseLinkRow {
+  id: number;
+  project_id: number;
+  phase_index: number;
+  phase_name: string;
+  icore_task_guid: string;
+  payload_hash: string | null;
+  last_synced_at: string;
+  last_synced_by_email: string | null;
+  last_synced_by_name: string | null;
+}
+
+export function getIcoreLink(db: Database.Database, projectId: number): IcoreLinkRow | null {
+  return (db.prepare(`
+    SELECT project_id, icore_project_guid, icore_project_id, icore_customer_account,
+           environment_url, first_synced_at, last_synced_at,
+           last_synced_by_email, last_synced_by_name
+    FROM project_icore_link WHERE project_id = ?
+  `).get(projectId) as IcoreLinkRow | undefined) ?? null;
+}
+
+export function upsertIcoreLink(
+  db: Database.Database,
+  row: Omit<IcoreLinkRow, 'first_synced_at' | 'last_synced_at'>,
+): IcoreLinkRow {
+  const existing = getIcoreLink(db, row.project_id);
+  if (existing) {
+    db.prepare(`
+      UPDATE project_icore_link SET
+        icore_project_guid = ?,
+        icore_project_id = ?,
+        icore_customer_account = ?,
+        environment_url = ?,
+        last_synced_at = datetime('now'),
+        last_synced_by_email = ?,
+        last_synced_by_name = ?
+      WHERE project_id = ?
+    `).run(
+      row.icore_project_guid, row.icore_project_id, row.icore_customer_account,
+      row.environment_url, row.last_synced_by_email, row.last_synced_by_name,
+      row.project_id,
+    );
+  } else {
+    db.prepare(`
+      INSERT INTO project_icore_link(
+        project_id, icore_project_guid, icore_project_id, icore_customer_account,
+        environment_url, last_synced_by_email, last_synced_by_name
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      row.project_id, row.icore_project_guid, row.icore_project_id,
+      row.icore_customer_account, row.environment_url,
+      row.last_synced_by_email, row.last_synced_by_name,
+    );
+  }
+  return getIcoreLink(db, row.project_id)!;
+}
+
+export function deleteIcoreLink(db: Database.Database, projectId: number): void {
+  db.prepare('DELETE FROM project_icore_link WHERE project_id = ?').run(projectId);
+}
+
+export function listIcorePhaseLinks(
+  db: Database.Database,
+  projectId: number,
+): IcorePhaseLinkRow[] {
+  return db.prepare(`
+    SELECT id, project_id, phase_index, phase_name, icore_task_guid, payload_hash,
+           last_synced_at, last_synced_by_email, last_synced_by_name
+    FROM project_icore_phase_link
+    WHERE project_id = ?
+    ORDER BY phase_index
+  `).all(projectId) as IcorePhaseLinkRow[];
+}
+
+export function upsertIcorePhaseLink(
+  db: Database.Database,
+  row: Omit<IcorePhaseLinkRow, 'id' | 'last_synced_at'>,
+): void {
+  db.prepare(`
+    INSERT INTO project_icore_phase_link(
+      project_id, phase_index, phase_name, icore_task_guid, payload_hash,
+      last_synced_by_email, last_synced_by_name
+    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(project_id, phase_index) DO UPDATE SET
+      phase_name = excluded.phase_name,
+      icore_task_guid = excluded.icore_task_guid,
+      payload_hash = excluded.payload_hash,
+      last_synced_at = datetime('now'),
+      last_synced_by_email = excluded.last_synced_by_email,
+      last_synced_by_name  = excluded.last_synced_by_name
+  `).run(
+    row.project_id, row.phase_index, row.phase_name, row.icore_task_guid,
+    row.payload_hash, row.last_synced_by_email, row.last_synced_by_name,
+  );
+}
+
+export function clearIcorePhaseLinks(db: Database.Database, projectId: number): void {
+  db.prepare('DELETE FROM project_icore_phase_link WHERE project_id = ?').run(projectId);
+}
+
 /** Transactional replace: upsert every row, then mark any cached row that
  *  wasn't in this refresh as inactive. We intentionally don't DELETE
  *  missing rows — a row can disappear from F&O (e.g. an OData filter

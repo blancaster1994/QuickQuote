@@ -24,8 +24,13 @@ import type {
   IcoreAccount,
   IcoreClient,
   IcoreConfigPatch,
+  IcoreExecuteDecisions,
+  IcoreLink,
   IcoreListClientsFilters,
+  IcorePhaseLink,
+  IcorePreflightResult,
   IcoreRefreshClientsResult,
+  IcoreSendResult,
   IcoreStatus,
   IcoreTestResult,
   LegalEntity,
@@ -294,6 +299,11 @@ export interface QuickQuoteApi {
     getAccount(): Promise<IcoreAccount | null>;
     refreshClients(): Promise<IcoreRefreshClientsResult>;
     listClients(filters?: IcoreListClientsFilters): Promise<IcoreClient[]>;
+    preflight(projectId: number): Promise<IcorePreflightResult>;
+    send(projectId: number, decisions: IcoreExecuteDecisions): Promise<IcoreSendResult>;
+    getLink(projectId: number): Promise<IcoreLink | null>;
+    listPhaseLinks(projectId: number): Promise<IcorePhaseLink[]>;
+    unlink(projectId: number): Promise<{ ok: true }>;
   };
 
   /** Project mode (Stage 4). One row per Won proposal, joined via

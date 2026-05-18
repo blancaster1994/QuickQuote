@@ -629,6 +629,80 @@ export type IcoreRefreshClientsResult =
   | { ok: true; upserted: number; deactivated: number; total: number; duration_ms: number }
   | { ok: false; error: string };
 
+// ── iCore send (preflight + execute) ────────────────────────────────────────
+
+export type IcorePhaseAction = 'create' | 'update' | 'skip';
+
+export interface IcorePreflightPlan {
+  ok: true;
+  project: { id: ID; name: string };
+  customer: {
+    customer_account: string;
+    data_area_id: string | null;
+    name: string;
+    cached: boolean;
+  };
+  existing: {
+    icore_project_id: string | null;
+    icore_project_guid: string | null;
+  };
+  phases: Array<{
+    phase_index: number;
+    phase_name: string;
+    existing_task_guid: string | null;
+    last_synced_at: string | null;
+    payload_changed: boolean;
+    default_action: IcorePhaseAction;
+  }>;
+  warnings: string[];
+}
+
+export interface IcorePreflightError {
+  ok: false;
+  error: string;
+}
+
+export type IcorePreflightResult = IcorePreflightPlan | IcorePreflightError;
+
+export interface IcoreExecuteDecisions {
+  phases: Array<{ phase_index: number; action: IcorePhaseAction }>;
+}
+
+export interface IcoreExecuteResult {
+  ok: true;
+  icore_project_id: string;
+  icore_project_guid: string;
+  phases_synced: number;
+  phases_skipped: number;
+  warnings: string[];
+}
+
+export type IcoreSendResult = IcoreExecuteResult | { ok: false; error: string };
+
+export interface IcoreLink {
+  project_id: ID;
+  icore_project_guid: string;
+  icore_project_id: string | null;
+  icore_customer_account: string | null;
+  environment_url: string;
+  first_synced_at: string;
+  last_synced_at: string;
+  last_synced_by_email: string | null;
+  last_synced_by_name: string | null;
+}
+
+export interface IcorePhaseLink {
+  id: ID;
+  project_id: ID;
+  phase_index: number;
+  phase_name: string;
+  icore_task_guid: string;
+  payload_hash: string | null;
+  last_synced_at: string;
+  last_synced_by_email: string | null;
+  last_synced_by_name: string | null;
+}
+
 // ClickUp config + link record shapes (DB-row mirrors).
 
 export interface ClickUpConfig {

@@ -154,6 +154,83 @@ export class IcoreApi {
     const filter = opts.includeBlocked ? '' : `&$filter=Blocked eq Microsoft.Dynamics.DataEntities.CustVendorBlocked'No'`;
     return this.getAll<F_OCustomer>(`/data/CustomersV3?$select=${fields}${filter}`);
   }
+
+  // ── projects ────────────────────────────────────────────────────────────
+  //
+  // F&O ships a `Projects` data-entity (and `ProjectsV2` in newer SKUs).
+  // We default to `Projects` since it's available in every release we care
+  // about; specific environments that need V2 can flip a config flag in
+  // a follow-up. The exact field names below are the standard headers in
+  // a stock F&O install — environments with heavy ProjMgmt customizations
+  // may need a tweak.
+
+  async listProjectsByName(name: string, dataAreaId?: string | null): Promise<F_OProject[]> {
+    const enc = encodeURIComponent(name.replace(/'/g, "''"));
+    const filterParts = [`ProjectName eq '${enc}'`];
+    if (dataAreaId) filterParts.push(`dataAreaId eq '${dataAreaId}'`);
+    const filter = filterParts.join(' and ');
+    return this.getAll<F_OProject>(`/data/Projects?$filter=${filter}&$select=ProjectID,ProjectName,dataAreaId,CustomerAccount,ProjectGroupId,ProjectStage`);
+  }
+
+  /** Create a new F&O project. ProjectID is omitted so F&O's auto-numbering
+   *  assigns it; the returned record carries the generated ID. */
+  async createProject(body: CreateProjectBody): Promise<F_OProject> {
+    return this.req<F_OProject>('POST', '/data/Projects', body);
+  }
+
+  async updateProject(projectId: string, dataAreaId: string, patch: Partial<F_OProject>): Promise<F_OProject> {
+    // OData entity-key form: Projects(ProjectID='X',dataAreaId='Y')
+    const key = `ProjectID='${encodeURIComponent(projectId.replace(/'/g, "''"))}',dataAreaId='${encodeURIComponent(dataAreaId)}'`;
+    return this.req<F_OProject>('PATCH', `/data/Projects(${key})`, patch);
+  }
+
+  /** Create a WBS activity / phase under a project. The activity entity in
+   *  F&O is `ProjectActivities`; each row carries ProjectID + ActivityNumber
+   *  + ActivityName. Hierarchy (parent/child) is configured via OData
+   *  separately and is intentionally out of scope here — we emit a flat
+   *  list of activities matching the QuickQuote phase order. */
+  async createProjectActivity(body: CreateProjectActivityBody): Promise<F_OProjectActivity> {
+    return this.req<F_OProjectActivity>('POST', '/data/ProjectActivities', body);
+  }
+}
+
+// ── F&O project payload types ───────────────────────────────────────────────
+
+export interface F_OProject {
+  ProjectID: string;
+  ProjectName: string;
+  dataAreaId: string;
+  CustomerAccount?: string;
+  ProjectGroupId?: string;
+  ProjectStage?: string;
+  ProjectStartDate?: string | null;
+  ProjectEndDate?: string | null;
+}
+
+export interface CreateProjectBody {
+  ProjectName: string;
+  dataAreaId: string;
+  CustomerAccount: string;
+  ProjectGroupId?: string;
+  /** Optional. When omitted F&O auto-assigns based on number sequence. */
+  ProjectID?: string;
+  ProjectStartDate?: string | null;
+  ProjectEndDate?: string | null;
+}
+
+export interface F_OProjectActivity {
+  ProjectID: string;
+  ActivityNumber: string;
+  ActivityName: string;
+  dataAreaId: string;
+}
+
+export interface CreateProjectActivityBody {
+  ProjectID: string;
+  dataAreaId: string;
+  ActivityName: string;
+  /** Optional. When omitted F&O auto-assigns. */
+  ActivityNumber?: string;
 }
 
 // ── shape adapter (F&O → icore_client row) ─────────────────────────────────

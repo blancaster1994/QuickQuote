@@ -229,6 +229,12 @@ const api = {
     getAccount:      () => ipcRenderer.invoke('icore:getAccount'),
     refreshClients:  () => ipcRenderer.invoke('icore:refreshClients'),
     listClients:     (filters?: any) => ipcRenderer.invoke('icore:listClients', filters),
+    preflight:       (projectId: number) => ipcRenderer.invoke('icore:preflight', projectId),
+    send:            (projectId: number, decisions: any) =>
+      ipcRenderer.invoke('icore:send', projectId, decisions),
+    getLink:         (projectId: number) => ipcRenderer.invoke('icore:getLink', projectId),
+    listPhaseLinks:  (projectId: number) => ipcRenderer.invoke('icore:listPhaseLinks', projectId),
+    unlink:          (projectId: number) => ipcRenderer.invoke('icore:unlink', projectId),
   },
 
   /** Project mode (Stage 4). Per-Won-proposal record holding entity /

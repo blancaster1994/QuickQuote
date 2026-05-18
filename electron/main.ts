@@ -581,6 +581,22 @@ function registerIpc(): void {
   ipcMain.handle(IPC.ICORE_LIST_CLIENTS, (_e, filters?: ListIcoreClientsFilters) => {
     return listIcoreClients(requireDb(), filters || {});
   });
+  ipcMain.handle(IPC.ICORE_PREFLIGHT, (_e, projectId: number) =>
+    IcoreSync.preflight(requireDb(), { projectId }),
+  );
+  ipcMain.handle(IPC.ICORE_SEND, (_e, projectId: number, decisions: IcoreSync.IcoreExecuteDecisions) =>
+    IcoreSync.execute(requireDb(), { projectId }, decisions, actorFromIdentity()),
+  );
+  ipcMain.handle(IPC.ICORE_GET_LINK, (_e, projectId: number) =>
+    IcoreSync.getLink(requireDb(), projectId),
+  );
+  ipcMain.handle(IPC.ICORE_LIST_PHASE_LINKS, (_e, projectId: number) =>
+    IcoreSync.listPhaseLinks(requireDb(), projectId),
+  );
+  ipcMain.handle(IPC.ICORE_UNLINK, (_e, projectId: number) => {
+    IcoreSync.unlink(requireDb(), projectId);
+    return { ok: true as const };
+  });
 
   // ── Project mode ─────────────────────────────────────────────────────────
   // Direct initialize — used as a fallback when a Sent proposal somehow

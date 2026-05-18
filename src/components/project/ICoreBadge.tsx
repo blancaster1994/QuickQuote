@@ -2,25 +2,39 @@
 //
 // Mono-font ID inside a hairline chip with two icon affordances:
 //   • Copy — writes the ID to the system clipboard.
-//   • Open in iCore — opens the project's iCore record. Disabled with a
-//     tooltip until a deep-link URL pattern is configured. Once the
-//     integration ships, swap the disabled stub for a real URL builder
-//     (e.g., `https://icore.example.com/project/${id}`) — no other changes.
+//   • Open in iCore — opens the project's F&O record in the user's
+//     default browser using the configured deeplink URL pattern
+//     (Lookups → iCore → "Deeplink URL pattern"). Disabled with a
+//     tooltip when no pattern is configured.
 //
-// Visual-only for now. The ID itself is set in SendProposalModal at
-// "Mark Sent" time.
+// The ID itself is set either manually via SendProposalModal at
+// "Mark Sent" time, or by SendToICoreModal once the integration
+// actually creates the project upstream.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface ICoreBadgeProps {
   id: string | null | undefined;
+  /** F&O dataAreaId (company) — used to substitute `{company}` in the
+   *  configured deeplink URL pattern. Optional; when missing the
+   *  placeholder is left as the empty string. */
+  dataAreaId?: string | null;
   /** When true, prepend a small lock glyph — used in project mode where the
    *  ID is contracted-and-locked. */
   locked?: boolean;
 }
 
-export default function ICoreBadge({ id, locked }: ICoreBadgeProps) {
+export default function ICoreBadge({ id, dataAreaId, locked }: ICoreBadgeProps) {
   const [copied, setCopied] = useState(false);
+  const [deeplinkPattern, setDeeplinkPattern] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void window.api.icore.getConfig()
+      .then(cfg => { if (!cancelled) setDeeplinkPattern(cfg.deeplink_url_pattern ?? null); })
+      .catch(() => { /* config not reachable — leave Open button disabled */ });
+    return () => { cancelled = true; };
+  }, []);
 
   if (!id) {
     return (
@@ -43,6 +57,22 @@ export default function ICoreBadge({ id, locked }: ICoreBadgeProps) {
       // Clipboard write can fail in restricted contexts; nothing to do.
     }
   }
+
+  function deeplinkUrl(): string | null {
+    if (!deeplinkPattern || !id) return null;
+    return deeplinkPattern
+      .replace(/\{id\}/g, encodeURIComponent(id))
+      .replace(/\{company\}/g, encodeURIComponent(dataAreaId ?? ''));
+  }
+
+  async function openInICore() {
+    const url = deeplinkUrl();
+    if (!url) return;
+    try { await window.api.os.openFile(url); }
+    catch (e) { console.warn('open icore failed', e); }
+  }
+
+  const linkEnabled = !!deeplinkUrl();
 
   return (
     <span style={{
@@ -69,10 +99,15 @@ export default function ICoreBadge({ id, locked }: ICoreBadgeProps) {
       </button>
       <button
         type="button"
-        disabled
-        title="iCore deep links not configured yet"
+        disabled={!linkEnabled}
+        onClick={() => void openInICore()}
+        title={linkEnabled
+          ? 'Open this project in iCore (F&O) in your browser'
+          : 'Configure the deeplink URL pattern in Lookups → iCore'}
         aria-label="Open in iCore"
-        style={{ ...iconBtnStyle, opacity: 0.45, cursor: 'not-allowed' }}
+        style={linkEnabled
+          ? iconBtnStyle
+          : { ...iconBtnStyle, opacity: 0.45, cursor: 'not-allowed' }}
       >
         <OpenGlyph />
       </button>

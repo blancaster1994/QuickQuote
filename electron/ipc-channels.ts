@@ -143,6 +143,11 @@ export const IPC = {
   ICORE_GET_ACCOUNT:      'icore:getAccount',
   ICORE_REFRESH_CLIENTS:  'icore:refreshClients',
   ICORE_LIST_CLIENTS:     'icore:listClients',
+  ICORE_PREFLIGHT:        'icore:preflight',
+  ICORE_SEND:             'icore:send',
+  ICORE_GET_LINK:         'icore:getLink',
+  ICORE_LIST_PHASE_LINKS: 'icore:listPhaseLinks',
+  ICORE_UNLINK:           'icore:unlink',
 
   // ── Project mode (Stage 4) ───────────────────────────────────────────────
   // Per-proposal post-Won record. One project row per Won proposal, joined
